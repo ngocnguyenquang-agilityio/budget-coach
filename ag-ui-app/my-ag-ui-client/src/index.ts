@@ -2,6 +2,7 @@ import * as readline from "readline"
 import { agent } from "./agent"
 import { randomUUID } from "@ag-ui/client"
 import { openUrlTool, launchUrl } from "./urlLauncher"
+import { calculatorTool, evaluateExpression } from "./calculator"
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -45,11 +46,15 @@ async function chatLoop() {
           // Run the agent, looping to resolve any client-side tool calls
           // (e.g. openUrl) before yielding control back to the user.
           for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-            const pendingToolCalls: { toolCallId: string; args: any }[] = []
+            const pendingToolCalls: {
+              toolCallName: string
+              toolCallId: string
+              args: any
+            }[] = []
 
             // Run the agent with event handlers
             await agent.runAgent(
-              { tools: [openUrlTool] },
+              { tools: [openUrlTool, calculatorTool] },
               {
                 onTextMessageStartEvent() {
                   process.stdout.write("🤖 Assistant: ")
@@ -61,8 +66,9 @@ async function chatLoop() {
                   console.log("\n")
                 },
                 onToolCallEndEvent({ event, toolCallName, toolCallArgs }) {
-                  if (toolCallName === "openUrl") {
+                  if (toolCallName === "openUrl" || toolCallName === "calculate") {
                     pendingToolCalls.push({
+                      toolCallName,
                       toolCallId: event.toolCallId,
                       args: toolCallArgs,
                     })
@@ -75,19 +81,28 @@ async function chatLoop() {
               break
             }
 
-            // Resolve each pending openUrl call locally, then feed the
+            // Resolve each pending tool call locally, then feed the
             // result back to the model as a tool message.
             rl.resume()
-            for (const { toolCallId, args } of pendingToolCalls) {
-              const url = args?.url
+            for (const { toolCallName, toolCallId, args } of pendingToolCalls) {
               let content: string
               let toolError: string | undefined
 
-              const confirmed = await askConfirm(`Open ${url} ? [y/N] `)
-              if (!confirmed) {
-                content = "User declined to open the URL."
+              if (toolCallName === "openUrl") {
+                const url = args?.url
+                const confirmed = await askConfirm(`Open ${url} ? [y/N] `)
+                if (!confirmed) {
+                  content = "User declined to open the URL."
+                } else {
+                  const result = await launchUrl(url)
+                  content = result.message
+                  if (!result.ok) {
+                    toolError = result.message
+                  }
+                }
               } else {
-                const result = await launchUrl(url)
+                // calculate: pure computation, no confirmation needed
+                const result = evaluateExpression(args?.expression)
                 content = result.message
                 if (!result.ok) {
                   toolError = result.message
