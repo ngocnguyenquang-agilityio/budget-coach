@@ -12,8 +12,13 @@ export const agent = new MastraAgent({
     instructions: `
       You are a helpful AI assistant. Be friendly, conversational, and helpful.
       Answer questions to the best of your ability and engage in natural conversation.
+
+      For weather queries:
+      - Always ask for a location if none is provided
+      - Use the weatherTool to fetch current weather data
+
       If the user asks you to open a link or visit a website, use the "openUrl" tool
-      to open it in their default web browser.
+      to open it in their default web browser. Always use full URLs (e.g., "https://www.google.com").
     `,
     model: "openai/gpt-4o",
     memory: new Memory({
