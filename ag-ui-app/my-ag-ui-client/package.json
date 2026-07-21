@@ -1,0 +1,39 @@
+{
+  "name": "my-ag-ui-client",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.1.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^0.0.57",
+    "@ag-ui/core": "^0.0.57",
+    "@ag-ui/mastra": "^1.1.1",
+    "@mastra/client-js": "^1.32.0",
+    "@mastra/core": "^1.51.0",
+    "@mastra/libsql": "^1.16.0",
+    "@mastra/memory": "^1.23.0",
+    "open": "^11.0.0",
+    "zod": "^4.4.3"
+  }
+}
