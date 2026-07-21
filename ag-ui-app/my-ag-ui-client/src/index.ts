@@ -65,13 +65,25 @@ async function chatLoop() {
                 onTextMessageEndEvent() {
                   console.log("\n")
                 },
+                onToolCallStartEvent({ event }) {
+                  console.log("🔧 Tool call:", event.toolCallName)
+                },
+                onToolCallArgsEvent({ event }) {
+                  process.stdout.write(event.delta)
+                },
                 onToolCallEndEvent({ event, toolCallName, toolCallArgs }) {
+                  console.log("")
                   if (toolCallName === "openUrl" || toolCallName === "calculate") {
                     pendingToolCalls.push({
                       toolCallName,
                       toolCallId: event.toolCallId,
                       args: toolCallArgs,
                     })
+                  }
+                },
+                onToolCallResultEvent({ event }) {
+                  if (event.content) {
+                    console.log("🔍 Tool call result:", event.content)
                   }
                 },
               }

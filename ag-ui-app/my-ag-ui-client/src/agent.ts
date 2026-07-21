@@ -1,7 +1,8 @@
-import { Agent } from "@mastra/core/agent"
-import { MastraAgent } from "@ag-ui/mastra"
-import { Memory } from "@mastra/memory"
-import { LibSQLStore } from "@mastra/libsql"
+import { Agent } from "@mastra/core/agent";
+import { MastraAgent } from "@ag-ui/mastra";
+import { Memory } from "@mastra/memory";
+import { LibSQLStore } from "@mastra/libsql";
+import { weatherTool } from "./tools/weather.tool";
 
 export const agent = new MastraAgent({
   resourceId: "cliExample",
@@ -21,6 +22,7 @@ export const agent = new MastraAgent({
         url: "file:./assistant.db",
       }),
     }),
+    tools: { weatherTool },
   }),
   threadId: "main-conversation",
-})
+});
