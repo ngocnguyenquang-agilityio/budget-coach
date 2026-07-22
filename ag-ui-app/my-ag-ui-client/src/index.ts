@@ -6,6 +6,7 @@ import { randomUUID } from "@ag-ui/client"
 import { openUrlTool, launchUrl } from "./urlLauncher"
 import { calculatorTool, evaluateExpression } from "./calculator"
 import { initialSessionState, type SessionState } from "./state/sessionState"
+import { formatWeatherResult, formatWeatherSummary, isWeatherToolName } from "./ui/weatherCard"
 
 // Set AGENT_IMPL=custom to run the hand-built AbstractAgent subclass
 // (src/customAgent.ts) instead of the default MastraAgent-based one
@@ -53,9 +54,10 @@ function appendToState<K extends "calculations" | "openedUrls">(field: K, value:
 function renderDashboard(state: SessionState) {
   const lastWeather = state.weatherLookups.at(-1)
   const lastCalc = state.calculations.at(-1)
+  const lastWeatherSummary = lastWeather ? formatWeatherSummary(lastWeather.summary) : null
   console.log("📊 Session state:", {
     messageCount: state.messageCount,
-    lastWeather: lastWeather ? `${lastWeather.location} (${lastWeather.at})` : null,
+    lastWeather: lastWeather ? `${lastWeatherSummary ?? lastWeather.location} (${lastWeather.at})` : null,
     lastCalculation: lastCalc ? `${lastCalc.expression} = ${lastCalc.result}` : null,
     openedUrls: state.openedUrls.length,
     lastUpdated: state.lastUpdated,
@@ -111,7 +113,11 @@ async function chatLoop() {
                   console.log("\n")
                 },
                 onToolCallStartEvent({ event }) {
-                  console.log("🔧 Tool call:", event.toolCallName)
+                  if (isWeatherToolName(event.toolCallName)) {
+                    console.log("🌤️  Looking up weather...")
+                  } else {
+                    console.log("🔧 Tool call:", event.toolCallName)
+                  }
                 },
                 onToolCallArgsEvent({ event }) {
                   process.stdout.write(event.delta)
@@ -127,7 +133,11 @@ async function chatLoop() {
                   }
                 },
                 onToolCallResultEvent({ event }) {
-                  if (event.content) {
+                  if (!event.content) return
+                  const weatherCard = formatWeatherResult(event.content)
+                  if (weatherCard) {
+                    console.log(weatherCard)
+                  } else {
                     console.log("🔍 Tool call result:", event.content)
                   }
                 },
