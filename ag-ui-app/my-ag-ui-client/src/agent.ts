@@ -2,7 +2,6 @@ import { Agent } from "@mastra/core/agent";
 import { MastraAgent } from "@ag-ui/mastra";
 import { Memory } from "@mastra/memory";
 import { LibSQLStore } from "@mastra/libsql";
-import { weatherTool } from "./tools/weather.tool";
 import { initialSessionState } from "./state/sessionState";
 
 export const agent = new MastraAgent({
@@ -17,7 +16,7 @@ export const agent = new MastraAgent({
 
       For weather queries:
       - Always ask for a location if none is provided
-      - Use the weatherTool to fetch current weather data
+      - Use the "weather" tool to fetch current weather data
 
       If the user asks you to open a link or visit a website, use the "openUrl" tool
       to open it in their default web browser. Always use full URLs (e.g., "https://www.google.com").
@@ -29,7 +28,6 @@ export const agent = new MastraAgent({
         url: "file:./assistant.db",
       }),
     }),
-    tools: { weatherTool },
   }),
   threadId: "main-conversation",
 });

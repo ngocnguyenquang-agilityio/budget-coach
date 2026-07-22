@@ -15,7 +15,7 @@ import { z } from "zod"
 export const SessionStateSchema = z.object({
   /** Number of user turns processed so far. */
   messageCount: z.number().default(0),
-  /** Appended each time the server-side get_weather tool resolves. */
+  /** Appended each time the client-side weather tool resolves. */
   weatherLookups: z
     .array(
       z.object({

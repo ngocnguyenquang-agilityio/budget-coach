@@ -9,8 +9,7 @@ import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from "openai/resources/chat/completions"
-import { weatherTool } from "./tools/weather.tool"
-import { diffSessionState, initialSessionState, type SessionState } from "./state/sessionState"
+import { initialSessionState, type SessionState } from "./state/sessionState"
 
 /**
  * A from-scratch AG-UI agent.
@@ -22,37 +21,20 @@ import { diffSessionState, initialSessionState, type SessionState } from "./stat
  * (RUN_STARTED -> TEXT_MESSAGE_* -> TOOL_CALL_* -> RUN_FINISHED). The point
  * is to see exactly what MastraAgent does for us normally.
  *
- * The `weather` tool is executed in-process (server-side), the same as it
- * is for MastraAgent. The `calculate` / `openUrl` client-side tools are
- * *not* executed here -- their TOOL_CALL_* events are emitted and then
- * control is handed back to the caller (src/index.ts), which resolves them
- * locally and re-runs the agent, exactly like it does today.
+ * The `weather` / `calculate` / `openUrl` client-side tools are *not*
+ * executed here -- their TOOL_CALL_* events are emitted and then control is
+ * handed back to the caller (src/index.ts), which resolves them locally
+ * (subject to human-in-the-loop confirmation, see src/tools/confirmation.ts)
+ * and re-runs the agent, exactly like it does today.
  *
  * It also demonstrates AG-UI's shared-state sync (see src/state/sessionState.ts
  * and docs/state-sync.md): a STATE_SNAPSHOT is emitted at the top of every
- * run to (re)hydrate `agent.state` from whatever the client last sent in,
- * and a STATE_DELTA (JSON Patch) is emitted whenever the server-side weather
- * tool resolves. The client mirrors this with its own `setState` calls for
- * client-side tools -- see src/index.ts.
+ * run to (re)hydrate `agent.state` from whatever the client last sent in.
+ * The client mirrors this with its own `setState` calls for client-side
+ * tools -- see src/index.ts.
  */
 
 const MAX_INTERNAL_ROUNDS = 5
-const WEATHER_FUNCTION_NAME = "get_weather"
-
-const weatherFunctionTool: ChatCompletionTool = {
-  type: "function",
-  function: {
-    name: WEATHER_FUNCTION_NAME,
-    description: weatherTool.description,
-    parameters: {
-      type: "object",
-      properties: {
-        location: { type: "string", description: "City name" },
-      },
-      required: ["location"],
-    },
-  },
-}
 
 interface PendingToolCall {
   id: string
@@ -109,7 +91,7 @@ export class CustomStreamingAgent extends AbstractAgent {
         const incomingState = (input.state as SessionState | undefined) ?? initialSessionState
         const isNewUserTurn = input.messages.at(-1)?.role === "user"
         const nowIso = new Date().toISOString()
-        let currentState: SessionState = {
+        const currentState: SessionState = {
           ...incomingState,
           messageCount: isNewUserTurn ? incomingState.messageCount + 1 : incomingState.messageCount,
           lastUpdated: nowIso,
@@ -138,62 +120,11 @@ export class CustomStreamingAgent extends AbstractAgent {
               })),
             })
 
-            // Weather calls are resolved in-process regardless of what else
-            // is in this batch -- every TOOL_CALL_START we emitted needs a
-            // matching TOOL_CALL_RESULT, or the next OpenAI request (which
-            // resends this history) gets rejected for an unanswered
-            // tool_call. Any non-weather (client-side) call is left for the
-            // caller to resolve, mirroring the existing chat-loop contract.
-            const weatherCalls = toolCalls.filter((tc) => tc.name === WEATHER_FUNCTION_NAME)
-            const hasClientToolCall = toolCalls.some((tc) => tc.name !== WEATHER_FUNCTION_NAME)
-
-            for (const call of weatherCalls) {
-              if (cancelled) return
-              const resultContent = await this.executeWeatherTool(call.argsText)
-              emit({
-                type: EventType.TOOL_CALL_RESULT,
-                messageId: randomUUID(),
-                toolCallId: call.id,
-                content: resultContent,
-              } as BaseEvent)
-              workingMessages.push({
-                role: "tool",
-                tool_call_id: call.id,
-                content: resultContent,
-              })
-
-              let location: string | undefined
-              try {
-                location = (JSON.parse(call.argsText || "{}") as { location?: string }).location
-              } catch (error) {
-                console.error("Failed to parse weather tool call arguments:", call.argsText, error)
-              }
-
-              // Incremental half of sync: rather than re-sending the whole
-              // state, diff the before/after snapshots into a JSON Patch
-              // and ship just that. The SDK applies this onto `agent.state`
-              // for us; the frontend observes it via onStateDeltaEvent.
-              const at = new Date().toISOString()
-              const nextState: SessionState = {
-                ...currentState,
-                weatherLookups: [
-                  ...currentState.weatherLookups,
-                  { location: location ?? "unknown", summary: resultContent, at },
-                ],
-                lastUpdated: at,
-              }
-              const delta = diffSessionState(currentState, nextState)
-              if (delta.length > 0) {
-                emit({ type: EventType.STATE_DELTA, delta } as BaseEvent)
-              }
-              currentState = nextState
-            }
-
-            if (hasClientToolCall) {
-              break
-            }
-            // loop again so the model streams its final answer using the
-            // weather result we just appended
+            // All tool calls (weather / calculate / openUrl) are client-side
+            // now: their TOOL_CALL_* events have been emitted, and control is
+            // handed back to the caller (src/index.ts) to confirm and
+            // resolve them, mirroring the existing chat-loop contract.
+            break
           }
 
           emit({
@@ -307,22 +238,8 @@ export class CustomStreamingAgent extends AbstractAgent {
     return toolCalls
   }
 
-  /** Executes the weather tool in-process (server-side), like MastraAgent does. */
-  private async executeWeatherTool(argsText: string): Promise<string> {
-    try {
-      const args = JSON.parse(argsText || "{}") as { location?: string }
-      if (!args.location) {
-        return "Error: no location provided."
-      }
-      const result = await weatherTool.execute!({ location: args.location } as any, {} as any)
-      return JSON.stringify(result)
-    } catch (error) {
-      return `Error fetching weather: ${error instanceof Error ? error.message : String(error)}`
-    }
-  }
-
   private buildOpenAiTools(inputTools: AGUITool[] | undefined): ChatCompletionTool[] {
-    const clientTools: ChatCompletionTool[] = (inputTools ?? []).map((tool) => ({
+    return (inputTools ?? []).map((tool) => ({
       type: "function",
       function: {
         name: tool.name,
@@ -330,7 +247,6 @@ export class CustomStreamingAgent extends AbstractAgent {
         parameters: tool.parameters ?? { type: "object", properties: {} },
       },
     }))
-    return [weatherFunctionTool, ...clientTools]
   }
 
   private buildOpenAiMessages(messages: Message[]): ChatCompletionMessageParam[] {
@@ -389,7 +305,7 @@ export const customAgent = new CustomStreamingAgent({
 
     For weather queries:
     - Always ask for a location if none is provided
-    - Use the get_weather tool to fetch current weather data
+    - Use the "weather" tool to fetch current weather data
 
     If the user asks you to open a link or visit a website, use the "openUrl" tool
     to open it in their default web browser. Always use full URLs (e.g., "https://www.google.com").

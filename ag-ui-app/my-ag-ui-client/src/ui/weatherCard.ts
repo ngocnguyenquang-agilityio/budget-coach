@@ -77,7 +77,7 @@ export function formatWeatherSummary(content: string): string | null {
   return `${parsed.location}: ${parsed.temperature}°C, ${parsed.conditions}`
 }
 
-const WEATHER_TOOL_NAMES = new Set(["weatherTool", "get-weather", "get_weather"])
+const WEATHER_TOOL_NAMES = new Set(["weather", "weatherTool", "get-weather", "get_weather"])
 
 export function isWeatherToolName(toolCallName: string): boolean {
   return WEATHER_TOOL_NAMES.has(toolCallName)

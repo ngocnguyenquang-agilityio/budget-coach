@@ -41,6 +41,48 @@ export const weatherTool = createTool({
   },
 })
 
+/**
+ * AG-UI tool declaration for the client-side "weather" tool. Passed into
+ * `runAgent({ tools: [...] }, ...)` so the model asks the CLI to fetch
+ * weather (subject to human-in-the-loop confirmation, see
+ * src/tools/confirmation.ts) instead of the agent fetching it in-process.
+ */
+export const weatherClientTool = {
+  name: "weather",
+  description: "Get current weather for a location.",
+  parameters: {
+    type: "object",
+    properties: {
+      location: {
+        type: "string",
+        description: "City name",
+      },
+    },
+    required: ["location"],
+  },
+}
+
+/**
+ * Fetches weather for a location and returns it as a JSON string, matching
+ * the shape `formatWeatherResult` (src/ui/weatherCard.ts) expects. Never
+ * throws -- failures are reported via the returned result so they can be
+ * relayed back to the model as a tool result, mirroring the non-throwing
+ * contract of `launchUrl`/`evaluateExpression`.
+ */
+export async function runWeatherTool(
+  location: string
+): Promise<{ ok: boolean; content: string }> {
+  try {
+    const result = await getWeather(location)
+    return { ok: true, content: JSON.stringify(result) }
+  } catch (error) {
+    return {
+      ok: false,
+      content: `Error fetching weather: ${error instanceof Error ? error.message : String(error)}`,
+    }
+  }
+}
+
 const getWeather = async (location: string) => {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
     location

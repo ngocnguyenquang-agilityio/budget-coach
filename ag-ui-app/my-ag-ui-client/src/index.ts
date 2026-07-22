@@ -5,6 +5,8 @@ import { customAgent } from "./customAgent"
 import { randomUUID } from "@ag-ui/client"
 import { openUrlTool, launchUrl } from "./urlLauncher"
 import { calculatorTool, evaluateExpression } from "./calculator"
+import { weatherClientTool, runWeatherTool } from "./tools/weather.tool"
+import { confirmToolCall } from "./tools/confirmation"
 import { initialSessionState, type SessionState } from "./state/sessionState"
 import { formatWeatherResult, formatWeatherSummary, isWeatherToolName } from "./ui/weatherCard"
 
@@ -42,7 +44,10 @@ function askConfirm(question: string): Promise<boolean> {
  * STATE_SNAPSHOT will echo it straight back from `input.state`, closing the
  * sync loop.
  */
-function appendToState<K extends "calculations" | "openedUrls">(field: K, value: SessionState[K][number]) {
+function appendToState<K extends "calculations" | "openedUrls" | "weatherLookups">(
+  field: K,
+  value: SessionState[K][number]
+) {
   const current = (agent.state as SessionState | undefined) ?? initialSessionState
   agent.setState({
     ...current,
@@ -101,7 +106,7 @@ async function chatLoop() {
 
             // Run the agent with event handlers
             await agent.runAgent(
-              { tools: [openUrlTool, calculatorTool] },
+              { tools: [openUrlTool, calculatorTool, weatherClientTool] },
               {
                 onTextMessageStartEvent() {
                   process.stdout.write("🤖 Assistant: ")
@@ -124,7 +129,7 @@ async function chatLoop() {
                 },
                 onToolCallEndEvent({ event, toolCallName, toolCallArgs }) {
                   console.log("")
-                  if (toolCallName === "openUrl" || toolCallName === "calculate") {
+                  if (toolCallName === "openUrl" || toolCallName === "calculate" || toolCallName === "weather") {
                     pendingToolCalls.push({
                       toolCallName,
                       toolCallId: event.toolCallId,
@@ -173,19 +178,27 @@ async function chatLoop() {
               let toolError: string | undefined
               let urlOpened = false
 
-              if (toolCallName === "openUrl") {
+              const approved = await confirmToolCall(toolCallName, args, askConfirm)
+
+              if (!approved) {
+                content = `User declined to run "${toolCallName}".`
+              } else if (toolCallName === "openUrl") {
                 const url = args?.url
-                const confirmed = await askConfirm(`Open ${url} ? [y/N] `)
-                if (!confirmed) {
-                  content = "User declined to open the URL."
+                const result = await launchUrl(url)
+                content = result.message
+                if (!result.ok) {
+                  toolError = result.message
                 } else {
-                  const result = await launchUrl(url)
-                  content = result.message
-                  if (!result.ok) {
-                    toolError = result.message
-                  } else {
-                    urlOpened = true
-                  }
+                  urlOpened = true
+                }
+              } else if (toolCallName === "weather") {
+                const result = await runWeatherTool(args?.location)
+                content = result.content
+                if (!result.ok) {
+                  toolError = result.content
+                } else {
+                  const weatherCard = formatWeatherResult(content)
+                  console.log(weatherCard ?? `🔍 Tool call result: ${content}`)
                 }
               } else {
                 // calculate: pure computation, no confirmation needed
@@ -204,11 +217,13 @@ async function chatLoop() {
                 ...(toolError ? { error: toolError } : {}),
               })
 
-              if (!toolError) {
+              if (!toolError && approved) {
                 if (toolCallName === "calculate") {
                   appendToState("calculations", { expression: args?.expression, result: content, at: new Date().toISOString() })
                 } else if (toolCallName === "openUrl" && urlOpened) {
                   appendToState("openedUrls", args?.url)
+                } else if (toolCallName === "weather") {
+                  appendToState("weatherLookups", { location: args?.location, summary: content, at: new Date().toISOString() })
                 }
               }
             }
