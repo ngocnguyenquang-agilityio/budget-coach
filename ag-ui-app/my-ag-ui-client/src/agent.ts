@@ -3,9 +3,11 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { Memory } from "@mastra/memory";
 import { LibSQLStore } from "@mastra/libsql";
 import { weatherTool } from "./tools/weather.tool";
+import { initialSessionState } from "./state/sessionState";
 
 export const agent = new MastraAgent({
   resourceId: "cliExample",
+  initialState: initialSessionState,
   agent: new Agent({
     id: "ag-ui-assistant",
     name: "AG-UI Assistant",
