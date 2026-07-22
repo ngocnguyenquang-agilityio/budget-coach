@@ -1,5 +1,9 @@
-import { createTool } from "@mastra/core/tools";
+import { createTool, type ToolExecutionContext } from "@mastra/core/tools";
 import { z } from "zod";
+import {
+  initialAgUiAssistantState,
+  type AgUiAssistantState,
+} from "@/lib/agUiAssistantState";
 
 interface GeocodingResponse {
   results: {
@@ -39,10 +43,65 @@ export const weatherTool = createTool({
     location: z.string().describe("City name"),
   }),
   outputSchema: WeatherToolResultSchema,
-  execute: async (inputData) => {
-    return await getWeather(inputData.location);
+  execute: async (inputData, context) => {
+    const result = await getWeather(inputData.location);
+    await recordWeatherLookup(context, result);
+    return result;
   },
 });
+
+/**
+ * Appends this lookup to agUiAssistant's shared working memory, so the web
+ * dashboard (useAgent().state) reflects server-side tool activity the same
+ * way it reflects client-side "calculate"/"openUrl" activity via
+ * agent.setState(). Best-effort: shared state is telemetry for the UI, not
+ * load-bearing for the weather answer itself, so failures here never break
+ * the tool's actual response.
+ *
+ * Only agUiAssistant has this working-memory schema (weatherAgent's schema
+ * is proverbs-only), so this only runs when *this* agent invoked the tool.
+ */
+async function recordWeatherLookup(
+  context: ToolExecutionContext,
+  result: z.infer<typeof WeatherToolResultSchema>,
+) {
+  const agentId = context?.agent?.agentId;
+  const threadId = context?.agent?.threadId;
+  if (agentId !== "ag-ui-assistant" || !threadId) return;
+
+  try {
+    const agent = await context?.mastra?.getAgentById?.(agentId);
+    const memory = await agent?.getMemory?.();
+    if (!memory) return;
+
+    const resourceId = context?.agent?.resourceId;
+    const raw = await memory.getWorkingMemory({ threadId, resourceId });
+    const current: AgUiAssistantState = raw
+      ? { ...initialAgUiAssistantState, ...JSON.parse(raw) }
+      : initialAgUiAssistantState;
+
+    const next: AgUiAssistantState = {
+      ...current,
+      weatherLookups: [
+        ...current.weatherLookups,
+        {
+          location: result.location,
+          summary: `${result.conditions}, ${result.temperature}°`,
+          at: new Date().toISOString(),
+        },
+      ],
+      lastUpdated: new Date().toISOString(),
+    };
+
+    await memory.updateWorkingMemory({
+      threadId,
+      resourceId,
+      workingMemory: JSON.stringify(next),
+    });
+  } catch {
+    // Shared-state sync is best-effort; the weather answer already succeeded.
+  }
+}
 
 const getWeather = async (location: string) => {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`;
