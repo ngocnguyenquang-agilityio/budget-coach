@@ -2,6 +2,7 @@ import { Agent } from "@mastra/core/agent";
 import { MastraAgent } from "@ag-ui/mastra";
 import { Memory } from "@mastra/memory";
 import { LibSQLStore } from "@mastra/libsql";
+import { google } from "@ai-sdk/google";
 import { initialSessionState } from "./state/sessionState";
 
 export const agent = new MastraAgent({
@@ -21,7 +22,7 @@ export const agent = new MastraAgent({
       If the user asks you to open a link or visit a website, use the "openUrl" tool
       to open it in their default web browser. Always use full URLs (e.g., "https://www.google.com").
     `,
-    model: "openai/gpt-4o",
+    model: google("gemini-3.5-flash"),
     memory: new Memory({
       storage: new LibSQLStore({
         id: "storage-memory",

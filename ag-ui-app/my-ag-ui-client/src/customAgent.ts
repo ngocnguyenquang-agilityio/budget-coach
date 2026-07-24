@@ -16,7 +16,8 @@ import { initialSessionState, type SessionState } from "./state/sessionState"
  *
  * Unlike `MastraAgent` (see ./agent.ts), which hides the AG-UI streaming
  * protocol behind typed event callbacks, this agent implements `run()`
- * itself: it calls OpenAI's streaming chat-completions API directly and
+ * itself: it calls Gemini's streaming chat-completions API (via Google's
+ * OpenAI-compatible endpoint, using the `openai` SDK) directly and
  * hand-translates every chunk into AG-UI protocol events
  * (RUN_STARTED -> TEXT_MESSAGE_* -> TOOL_CALL_* -> RUN_FINISHED). The point
  * is to see exactly what MastraAgent does for us normally.
@@ -43,11 +44,14 @@ interface PendingToolCall {
 }
 
 export interface CustomStreamingAgentConfig extends AgentConfig {
-  /** System instructions prepended to every OpenAI call. */
+  /** System instructions prepended to every Gemini call. */
   instructions: string
   model?: string
   apiKey?: string
 }
+
+/** Google's OpenAI-compatible endpoint, so the `openai` SDK can talk to Gemini unmodified. */
+const GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 export class CustomStreamingAgent extends AbstractAgent {
   private readonly openai: OpenAI
@@ -58,8 +62,8 @@ export class CustomStreamingAgent extends AbstractAgent {
     const { instructions, model, apiKey, ...rest } = config
     super(rest)
     this.instructions = instructions
-    this.model = model ?? "gpt-4o"
-    this.openai = new OpenAI({ apiKey })
+    this.model = model ?? "gemini-3.5-flash"
+    this.openai = new OpenAI({ apiKey, baseURL: GEMINI_OPENAI_BASE_URL })
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
@@ -296,8 +300,8 @@ export class CustomStreamingAgent extends AbstractAgent {
  */
 export const customAgent = new CustomStreamingAgent({
   threadId: "main-conversation",
-  model: "gpt-4o",
-  apiKey: process.env.OPENAI_API_KEY,
+  model: "gemini-3.5-flash",
+  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
   initialState: initialSessionState,
   instructions: `
     You are a helpful AI assistant. Be friendly, conversational, and helpful.
