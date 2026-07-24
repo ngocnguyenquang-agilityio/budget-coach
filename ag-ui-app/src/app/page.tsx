@@ -9,14 +9,23 @@ import {
   useConfigureSuggestions,
   useFrontendTool,
   useHumanInTheLoop,
-  CopilotSidebar,
   CopilotChatConfigurationProvider,
-  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
 import styles from "./page.module.css";
+
+const CopilotSidebar = dynamic(
+  () => import("@copilotkit/react-core/v2").then((mod) => mod.CopilotSidebar),
+  { ssr: false },
+);
+const CopilotThreadsDrawer = dynamic(
+  () =>
+    import("@copilotkit/react-core/v2").then((mod) => mod.CopilotThreadsDrawer),
+  { ssr: false },
+);
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");

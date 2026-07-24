@@ -13,10 +13,10 @@ importers:
         version: 0.0.57
       '@ag-ui/mastra':
         specifier: 0.2.1-beta.2
-        version: 0.2.1-beta.2(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@copilotkit/runtime@1.62.3(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@langchain/langgraph-sdk@1.9.27(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@opentelemetry/api@1.9.1)(langchain@1.5.3(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@mastra/client-js@1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)
-      '@ai-sdk/openai':
-        specifier: ^2.0.42
-        version: 2.0.114(zod@3.25.76)
+        version: 0.2.1-beta.2(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@copilotkit/runtime@1.62.3(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@langchain/langgraph-sdk@1.9.27(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@opentelemetry/api@1.9.1)(langchain@1.5.3(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@mastra/client-js@1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)
+      '@ai-sdk/google':
+        specifier: ^2.0.85
+        version: 2.0.85(zod@3.25.76)
       '@copilotkit/react-core':
         specifier: 1.62.3
         version: 1.62.3(@types/mdast@4.0.4)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(graphql@16.14.2)(micromark-util-types@2.0.2)(micromark@4.0.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@3.25.76)
@@ -30,14 +30,14 @@ importers:
         specifier: 1.23.2
         version: 1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
       '@mastra/core':
-        specifier: 1.41.0
-        version: 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+        specifier: 1.52.1
+        version: 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
       '@mastra/libsql':
-        specifier: 1.1.0-alpha.2
-        version: 1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))
+        specifier: 1.17.0
+        version: 1.17.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))
       '@mastra/memory':
-        specifier: 1.0.1-alpha.1
-        version: 1.0.1-alpha.1(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)
+        specifier: 1.23.1
+        version: 1.23.1(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -55,7 +55,7 @@ importers:
         version: 0.525.0(react@19.2.7)
       mastra:
         specifier: 1.1.0-alpha.3
-        version: 1.1.0-alpha.3(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)
+        version: 1.1.0-alpha.3(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)
       next:
         specifier: 16.1.2
         version: 16.1.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -210,6 +210,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/google@2.0.85':
+    resolution: {integrity: sha512-Ubih0FtKJY1ZfKzXh003OOGk8tBv0U8SwZ50rR8SUJqUrMyLfGrWt57pQAkldFOoBoVkvJYBohf7ycpTLoIA+A==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/google@3.0.95':
     resolution: {integrity: sha512-08qpAkbZVtgStqDBmJy6giSczmq9yU8DvMpKEmkTqkW2O7XMvd7a69jffNAp0pni0vbwArrjoNDtmz1vwbq1rg==}
     engines: {node: '>=18'}
@@ -224,12 +230,6 @@ packages:
 
   '@ai-sdk/openai-compatible@1.0.46':
     resolution: {integrity: sha512-l++VpNaAntmdp2zqUhfHJy11hGJGvsjQW4yFXv5pJ3kh0xOlrz8X3IUvlygrJJtdsuSdPzbhk2CWuclJV2Z1Eg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/openai@2.0.114':
-    resolution: {integrity: sha512-cZ1dqr0qDqYvURjoKS7eyRe9bqHzJW6sBeoTMrkuDh7dmeLxuHF09WqWaQvsbYPF2ss3KuUpTCBbyaHDtqCItQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -270,6 +270,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@5.0.11':
+    resolution: {integrity: sha512-7/96wE+ZsKB35iS9ASyllrE4Ym/EolXEB7AkuJ5FI++fmS85BVTAs77890C+1Z2jwHfBKjBQSBmsliOsAh0iFQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/provider@1.1.3':
     resolution: {integrity: sha512-qZMxYJ0qqX/RfnuIaab+zp8UAeJn/ygXXAffR5I4N0n1IrvA6qBsjc8hXLmBiMV2zoXlifkacF7sEFnYnjBcqg==}
     engines: {node: '>=18'}
@@ -285,6 +291,10 @@ packages:
   '@ai-sdk/provider@3.0.14':
     resolution: {integrity: sha512-5X1k57JBJ4H7H1QjX7CnJYAB1I19r/trVZTMcSms7/kLNZ8RaU4Nt2agcwZzv82Hfx6Q7/TOLU7agAKeFfc8cA==}
     engines: {node: '>=18'}
+
+  '@ai-sdk/provider@4.0.3':
+    resolution: {integrity: sha512-e0CpNWJUY7OxAFAnCZkw+ri9QOHWwTs1tXP42782KFGCU07qt8NiXCrCVowyCB5dP2r5/Uls+g2oPd8kOJn9dw==}
+    engines: {node: '>=22'}
 
   '@ai-sdk/ui-utils@1.2.11':
     resolution: {integrity: sha512-3zcwCc8ezzFlwp3ZD15wAPjf2Au4s3vAbKsXQVyhxODHcmu0iyPO2Eua6D/vicq/AUm/BAo60r97O6HU+EI0+w==}
@@ -1009,8 +1019,14 @@ packages:
   '@libsql/client@0.15.15':
     resolution: {integrity: sha512-twC0hQxPNHPKfeOv3sNT6u2pturQjLcI+CnpTM0SjRpocEGgfiZ7DWKXLNnsothjyJmDqEsBQJ5ztq9Wlu470w==}
 
+  '@libsql/client@0.17.4':
+    resolution: {integrity: sha512-lYayFWasDV78A+TjlEhr6ubb3odBV6OHjb+wdp8VQcyWWAEIjuwbCHaraEUS4m4yWoo0BvZo96It4VdzZRmRWw==}
+
   '@libsql/core@0.15.15':
     resolution: {integrity: sha512-C88Z6UKl+OyuKKPwz224riz02ih/zHYI3Ho/LAcVOgjsunIRZoBw7fjRfaH9oPMmSNeQfhGklSG2il1URoOIsA==}
+
+  '@libsql/core@0.17.4':
+    resolution: {integrity: sha512-LqF9gIvnJ38nmAH1y/ChizHqDO/MO1wLgA96XrraulEEbqXxLjleSH92YWTolbuJKgPUmGu4aJk9W3UnAcxLOQ==}
 
   '@libsql/darwin-arm64@0.5.29':
     resolution: {integrity: sha512-K+2RIB1OGFPYQbfay48GakLhqf3ArcbHqPFu7EZiaUcRgFcdw8RoltsMyvbj5ix2fY0HV3Q3Ioa/ByvQdaSM0A==}
@@ -1021,6 +1037,9 @@ packages:
     resolution: {integrity: sha512-OtT+KFHsKFy1R5FVadr8FJ2Bb1mghtXTyJkxv0trocq7NuHntSki1eUbxpO5ezJesDvBlqFjnWaYYY516QNLhQ==}
     cpu: [x64]
     os: [darwin]
+
+  '@libsql/hrana-client@0.10.0':
+    resolution: {integrity: sha512-OoA4EMqRAC7kn7V2P6EQqRcpZf2W+AjsNIyCizBg339Tq/aMC7sRnzs3SklderhmQWAqEzvv8A2vhxVmWpkVvw==}
 
   '@libsql/hrana-client@0.7.0':
     resolution: {integrity: sha512-OF8fFQSkbL7vJY9rfuegK1R7sPgQ6kFMkDamiEccNUvieQ+3urzfDFI616oPl8V7T9zRmnTkSjMOImYCAVRVuw==}
@@ -1101,17 +1120,23 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
+  '@mastra/core@1.52.1':
+    resolution: {integrity: sha512-vODmqgg01nioh+hGIdFl9PKFC4kbToGOqM8HEUyzF/L8sSFfHIYBHCpkzK2C6QlcLbFaNyI79MSK4o0hhOll8w==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+
   '@mastra/deployer@1.51.0':
     resolution: {integrity: sha512-x73iPQpqbs4Haa1at+ERWfk3OYTh9WuQPc7sDxsNmklL9S32Y96h8p4ZaNhLrQ7+8nSwucmEVDp+s/EAI0+lbg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       '@mastra/core': '>=1.50.0-0 <2.0.0-0'
 
-  '@mastra/libsql@1.1.0-alpha.2':
-    resolution: {integrity: sha512-3CjfQzZtH/FrHv9bYHn9qSLIMYM05onQpX6kmdzK1nzYc6lbcW8UCOALof6eEWtajDlw+1SnNyJdy10uZCpCJA==}
+  '@mastra/libsql@1.17.0':
+    resolution: {integrity: sha512-h7xpXLS0SICjbWYk6qeU3H46wgvy8obKcsv0cT8PSHogbOpEIeZ/GLFASCTQxUg6KiH8NNHqsO6hXte3558W9g==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@mastra/core': '>=1.1.0-0 <2.0.0-0'
+      '@mastra/core': '>=1.51.0-0 <2.0.0-0'
 
   '@mastra/loggers@1.2.0':
     resolution: {integrity: sha512-1RJO8XsMgVsTC+NviJ0jGMK01Y5zCqSzFNnOH9D1swOUfX8DMviyAJzxJUmkWbhSrDxmeo/KKmFzRK8zzk4XYA==}
@@ -1119,21 +1144,20 @@ packages:
     peerDependencies:
       '@mastra/core': '>=1.0.0-0 <2.0.0-0'
 
-  '@mastra/memory@1.0.1-alpha.1':
-    resolution: {integrity: sha512-Xe+GX/enlhBuzlxODDSqIxvffcZzebG0WxWLvvSQEcmT2HWuK1MDZI8QbM/JxBBB1TemO0SQvWx+K3tf8lQa/A==}
+  '@mastra/memory@1.23.1':
+    resolution: {integrity: sha512-Xzgo4nsKPrn9cV4Bn07Wqkgyf3vrnZbgaTqLe7E6BPma2cPB81e/IthJOzrOy/CpMsam2asLShoYoxelISTXwg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
-      '@mastra/core': '>=1.0.0-0 <2.0.0-0'
-      zod: ^3.25.0 || ^4.0.0
-
-  '@mastra/schema-compat@1.0.0':
-    resolution: {integrity: sha512-jR5QsibhCO3lh2Vv3hNifd5XaKFnOV7ecduZyNxNg21Fw1+59ozpHkNtUAmDQW88uwvx/qHu1dKN/XtOhwWeyw==}
-    engines: {node: '>=22.13.0'}
-    peerDependencies:
-      zod: ^3.25.0 || ^4.0.0
+      '@mastra/core': '>=1.4.1-0 <2.0.0-0'
 
   '@mastra/schema-compat@1.2.11':
     resolution: {integrity: sha512-wN8eTy/g14Mg3kWukhoIjd5SpFtLQ8gOltbELe9nM2Ruzm4jK8tFr1ZZNZwvLYnpq7NJG5a8F0ZFCjXFOEwx0w==}
+    engines: {node: '>=22.13.0'}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+
+  '@mastra/schema-compat@1.3.4':
+    resolution: {integrity: sha512-2ObUsd21KIVelQy+eKPxJvnMxtmKnWacsIkZovhEYjVcQX9OYTDQ+u4E4RboIJZvurJnFx++/ujQLFznUaEYMg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -2132,6 +2156,9 @@ packages:
     resolution: {integrity: sha512-VSdkwnJRr8Yv9UgB2aXB3VUPWwd6Oqnn0hycFwhg9pZgWxJXb7JmhsiXe9tmpMwjHFxli12PGcz9aI63YYloGQ==}
     engines: {node: '>=18.0.0'}
 
+  '@workflow/serde@4.1.0':
+    resolution: {integrity: sha512-pav4F2BoirECWR7Nf1TKt+2eETcBj7jj4cBefQ8VXQCA6NPkaKeLfj/zMgi+3zYV5ZIBT4GuUiphsj0/b9hPQQ==}
+
   '@workflow/serde@4.1.0-beta.2':
     resolution: {integrity: sha512-8kkeoQKLDaKXefjV5dbhBj2aErfKp1Mc4pb6tj8144cF+Em5SPbyMbyLCHp+BVrFfFVCBluCtMx+jjvaFVZGww==}
 
@@ -2715,6 +2742,10 @@ packages:
     resolution: {integrity: sha512-vtcDfH3TOjP8UekytvnHH1o1P4FcUdt4eQ1Y+Abap1tk/OB2MWQvcwS2ClCd1zuIhc3JKOx6p3kod8Vfys3E+A==}
     engines: {node: '>=0.3.1'}
 
+  diff@8.0.4:
+    resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
+
   dompurify@3.4.12:
     resolution: {integrity: sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==}
 
@@ -3158,6 +3189,11 @@ packages:
     resolution: {integrity: sha512-BAg6QkE8W+TuQLrrw0Ugr7HegXduRuuj8/ti2kSOc+jz1dmx8/WNcjr6XGnq5YpDWxFwwaavqD0+jIUOKelTsw==}
     engines: {node: '>= 4'}
 
+  image-size@1.2.1:
+    resolution: {integrity: sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==}
+    engines: {node: '>=16.x'}
+    hasBin: true
+
   import-meta-resolve@4.2.0:
     resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
 
@@ -3286,6 +3322,9 @@ packages:
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
+
+  jpeg-js@0.4.4:
+    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==}
 
   js-base64@3.9.1:
     resolution: {integrity: sha512-U73qptcvf/HIOauFOmqT3a0mDUp0MYlfd15oqoe9kqZt5XhiXVb+HG09sLvI9PQ9tZIBFS4nlErai8zbWazP0g==}
@@ -3483,6 +3522,9 @@ packages:
   lodash.get@4.4.2:
     resolution: {integrity: sha512-z+Uw/vLuy6gQe8cfaFWD7p0wVv8fJl3mbzXh33RS+0oW2wvUqiRXiQ69gLWSLpgB5/6sU+r6BlQR0MBILadqTQ==}
     deprecated: This package is deprecated. Use the optional chaining (?.) operator instead.
+
+  lodash.merge@4.6.2:
+    resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
@@ -3875,6 +3917,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  needle@2.9.1:
+    resolution: {integrity: sha512-6R9fqJ5Zcmf+uYaFgdIHmLwNldn5HbK8L5ybn7Uz+ylX/rnOsSp1AHcvQSrCaFN+qNM1wpymHqD7mVasEOlHGQ==}
+    engines: {node: '>= 4.4.x'}
+    hasBin: true
+
   negotiator@0.6.3:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
@@ -4133,6 +4180,9 @@ packages:
     resolution: {integrity: sha512-gjVS5hOP+M3wMm5nmNOucbIrqudzs9v/57bWRHQWLYklXqoXKrVfYW2W9+glfGsqtPgpiz5WwyEEB+ksXIx3gQ==}
     engines: {node: '>=18'}
 
+  probe-image-size@7.3.0:
+    resolution: {integrity: sha512-7CaDeBwiAbh6ohXsvLbAZhO7wzsZAmaevfxe39qvCwRh8LyaZfDlBGGLU1CCTgrTLtCOdwBBhjOrIHaIIimHfQ==}
+
   process-warning@5.0.0:
     resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
@@ -4168,6 +4218,9 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
+
+  queue@6.0.2:
+    resolution: {integrity: sha512-iHZWu+q3IdFZFX36ro/lKBkSvfkztY5Y7HMiPlOUjhupPcG2JMfst2KKEpu5XndviX/3UhFbRngUPNKtgvtZiA==}
 
   quick-format-unescaped@4.0.4:
     resolution: {integrity: sha512-tYC1Q1hgyRuHgloV/YXs2w15unPVh8qfu/qCTfhTYamaw7fyhumKa2yGpdSo87vY32rIclj+4fWYQXUMs9EHvg==}
@@ -4408,6 +4461,10 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
+  sax@1.6.0:
+    resolution: {integrity: sha512-6R3J5M4AcbtLUdZmRv2SygeVaM7IhrLXu9BmnOGmmACak8fiUtOsYNWUS4uK7upbmHIBbLBeFeI//477BKLBzA==}
+    engines: {node: '>=11.0.0'}
+
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
 
@@ -4526,6 +4583,9 @@ packages:
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
+
+  stream-parser@0.3.1:
+    resolution: {integrity: sha512-bJ/HgKq41nlKvlhccD5kaCr/P+Hu0wPNKPJOH7en+YrJu/9EgqUF+88w5Jb6KNcjOFMhfX4B2asfeAtIGuHObQ==}
 
   streamdown@1.6.11:
     resolution: {integrity: sha512-Y38fwRx5kCKTluwM+Gf27jbbi9q6Qy+WC9YrC1YbCpMkktT3PsRBJHMWiqYeF8y/JzLpB1IzDoeaB6qkQEDnAA==}
@@ -5058,14 +5118,14 @@ snapshots:
       - vue
       - ws
 
-  '@ag-ui/mastra@0.2.1-beta.2(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@copilotkit/runtime@1.62.3(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@langchain/langgraph-sdk@1.9.27(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@opentelemetry/api@1.9.1)(langchain@1.5.3(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@mastra/client-js@1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)':
+  '@ag-ui/mastra@0.2.1-beta.2(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@copilotkit/runtime@1.62.3(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@langchain/langgraph-sdk@1.9.27(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@opentelemetry/api@1.9.1)(langchain@1.5.3(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@mastra/client-js@1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)':
     dependencies:
       '@ag-ui/client': 0.0.57
       '@ag-ui/core': 0.0.57
       '@ai-sdk/ui-utils': 1.2.11(zod@3.25.76)
       '@copilotkit/runtime': 1.62.3(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@langchain/langgraph-sdk@1.9.27(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@opentelemetry/api@1.9.1)(langchain@1.5.3(@langchain/core@1.2.3(@opentelemetry/api@1.9.1)(ws@8.21.1))(@opentelemetry/api@1.9.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(ws@8.21.1))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@mastra/client-js': 1.23.2(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
       - zod
@@ -5139,6 +5199,12 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.30(zod@3.25.76)
       zod: 3.25.76
 
+  '@ai-sdk/google@2.0.85(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.3
+      '@ai-sdk/provider-utils': 3.0.30(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/google@3.0.95(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.14
@@ -5153,12 +5219,6 @@ snapshots:
       zod: 3.25.76
 
   '@ai-sdk/openai-compatible@1.0.46(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 2.0.3
-      '@ai-sdk/provider-utils': 3.0.30(zod@3.25.76)
-      zod: 3.25.76
-
-  '@ai-sdk/openai@2.0.114(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
       '@ai-sdk/provider-utils': 3.0.30(zod@3.25.76)
@@ -5205,6 +5265,14 @@ snapshots:
       eventsource-parser: 3.1.0
       zod: 3.25.76
 
+  '@ai-sdk/provider-utils@5.0.11(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.3
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.0
+      zod: 3.25.76
+
   '@ai-sdk/provider@1.1.3':
     dependencies:
       json-schema: 0.4.0
@@ -5218,6 +5286,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.14':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@4.0.3':
     dependencies:
       json-schema: 0.4.0
 
@@ -6005,7 +6077,22 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@libsql/client@0.17.4':
+    dependencies:
+      '@libsql/core': 0.17.4
+      '@libsql/hrana-client': 0.10.0
+      js-base64: 3.9.1
+      libsql: 0.5.29
+      promise-limit: 2.7.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@libsql/core@0.15.15':
+    dependencies:
+      js-base64: 3.9.1
+
+  '@libsql/core@0.17.4':
     dependencies:
       js-base64: 3.9.1
 
@@ -6014,6 +6101,14 @@ snapshots:
 
   '@libsql/darwin-x64@0.5.29':
     optional: true
+
+  '@libsql/hrana-client@0.10.0':
+    dependencies:
+      '@libsql/isomorphic-ws': 0.1.5
+      js-base64: 3.9.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@libsql/hrana-client@0.7.0':
     dependencies:
@@ -6141,14 +6236,60 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@mastra/deployer@1.51.0(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)':
+  '@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)':
+    dependencies:
+      '@a2a-js/sdk': 0.3.14(@bufbuild/protobuf@2.12.1)(express@5.2.1)
+      '@ai-sdk/provider-utils-v5': '@ai-sdk/provider-utils@3.0.30(zod@3.25.76)'
+      '@ai-sdk/provider-utils-v6': '@ai-sdk/provider-utils@4.0.40(zod@3.25.76)'
+      '@ai-sdk/provider-utils-v7': '@ai-sdk/provider-utils@5.0.11(zod@3.25.76)'
+      '@ai-sdk/provider-v5': '@ai-sdk/provider@2.0.3'
+      '@ai-sdk/provider-v6': '@ai-sdk/provider@3.0.14'
+      '@ai-sdk/provider-v7': '@ai-sdk/provider@4.0.3'
+      '@ai-sdk/ui-utils-v5': '@ai-sdk/ui-utils@1.2.11(zod@3.25.76)'
+      '@isaacs/ttlcache': 2.1.5
+      '@lukeed/uuid': 2.0.1
+      '@mastra/schema-compat': 1.3.4(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
+      '@sindresorhus/slugify': 2.2.1
+      '@standard-schema/spec': 1.1.0
+      ajv: 8.20.0
+      chat: 4.34.0(ai@6.0.230(zod@3.25.76))(zod@3.25.76)
+      croner: 10.0.1
+      dotenv: 17.4.2
+      execa: 9.6.1
+      fastq: 1.20.1
+      gray-matter: 4.0.3
+      ignore: 7.0.6
+      jpeg-js: 0.4.4
+      json-schema: 0.4.0
+      lru-cache: 11.5.2
+      p-map: 7.0.5
+      p-retry: 7.1.1
+      picomatch: 4.0.5
+      posthog-node: 5.45.2(rxjs@7.8.1)
+      tokenx: 1.3.0
+      ws: 8.21.1
+      xxhash-wasm: 1.1.0
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@bufbuild/protobuf'
+      - '@cfworker/json-schema'
+      - '@grpc/grpc-js'
+      - ai
+      - bufferutil
+      - express
+      - rxjs
+      - supports-color
+      - utf-8-validate
+
+  '@mastra/deployer@1.51.0(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7)
       '@babel/traverse': 7.29.7
       '@hono/node-ws': 1.3.1(@hono/node-server@1.19.14(hono@4.12.31))(hono@4.12.31)
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@mastra/server': 1.51.0(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@mastra/server': 1.51.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)
       '@optimize-lodash/rollup-plugin': 5.1.0(rollup@4.62.2)
       '@rollup/plugin-alias': 6.0.0(rollup@4.62.2)
       '@rollup/plugin-commonjs': 29.0.2(rollup@4.62.2)
@@ -6180,38 +6321,35 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@mastra/libsql@1.1.0-alpha.2(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))':
+  '@mastra/libsql@1.17.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))':
     dependencies:
-      '@libsql/client': 0.15.15
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@libsql/client': 0.17.4
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@mastra/loggers@1.2.0(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))':
+  '@mastra/loggers@1.2.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))':
     dependencies:
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
       pino: 10.3.1
       pino-pretty: 13.1.3
 
-  '@mastra/memory@1.0.1-alpha.1(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)':
+  '@mastra/memory@1.23.1(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))':
     dependencies:
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@mastra/schema-compat': 1.0.0(zod@3.25.76)
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@mastra/schema-compat': 1.3.4(zod@4.4.3)
       async-mutex: 0.5.0
-      js-tiktoken: 1.0.21
+      diff: 8.0.4
+      image-size: 1.2.1
       json-schema: 0.4.0
       lru-cache: 11.5.2
+      probe-image-size: 7.3.0
+      tokenx: 1.3.0
       xxhash-wasm: 1.1.0
-      zod: 3.25.76
-
-  '@mastra/schema-compat@1.0.0(zod@3.25.76)':
-    dependencies:
-      json-schema-to-zod: 2.8.1
-      zod: 3.25.76
-      zod-from-json-schema: 0.5.6
-      zod-from-json-schema-v3: zod-from-json-schema@0.0.5
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
 
   '@mastra/schema-compat@1.2.11(zod@3.25.76)':
     dependencies:
@@ -6221,9 +6359,25 @@ snapshots:
       zod-from-json-schema-v3: zod-from-json-schema@0.0.5
       zod-to-json-schema: 3.25.2(zod@3.25.76)
 
-  '@mastra/server@1.51.0(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)':
+  '@mastra/schema-compat@1.3.4(zod@3.25.76)':
     dependencies:
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      json-schema-to-zod: 2.8.1
+      zod: 3.25.76
+      zod-from-json-schema: 0.5.6
+      zod-from-json-schema-v3: zod-from-json-schema@0.0.5
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
+
+  '@mastra/schema-compat@1.3.4(zod@4.4.3)':
+    dependencies:
+      json-schema-to-zod: 2.8.1
+      zod: 4.4.3
+      zod-from-json-schema: 0.5.6
+      zod-from-json-schema-v3: zod-from-json-schema@0.0.5
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
+
+  '@mastra/server@1.51.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(zod@3.25.76)':
+    dependencies:
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
       hono: 4.12.31
       zod: 3.25.76
 
@@ -7124,6 +7278,8 @@ snapshots:
       '@whatwg-node/promise-helpers': 1.3.2
       tslib: 2.8.1
 
+  '@workflow/serde@4.1.0': {}
+
   '@workflow/serde@4.1.0-beta.2': {}
 
   '@zeit/schemas@2.36.0': {}
@@ -7701,6 +7857,8 @@ snapshots:
       dequal: 2.0.3
 
   diff@5.2.2: {}
+
+  diff@8.0.4: {}
 
   dompurify@3.4.12:
     optionalDependencies:
@@ -8311,6 +8469,10 @@ snapshots:
 
   ignore@7.0.6: {}
 
+  image-size@1.2.1:
+    dependencies:
+      queue: 6.0.2
+
   import-meta-resolve@4.2.0: {}
 
   inherits@2.0.4: {}
@@ -8393,6 +8555,8 @@ snapshots:
   jose@6.2.3: {}
 
   joycon@3.1.1: {}
+
+  jpeg-js@0.4.4: {}
 
   js-base64@3.9.1: {}
 
@@ -8571,6 +8735,8 @@ snapshots:
 
   lodash.get@4.4.2: {}
 
+  lodash.merge@4.6.2: {}
+
   longest-streak@3.1.0: {}
 
   loose-envify@1.4.0:
@@ -8605,13 +8771,13 @@ snapshots:
 
   marked@16.4.2: {}
 
-  mastra@1.1.0-alpha.3(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76):
+  mastra@1.1.0-alpha.3(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76):
     dependencies:
       '@clack/prompts': 0.11.0
       '@expo/devcert': 1.2.1
-      '@mastra/core': 1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@mastra/deployer': 1.51.0(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)
-      '@mastra/loggers': 1.2.0(@mastra/core@1.41.0(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))
+      '@mastra/core': 1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@mastra/deployer': 1.51.0(@hono/node-server@1.19.14(hono@4.12.31))(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))(typescript@5.9.3)(zod@3.25.76)
+      '@mastra/loggers': 1.2.0(@mastra/core@1.52.1(@bufbuild/protobuf@2.12.1)(@cfworker/json-schema@4.1.1)(ai@6.0.230(zod@3.25.76))(express@5.2.1)(rxjs@7.8.1)(zod@3.25.76))
       commander: 14.0.3
       dotenv: 17.4.2
       execa: 9.6.1
@@ -9294,6 +9460,14 @@ snapshots:
 
   nanoid@3.3.16: {}
 
+  needle@2.9.1:
+    dependencies:
+      debug: 3.2.7
+      iconv-lite: 0.4.24
+      sax: 1.6.0
+    transitivePeerDependencies:
+      - supports-color
+
   negotiator@0.6.3: {}
 
   negotiator@0.6.4: {}
@@ -9568,6 +9742,14 @@ snapshots:
     dependencies:
       parse-ms: 4.0.0
 
+  probe-image-size@7.3.0:
+    dependencies:
+      lodash.merge: 4.6.2
+      needle: 2.9.1
+      stream-parser: 0.3.1
+    transitivePeerDependencies:
+      - supports-color
+
   process-warning@5.0.0: {}
 
   process@0.11.10: {}
@@ -9602,6 +9784,10 @@ snapshots:
   quansync@0.2.11: {}
 
   queue-microtask@1.2.3: {}
+
+  queue@6.0.2:
+    dependencies:
+      inherits: 2.0.4
 
   quick-format-unescaped@4.0.4: {}
 
@@ -9934,6 +10120,8 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
+  sax@1.6.0: {}
+
   scheduler@0.27.0: {}
 
   section-matter@1.0.0:
@@ -10129,6 +10317,12 @@ snapshots:
   sprintf-js@1.0.3: {}
 
   statuses@2.0.2: {}
+
+  stream-parser@0.3.1:
+    dependencies:
+      debug: 2.6.9
+    transitivePeerDependencies:
+      - supports-color
 
   streamdown@1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.7):
     dependencies:
@@ -10562,6 +10756,10 @@ snapshots:
   zod-to-json-schema@3.25.2(zod@3.25.76):
     dependencies:
       zod: 3.25.76
+
+  zod-to-json-schema@3.25.2(zod@4.4.3):
+    dependencies:
+      zod: 4.4.3
 
   zod@3.25.76: {}
 

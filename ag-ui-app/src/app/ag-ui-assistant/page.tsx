@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
@@ -7,7 +8,6 @@ import {
   useFrontendTool,
   useHumanInTheLoop,
   CopilotChatConfigurationProvider,
-  CopilotSidebar,
 } from "@copilotkit/react-core/v2";
 
 import { WeatherCard } from "@/components/weather";
@@ -18,6 +18,11 @@ import {
   initialAgUiAssistantState,
   type AgUiAssistantState,
 } from "@/lib/agUiAssistantState";
+
+const CopilotSidebar = dynamic(
+  () => import("@copilotkit/react-core/v2").then((mod) => mod.CopilotSidebar),
+  { ssr: false },
+);
 
 /**
  * Ported from my-ag-ui-client's CLI agent (weather + calculate + openUrl)

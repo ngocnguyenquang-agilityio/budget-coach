@@ -9,10 +9,10 @@ import { existsSync, readFileSync } from 'node:fs';
 /** Vendor API keys this scaffold needs before chat and generations will work. */
 const REQUIRED_ENV_KEYS = [
   {
-    "key": "OPENAI_API_KEY",
+    "key": "GOOGLE_GENERATIVE_AI_API_KEY",
     "note": "Required by the agent runtime.",
-    "url": "https://platform.openai.com/api-keys",
-    "example": "sk-..."
+    "url": "https://aistudio.google.com/apikey",
+    "example": "AQ...."
   }
 ];
 
@@ -22,12 +22,7 @@ const REQUIRED_ENV_KEYS = [
  * mismatch. Derived from MOCK_PROVIDERS; expand by adding a row there.
  * Shape: { [keyVar]: { baseUrlVar: string, baseUrl: string } }
  */
-const MOCK_PROVIDER_BASE_URLS = {
-  "OPENAI_API_KEY": {
-    "baseUrlVar": "OPENAI_BASE_URL",
-    "baseUrl": "http://127.0.0.1:4010/v1"
-  }
-};
+const MOCK_PROVIDER_BASE_URLS = {};
 
 /**
  * Hosted CopilotKit Intelligence env var NAMES this scaffold was generated with

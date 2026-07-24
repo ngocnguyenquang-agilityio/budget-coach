@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
@@ -14,7 +14,7 @@ export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
   tools: { weatherTool },
-  model: openai("gpt-4o"),
+  model: google("gemini-3.5-flash"),
   instructions: "You are a helpful assistant.",
   memory: new Memory({
     storage: new LibSQLStore({
@@ -35,7 +35,7 @@ export const agUiAssistant = new Agent({
   id: "ag-ui-assistant",
   name: "AG-UI Assistant",
   tools: { weatherTool },
-  model: openai("gpt-4o"),
+  model: google("gemini-3.5-flash"),
   instructions: `
     You are a helpful AI assistant. Be friendly, conversational, and helpful.
     Answer questions to the best of your ability and engage in natural conversation.
