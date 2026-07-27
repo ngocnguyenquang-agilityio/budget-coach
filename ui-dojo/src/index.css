@@ -3,6 +3,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* CopilotKit's popup shell (.cpk:z-[1200]) sits above Radix's popper portal
+   (z-index: 50) for content triggered from inside it, e.g. the "+" input
+   toolbar's "Add attachments" dropdown — the menu opens but renders behind
+   the popup and is unclickable. Only raise poppers owned by CopilotKit. */
+[data-radix-popper-content-wrapper]:has([data-copilotkit="true"]) {
+  z-index: 1300 !important;
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -131,4 +139,27 @@
 
 .list-inside {
   list-style-position: inside;
+}
+
+.themed-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
 }

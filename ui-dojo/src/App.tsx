@@ -162,10 +162,21 @@ export default function Page() {
                     element={<CopilotKitToolRendering />}
                   />
                   <Route path="reasoning" element={<CopilotKitReasoning />} />
-                  <Route
-                    path="frontend-tools"
-                    element={<CopilotKitFrontendTools />}
-                  />
+                  <Route path="frontend-tools">
+                    <Route
+                      index
+                      element={
+                        <NewThreadRedirect
+                          rootPath="copilot-kit/frontend-tools"
+                          agentId="ck_frontend_tools"
+                        />
+                      }
+                    />
+                    <Route
+                      path=":agentId/chat/:threadId"
+                      element={<CopilotKitFrontendTools />}
+                    />
+                  </Route>
                   <Route path="multimodal" element={<CopilotKitMultimodal />} />
                   <Route path="subagents" element={<CopilotKitSubagents />} />
                   <Route

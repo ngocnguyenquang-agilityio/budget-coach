@@ -1,22 +1,31 @@
 import "@copilotkit/react-core/v2/styles.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotPopup,
+  useAgent,
   useAgentContext,
   useConfigureSuggestions,
   useFrontendTool,
   useRenderTool,
+  UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 import { readFileAsBase64, type AttachmentUploadResult } from "@copilotkit/shared";
+import { SearchIcon } from "lucide-react";
 import { z } from "zod";
 import { MASTRA_BASE_URL } from "@/constants";
-import { chatInputWithoutDisclaimer } from "@/components/ck/empty-chat-disclaimer";
+import { CopilotChatPanel } from "@/components/ck/copilot-chat-panel";
 import { AttachedFileCard } from "@/components/ck/attached-file-card";
+import { DemoSearchPopup } from "@/components/ck/demo-search-popup";
+import { DemoSearchResultsCard } from "@/components/ck/demo-search-results-card";
 import { ThemeToggle } from "@/components/ck/theme-toggle";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { extractFileText } from "@/lib/extract-file-text";
+import { searchDemos } from "@/lib/demo-catalog";
+import { ThreadSidebar } from "@/components/thread-sidebar";
+import { useThreadManager } from "@/hooks/use-thread-manager";
 
 /** Text the model is allowed to see per attached file, to keep prompts bounded. */
 const MAX_EXTRACTED_CHARACTERS = 20_000;
@@ -24,6 +33,13 @@ const MAX_EXTRACTED_CHARACTERS = 20_000;
 const AGENT_ID = "ck_frontend_tools";
 
 const DEFAULT_BACKGROUND = "var(--background)";
+
+/** Resolves "system" to whatever the OS currently renders, so toggle has a real light/dark to flip. */
+function isDarkResolved(theme: "light" | "dark" | "system"): boolean {
+  if (theme === "dark") return true;
+  if (theme === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
 
 const ACTIVITY_SUGGESTIONS = [
   "Take a 10-minute walk and notice five things you have never seen before.",
@@ -34,31 +50,108 @@ const ACTIVITY_SUGGESTIONS = [
   "Write down three tiny wins from today, however small.",
 ] as const;
 
+// Memory scope the /copilotkit route persists threads under (see
+// registerCopilotKit in src/mastra/index.ts). The sidebar lists threads for
+// this resource so it matches what CopilotKit writes.
+const RESOURCE_ID = "copilotkit-resource";
+
 const FrontendToolsCopilotKitDemo = () => {
+  const { agentId, threadId } = useParams();
+  const resolvedAgentId = agentId ?? AGENT_ID;
+
   return (
     <CopilotKit
       runtimeUrl={`${MASTRA_BASE_URL}/copilotkit`}
-      agent={AGENT_ID}
+      agent={resolvedAgentId}
     >
-      <Chat />
+      <div className="grid grid-cols-[130px_1fr] md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr] gap-x-2 size-full">
+        <ThreadPanel agentId={resolvedAgentId} threadId={threadId} />
+        <Chat agentId={resolvedAgentId} threadId={threadId} />
+      </div>
     </CopilotKit>
   );
 };
 
-const Chat = () => {
+// Thread list for the frontend-tools conversation. Lists threads from the
+// same LibSQL memory the runtime persists to, and refetches when a run
+// finishes so a brand-new thread appears in the sidebar after its first
+// message.
+function ThreadPanel({
+  agentId,
+  threadId,
+}: {
+  agentId: string;
+  threadId?: string;
+}) {
+  const { threads, isThreadsLoading, refreshThreads, handlers } =
+    useThreadManager({
+      rootPath: "copilot-kit/frontend-tools",
+      agentId,
+      resourceId: RESOURCE_ID,
+      threadId,
+    });
+
+  const { agent } = useAgent({
+    agentId,
+    updates: [UseAgentUpdate.OnRunStatusChanged],
+  });
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !agent.isRunning) {
+      refreshThreads();
+    }
+    wasRunning.current = agent.isRunning;
+  }, [agent.isRunning, refreshThreads]);
+
+  return (
+    <ThreadSidebar
+      rootPath="copilot-kit/frontend-tools"
+      threads={threads}
+      isLoading={isThreadsLoading}
+      threadId={threadId}
+      agentId={agentId}
+      {...handlers}
+    />
+  );
+}
+
+const Chat = ({
+  agentId,
+  threadId,
+}: {
+  agentId: string;
+  threadId?: string;
+}) => {
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
   const { theme, setTheme } = useTheme();
   const { state, setOpen, toggleSidebar } = useSidebar();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   // Bridges "file the user picked" (only available inside the attachments
   // onUpload callback) to "the show_attached_file tool handler" (which only
   // receives the agent's JSON args), keyed by filename.
   const filesRef = useRef<Map<string, File>>(new Map());
 
-  // Expose the current theme so the agent can honor "toggle"/"switch" requests
-  // by reading the current value and setting the opposite.
-  useAgentContext({ description: "Current UI theme", value: theme });
+  // Cmd/Ctrl+K opens the demo search popup, mirroring the sidebar's own
+  // Cmd/Ctrl+B shortcut (src/components/ui/sidebar.tsx). Scoped to this page's
+  // mount lifetime via the effect cleanup.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
-  // Expose the current sidebar state so the agent can resolve "toggle" requests.
+  // Expose current UI state for display/debugging. NOTE: "toggle" requests are
+  // resolved inside the set_theme/set_sidebar tool handlers (browser-side),
+  // NOT by having the model read these values back and compute the opposite —
+  // that round-trip is unreliable and previously caused the theme to flip
+  // repeatedly in a single turn.
+  useAgentContext({ description: "Current UI theme", value: theme });
   useAgentContext({ description: "Current sidebar state", value: state });
 
   // SYNC frontend tool: mutates UI state synchronously and returns immediately.
@@ -83,22 +176,30 @@ const Chat = () => {
   });
 
   // SYNC frontend tool: switches the app's color theme via the shared
-  // ThemeProvider. The current theme is exposed via useAgentContext above so the
-  // agent can resolve "toggle"/"switch" to the opposite mode.
+  // ThemeProvider. "toggle" is resolved HERE (in the browser, where the real
+  // current theme is known) rather than asked of the model — the model has no
+  // reliable way to read the live theme value back out of chat context, so
+  // leaving "pick the opposite" up to it caused repeated/oscillating tool calls.
   useFrontendTool({
     name: "set_theme",
     description:
-      "Set the application's color theme. Use 'system' to follow the OS. If the user asks to toggle/switch, read the current theme from context and pick the opposite.",
+      "Set the application's color theme. Use 'light', 'dark', or 'system' (follows the OS). Use 'toggle' to flip between light and dark — do not try to compute the opposite yourself.",
     parameters: z.object({
       theme: z
-        .enum(["light", "dark", "system"])
-        .describe("The theme to apply."),
+        .enum(["light", "dark", "system", "toggle"])
+        .describe("The theme to apply, or 'toggle' to flip light/dark."),
     }),
     handler: async ({ theme: next }) => {
-      setTheme(next);
+      const resolved =
+        next === "toggle"
+          ? isDarkResolved(theme)
+            ? "light"
+            : "dark"
+          : next;
+      setTheme(resolved);
       return {
         status: "success",
-        message: `Theme set to ${next}`,
+        message: `Theme set to ${resolved}`,
       };
     },
   });
@@ -121,6 +222,77 @@ const Chat = () => {
       return {
         status: "success",
         message: `Sidebar ${action}`,
+      };
+    },
+  });
+
+  // SYNC frontend tool: opens/closes the demo-search command palette and
+  // optionally prefills its query. Deliberately NO "toggle" action — unlike
+  // set_theme/set_sidebar there is nothing worth reading back into agent
+  // context (see the comment above), and resolving a toggle would mean either
+  // a stale-closure read of searchOpen inside the handler or a functional
+  // setState that can't report the resulting state back to the model.
+  useFrontendTool({
+    name: "open_search_popup",
+    description:
+      "Open the demo search popup — a command palette listing every demo page in this app. Pass 'query' to prefill the search box with what the user is looking for. Pass action 'close' only when the user asks to dismiss it.",
+    parameters: z.object({
+      query: z
+        .string()
+        .optional()
+        .describe("Text to prefill the search box with, e.g. 'workflow'."),
+      action: z
+        .enum(["open", "close"])
+        .optional()
+        .describe("Defaults to 'open'."),
+    }),
+    handler: async ({ query, action }) => {
+      const shouldOpen = (action ?? "open") === "open";
+      if (query !== undefined) setSearchQuery(query);
+      setSearchOpen(shouldOpen);
+      return {
+        status: "success",
+        message: shouldOpen
+          ? `Search popup opened${query ? ` with "${query}"` : ""}`
+          : "Search popup closed",
+      };
+    },
+  });
+
+  // SYNC frontend tool: searches the app's own demo catalog (the layout's
+  // SIDEBAR, via @/lib/demo-catalog) entirely in the browser. The agent has no
+  // other way to know what demos exist, so this grounds "where do I find X"
+  // answers in real data instead of invented ones.
+  useFrontendTool({
+    name: "search_demos",
+    description:
+      "Search this app's demo catalog by keyword. Returns matching demos with title, description, SDK group and url. Answer only from these results — never invent a demo or a URL.",
+    parameters: z.object({
+      query: z
+        .string()
+        .describe("Keywords, e.g. 'workflow suspend' or 'human in the loop'."),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(10)
+        .optional()
+        .describe("Maximum number of results. Defaults to 5."),
+    }),
+    handler: async ({ query, limit }) => {
+      const results = searchDemos(query, limit ?? 5);
+      return {
+        status: "success",
+        query,
+        count: results.length,
+        results: results.map(({ id, title, description, url, group, concept }) => ({
+          id,
+          title,
+          description,
+          url,
+          group,
+          concept,
+        })),
       };
     },
   });
@@ -240,6 +412,58 @@ const Chat = () => {
     },
   });
 
+  // Custom renderer for search_demos: shows a searching state, then a card of
+  // clickable demo results.
+  useRenderTool({
+    name: "search_demos",
+    // NOTE: args stream in incrementally, so every field must be optional
+    // here even though the tool's own schema requires `query`.
+    parameters: z.object({
+      query: z.string().optional(),
+      limit: z.number().optional(),
+    }),
+    render: ({ status, parameters, result }) => {
+      if (status !== "complete") {
+        return (
+          <DemoSearchResultsCard status={status} query={parameters.query} results={[]} />
+        );
+      }
+
+      const parsed = safeParseToolResult(result);
+      const rawResults = Array.isArray(parsed.results) ? parsed.results : [];
+      const results = rawResults.flatMap((entry) => {
+        if (typeof entry !== "object" || entry === null) return [];
+        const record = entry as Record<string, unknown>;
+        if (
+          typeof record.id !== "string" ||
+          typeof record.title !== "string" ||
+          typeof record.url !== "string"
+        ) {
+          return [];
+        }
+        return [
+          {
+            id: record.id,
+            title: record.title,
+            url: record.url,
+            description:
+              typeof record.description === "string" ? record.description : undefined,
+            group: typeof record.group === "string" ? record.group : undefined,
+            concept: typeof record.concept === "string" ? record.concept : undefined,
+          },
+        ];
+      });
+
+      return (
+        <DemoSearchResultsCard
+          status="complete"
+          query={typeof parsed.query === "string" ? parsed.query : parameters.query}
+          results={results}
+        />
+      );
+    },
+  });
+
   useConfigureSuggestions({
     suggestions: [
       {
@@ -272,22 +496,50 @@ const Chat = () => {
         message: "Read the file I attached and summarize it.",
         className: "frontend-tools-suggestion-summarize-file",
       },
+      {
+        title: "Find a demo",
+        message: "Search the demo catalog for human-in-the-loop demos.",
+        className: "frontend-tools-suggestion-search-demos",
+      },
+      {
+        title: "Open search",
+        message: "Open the search popup and prefill it with 'workflow'.",
+        className: "frontend-tools-suggestion-open-search",
+      },
     ],
     available: "always",
   });
 
   return (
     <div
-      className="copilotkit-frontend-tools-demo relative -mb-4 flex h-[calc(100%+1rem)] min-h-0 w-full overflow-hidden rounded-xl transition-colors duration-500"
+      className="copilotkit-frontend-tools-demo -mb-4 flex h-[calc(100%+1rem)] min-h-0 w-full flex-col overflow-hidden rounded-xl transition-colors duration-500"
       style={{ background }}
     >
-      <div className="absolute top-4 left-4 z-10">
+      <div className="flex shrink-0 items-center gap-2 p-4 pb-0">
         <ThemeToggle />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSearchOpen(true)}
+        >
+          <SearchIcon />
+          Search demos
+          <kbd className="text-muted-foreground ml-1 text-xs">⌘K</kbd>
+        </Button>
       </div>
-      <CopilotPopup
-        agentId={AGENT_ID}
-        input={chatInputWithoutDisclaimer}
-        defaultOpen={true}
+      <DemoSearchPopup
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+      />
+      <CopilotChatPanel
+        // Remount on thread switch so CopilotKit connects to the new thread
+        // and hydrates its persisted messages.
+        key={threadId}
+        agentId={agentId}
+        threadId={threadId}
+        containerClassName="min-h-0 flex-1"
         attachments={{
           enabled: true,
           accept: "text/*,application/pdf,.md,.csv,.json",

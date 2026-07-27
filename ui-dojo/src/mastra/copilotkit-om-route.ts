@@ -3,6 +3,7 @@ import { MASTRA_RESOURCE_ID_KEY } from "@mastra/core/request-context";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
+  type AgentRunner,
 } from "@copilotkit/runtime/v2";
 import { getLocalAgents } from "@ag-ui/mastra";
 
@@ -25,6 +26,7 @@ export function registerCopilotKitOM({
   resourceId,
   observationalMemory,
   untilIdle,
+  runner,
 }: {
   path: string;
   resourceId: string;
@@ -32,6 +34,8 @@ export function registerCopilotKitOM({
   observationalMemory?: boolean | string[];
   /** `true` for every agent, or an array of agent ids. */
   untilIdle?: boolean | string[];
+  /** See src/mastra/copilotkit-runner.ts. Optional — defaults to CopilotRuntime's own InMemoryAgentRunner. */
+  runner?: AgentRunner;
 }) {
   return registerApiRoute(path, {
     method: "ALL",
@@ -46,7 +50,7 @@ export function registerCopilotKitOM({
         untilIdle,
       });
       const handler = createCopilotRuntimeHandler({
-        runtime: new CopilotRuntime({ agents }),
+        runtime: new CopilotRuntime({ agents, runner }),
         basePath: path,
         mode: "single-route",
       });

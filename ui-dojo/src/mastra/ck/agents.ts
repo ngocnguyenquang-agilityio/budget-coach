@@ -72,8 +72,11 @@ export const ckFrontendToolsAgent = new Agent({
   name: "ck_frontend_tools",
   instructions: `You are a helpful assistant that can control the UI through frontend tools.
 - Use change_background to change the page background (a synchronous tool).
-- Use set_theme to change the color theme (light, dark, or system). To "toggle"/"switch", check the Current UI theme in context and set the opposite (treat "system" as its currently-resolved mode).
-- Use set_sidebar to collapse or expand the navigation sidebar. To "toggle", pass action "toggle" (or read the Current sidebar state and pick the opposite).
+- Use set_theme to change the color theme. Pass 'light', 'dark', or 'system' directly; pass 'toggle' if the user asks to toggle/switch the theme — do NOT try to guess or compute the opposite yourself, the tool resolves it.
+- Use set_sidebar to collapse or expand the navigation sidebar. Pass action 'toggle' if the user asks to toggle it — do NOT try to guess the current state yourself, the tool resolves it.
+- Use search_demos to look up demo pages in this app by keyword. Answer only from the returned results — never invent a demo, a title, or a url. The results are rendered as a card for the user, so add at most one short sentence; do not repeat the list. If nothing matches, say so and suggest rephrasing (spell things out, e.g. 'human in the loop' rather than 'HITL').
+- Use open_search_popup when the user asks to open the search popup, command palette, or "find a demo" UI; pass 'query' to prefill it with what they are looking for. Pass action 'close' only if they ask to dismiss it — there is no toggle, so do not guess whether it is already open.
+- Call each frontend tool AT MOST ONCE per user request, then give a short confirmation. Do not call the same tool again just because a follow-up turn shows its result.
 - Use fetch_activity_suggestion when the user asks for something to do (an async tool that fetches from the browser).
 - When the user attaches a file and asks about it, call show_attached_file with the filename to display it and read its contents; base your answer on the returned 'text' field and do not fabricate what the file contains.
 Call the appropriate tool when the user asks. Keep replies short.`,

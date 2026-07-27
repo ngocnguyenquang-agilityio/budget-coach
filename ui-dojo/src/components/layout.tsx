@@ -36,7 +36,7 @@ import {
 } from "./ui/collapsible";
 import { cn, newThreadLink } from "@/lib/utils";
 
-type SidebarItemEntry = {
+export type SidebarItemEntry = {
   id: string;
   title: string;
   url: `/${string}`;
@@ -49,7 +49,7 @@ type SidebarItemEntry = {
   pageTitle?: string;
 };
 
-type SidebarEntry = {
+export type SidebarEntry = {
   id: string;
   title: string;
   icon: ComponentType<{ className?: string }>;
@@ -71,7 +71,7 @@ function CopilotKitLogo({ className }: { className?: string }) {
   );
 }
 
-const SIDEBAR: SidebarEntry[] = [
+export const SIDEBAR: SidebarEntry[] = [
   {
     id: "ai-sdk",
     title: "AI SDK",
@@ -347,7 +347,7 @@ const SIDEBAR: SidebarEntry[] = [
         concept: "Interactivity",
         description: "Let the agent drive your app's UI",
         explanation:
-          "Three useFrontendTool tools in one demo: synchronous tools that change the UI instantly (change_background and set_theme, the latter reading the current theme from agent context to toggle) and an asynchronous tool that awaits a simulated browser-side fetch before returning.",
+          "Seven frontend tools in one demo: synchronous UI mutations (change_background, set_theme, set_sidebar), an async browser-side fetch (fetch_activity_suggestion), browser-side file extraction (show_attached_file), and catalog search — search_demos returns ranked results rendered as an inline card, while open_search_popup drives a Cmd/Ctrl+K command palette over this app's own demo list (selecting a result navigates away and ends this chat thread, by design).",
       },
       {
         id: "copilot-kit-human-in-the-loop",

@@ -95,7 +95,7 @@ const AISdkDemo = () => {
   };
 
   return (
-    <div className="grid grid-cols-[130px_1fr] md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr] gap-x-2 size-full">
+    <div className="grid grid-cols-[130px_1fr] md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr] gap-x-2 size-full min-h-0">
       <ThreadSidebar
         rootPath="ai-sdk"
         threads={threads}
@@ -213,8 +213,8 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-0 md:p-6 relative size-full">
-      <div className="flex flex-col h-full">
+    <div className="max-w-4xl mx-auto p-0 md:p-6 relative size-full min-h-0">
+      <div className="flex flex-col h-full min-h-0">
         <Conversation className="h-full">
           <ConversationContent>
             {messages.map((message, messageIndex) => {

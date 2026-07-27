@@ -48,6 +48,7 @@ import { ckByocAgent } from "./ck/byoc";
 import { getStorage } from "./storage";
 import { registerCopilotKitOM } from "./copilotkit-om-route";
 import { registerCopilotKitMcp } from "./copilotkit-mcp-route";
+import { MastraBackedAgentRunner } from "./copilotkit-runner";
 
 export const mastra = new Mastra({
   agents: {
@@ -160,6 +161,11 @@ export const mastra = new Mastra({
       registerCopilotKit({
         path: "/copilotkit",
         resourceId: "copilotkit-resource",
+        // CopilotKit's default runner only replays chat history for as long
+        // as this server process stays alive; MastraBackedAgentRunner falls
+        // back to Mastra's persisted memory so older threads still hydrate
+        // after a dev-server restart. See src/mastra/copilotkit-runner.ts.
+        runner: new MastraBackedAgentRunner("copilotkit-resource"),
       }),
       // Dedicated route that surfaces Observational Memory as AG-UI activity
       // events (registerCopilotKit doesn't expose the observationalMemory
@@ -169,6 +175,7 @@ export const mastra = new Mastra({
         path: "/copilotkit-om",
         resourceId: "copilotkit-resource-om",
         observationalMemory: ["ck_observational_memory"],
+        runner: new MastraBackedAgentRunner("copilotkit-resource-om"),
       }),
       // Dedicated route with untilIdle for the background-tasks demo, so the run
       // stays open until the dispatched task completes and its result streams
@@ -178,6 +185,7 @@ export const mastra = new Mastra({
         path: "/copilotkit-bg",
         resourceId: "copilotkit-resource-bg",
         untilIdle: ["ck_background_tasks"],
+        runner: new MastraBackedAgentRunner("copilotkit-resource-bg"),
       }),
       // Self-managed BuiltInAgent wired to Excalidraw's public MCP server via
       // MCPAppsMiddleware; surfaces the ui:// interactive canvas inline in the
