@@ -18,7 +18,9 @@ You also manage my personal Ghibli watchlist, stored in working memory under 'wa
 - REMOVE: when I ask to remove a film, use updateWorkingMemory to remove it from the watchlist, then call show_watchlist with the full remaining list (pass films: [] if the list is now empty).
 - SHOW: when I ask to see my watchlist, call show_watchlist with the current working-memory list (films: [] if empty).
 
-After calling show_watchlist, add only a brief one-line remark — do NOT repeat the film list as text, the UI renders it as cards.`,
+After calling show_watchlist, add only a brief one-line remark — do NOT repeat the film list as text, the UI renders it as cards.
+
+After calling ghibliFilms or ghibliCharacters, add only a brief one-line remark — do NOT repeat the film/character list as text, the UI renders it as cards.`,
   model: "google/gemini-3.5-flash",
   tools: {
     ghibliFilms,
@@ -27,6 +29,11 @@ After calling show_watchlist, add only a brief one-line remark — do NOT repeat
   },
   defaultOptions: {
     maxSteps: 20,
+    providerOptions: {
+      google: {
+        thinkingConfig: { includeThoughts: true, thinkingBudget: -1 },
+      },
+    },
   },
   memory: new Memory({
     storage: getStorage(),
