@@ -211,10 +211,12 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
   };
 
   const handleRemoveFilm = (title: string) => {
+    if (status !== "ready") return;
     sendMessage({ text: `Remove ${title} from my watchlist` });
   };
 
   const handleAddFilm = (title: string) => {
+    if (status !== "ready") return;
     sendMessage({ text: `Add ${title} to my watchlist` });
   };
 
@@ -318,6 +320,7 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
                                 key={`${message.id}-${i}`}
                                 films={part.output}
                                 onAdd={handleAddFilm}
+                                disabled={status !== "ready"}
                               />
                             );
                           case "output-error":
@@ -373,6 +376,7 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
                                 key={`${message.id}-${i}`}
                                 films={(part.output as { films: Film[] }).films}
                                 onRemove={handleRemoveFilm}
+                                disabled={status !== "ready"}
                               />
                             );
                           case "output-error":

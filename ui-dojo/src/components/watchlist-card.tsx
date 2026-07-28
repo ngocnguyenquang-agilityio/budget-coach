@@ -11,9 +11,14 @@ export type Film = {
 export type WatchlistCardProps = {
   films: Film[];
   onRemove?: (title: string) => void;
+  disabled?: boolean;
 };
 
-export const WatchlistCard = ({ films, onRemove }: WatchlistCardProps) => {
+export const WatchlistCard = ({
+  films,
+  onRemove,
+  disabled = false,
+}: WatchlistCardProps) => {
   const parsed = normalizeFilms(films);
 
   return (
@@ -55,6 +60,7 @@ export const WatchlistCard = ({ films, onRemove }: WatchlistCardProps) => {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={disabled}
                   onClick={() => onRemove?.(film.title)}
                 >
                   Remove

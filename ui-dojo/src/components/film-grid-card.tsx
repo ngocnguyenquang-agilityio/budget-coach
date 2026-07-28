@@ -12,9 +12,14 @@ export type Film = {
 export type FilmGridCardProps = {
   films: unknown;
   onAdd?: (title: string) => void;
+  disabled?: boolean;
 };
 
-export const FilmGridCard = ({ films, onAdd }: FilmGridCardProps) => {
+export const FilmGridCard = ({
+  films,
+  onAdd,
+  disabled = false,
+}: FilmGridCardProps) => {
   const parsed = normalizeFilms(films);
 
   if (parsed.length === 0) {
@@ -55,6 +60,7 @@ export const FilmGridCard = ({ films, onAdd }: FilmGridCardProps) => {
             <Button
               variant="outline"
               size="sm"
+              disabled={disabled}
               onClick={() => onAdd?.(film.title)}
             >
               Add to watchlist

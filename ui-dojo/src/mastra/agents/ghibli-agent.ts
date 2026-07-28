@@ -14,7 +14,7 @@ export const ghibliAgent = new Agent({
 
 You also manage my personal Ghibli watchlist, stored in working memory under 'watchlist'. Treat the working-memory watchlist as the source of truth at all times.
 
-- ADD: when I ask to add a film, first call ghibliFilms to resolve its release_date and movie_banner. Then use the updateWorkingMemory tool to append it to the watchlist (do NOT add a duplicate title — if it's already there, leave the list unchanged). Finally call show_watchlist with the FULL updated list.
+- ADD: when I ask to add a film, you need its release_date and movie_banner. First check this conversation for that data — if you already called ghibliFilms or ghibliCharacters earlier in this conversation and the result included this exact film with a release_date and movie_banner, reuse those values and do NOT call ghibliFilms again. Only call ghibliFilms if you do not already have both values for this film from earlier in the conversation. Then use the updateWorkingMemory tool to append it to the watchlist (do NOT add a duplicate title — if it's already there, leave the list unchanged). Finally call show_watchlist with the FULL updated list.
 - REMOVE: when I ask to remove a film, use updateWorkingMemory to remove it from the watchlist, then call show_watchlist with the full remaining list (pass films: [] if the list is now empty).
 - SHOW: when I ask to see my watchlist, call show_watchlist with the current working-memory list (films: [] if empty).
 
