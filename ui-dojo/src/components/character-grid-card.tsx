@@ -74,12 +74,17 @@ function normalizeCharacters(value: unknown): Character[] {
   const characters: Character[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const { name } = item as Character;
+    const { name, films } = item as Character;
     if (typeof name !== "string" || name.trim() === "" || seen.has(name)) {
       continue;
     }
     seen.add(name);
-    characters.push(item as Character);
+    // Ensure films is a valid array (or undefined)
+    const normalized: Character = {
+      ...(item as Character),
+      films: Array.isArray(films) ? films : undefined,
+    };
+    characters.push(normalized);
   }
   return characters;
 }
