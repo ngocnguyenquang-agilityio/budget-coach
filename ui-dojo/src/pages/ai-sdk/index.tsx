@@ -53,6 +53,8 @@ import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { MASTRA_BASE_URL } from "@/constants";
 import { getVisibleReasoningText } from "@/lib/reasoning";
 import { WatchlistCard, type Film } from "@/components/watchlist-card";
+import { FilmGridCard } from "@/components/film-grid-card";
+import { CharacterGridCard } from "@/components/character-grid-card";
 
 const models = [
   {
@@ -212,6 +214,10 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
     sendMessage({ text: `Remove ${title} from my watchlist` });
   };
 
+  const handleAddFilm = (title: string) => {
+    sendMessage({ text: `Add ${title} to my watchlist` });
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-0 md:p-6 relative size-full min-h-0">
       <div className="flex flex-col h-full min-h-0">
@@ -294,6 +300,69 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
                         );
                       case "reasoning":
                         return null;
+                      case "tool-ghibliFilms":
+                        switch (part.state) {
+                          case "input-available":
+                            return (
+                              <div
+                                key={`${message.id}-${i}`}
+                                className="flex items-center gap-2 text-muted-foreground text-sm"
+                              >
+                                <Loader size={14} />
+                                Looking up films…
+                              </div>
+                            );
+                          case "output-available":
+                            return (
+                              <FilmGridCard
+                                key={`${message.id}-${i}`}
+                                films={part.output}
+                                onAdd={handleAddFilm}
+                              />
+                            );
+                          case "output-error":
+                            return (
+                              <div
+                                key={`${message.id}-${i}`}
+                                className="text-destructive text-sm"
+                              >
+                                Error: {part.errorText}
+                              </div>
+                            );
+                          default:
+                            return null;
+                        }
+                      case "tool-ghibliCharacters":
+                        switch (part.state) {
+                          case "input-available":
+                            return (
+                              <div
+                                key={`${message.id}-${i}`}
+                                className="flex items-center gap-2 text-muted-foreground text-sm"
+                              >
+                                <Loader size={14} />
+                                Looking up characters…
+                              </div>
+                            );
+                          case "output-available":
+                            return (
+                              <CharacterGridCard
+                                key={`${message.id}-${i}`}
+                                characters={part.output}
+                              />
+                            );
+                          case "output-error":
+                            return (
+                              <div
+                                key={`${message.id}-${i}`}
+                                className="text-destructive text-sm"
+                              >
+                                Error: {part.errorText}
+                              </div>
+                            );
+                          default:
+                            return null;
+                        }
                       case "tool-show_watchlist":
                         switch (part.state) {
                           case "input-available":
@@ -322,7 +391,16 @@ const ChatView = ({ initialMessages, threadId, onFinish }: ChatViewProps) => {
                 </div>
               );
             })}
-            {status === "submitted" && <Loader />}
+            {status === "submitted" && (
+              <Message from="assistant">
+                <MessageContent>
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader size={14} />
+                    Thinking…
+                  </div>
+                </MessageContent>
+              </Message>
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
