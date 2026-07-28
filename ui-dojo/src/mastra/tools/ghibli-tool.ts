@@ -52,7 +52,7 @@ export const ghibliFilms = createTool({
 export const ghibliCharacters = createTool({
   id: "ghibli-characters",
   description:
-    "Get information about Ghibli characters. Pass `name` to look up one specific character; omit it to get the full list.",
+    "Get information about Ghibli characters. Pass `name` to look up one specific character, `film` to list the characters that appear in one specific film, or omit both to get the full list.",
   inputSchema: z.object({
     name: z
       .string()
@@ -60,9 +60,39 @@ export const ghibliCharacters = createTool({
       .describe(
         "Exact or partial character name to filter by (case-insensitive). Omit to return all characters.",
       ),
+    film: z
+      .string()
+      .optional()
+      .describe(
+        "Exact or partial film title to filter characters by (case-insensitive) — returns only characters appearing in that film. Omit to not filter by film.",
+      ),
   }),
-  execute: async ({ name }) => {
-    const characters = await fetchJson(`https://ghibliapi.vercel.app/people`);
+  execute: async ({ name, film }) => {
+    let characters: Array<{
+      name: string;
+      gender: string;
+      age: number;
+      eye_color: string;
+      films: string[];
+    }>;
+
+    if (film) {
+      const films = await fetchJson(`https://ghibliapi.vercel.app/films`);
+      const needle = film.toLowerCase();
+      const matchedFilms = films.filter((f: { title: string }) =>
+        f.title.toLowerCase().includes(needle),
+      );
+
+      const peopleUrls = new Set<string>(
+        matchedFilms.flatMap((f: { people: string[] }) => f.people),
+      );
+
+      characters = await Promise.all(
+        Array.from(peopleUrls).map((url) => fetchJson(url)),
+      );
+    } else {
+      characters = await fetchJson(`https://ghibliapi.vercel.app/people`);
+    }
 
     const filtered = name
       ? characters.filter((character: { name: string }) =>

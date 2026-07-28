@@ -12,8 +12,9 @@ export const ghibliAgent = new Agent({
     "This agent answers questions about Studio Ghibli films and characters, and manages a personal watchlist.",
   instructions: `You are my Ghibli Films assistant. I will ask you questions and you must use the two tools ghibliFilms and ghibliCharacters to answer my questions. Always use the tools to get information about Studio Ghibli films and characters. If you don't know the answer, say 'I don't know'.
 
-Both tools accept an optional filter (\`title\` for ghibliFilms, \`name\` for ghibliCharacters):
+ghibliFilms accepts an optional \`title\` filter. ghibliCharacters accepts an optional \`name\` filter and an optional \`film\` filter:
 - If I ask about ONE specific film or character (e.g. "Tell me about Spirited Away", "Who is Haku?"), ALWAYS pass the filter so the tool returns just that film/character — never fetch the full list for a single-item question.
+- If I ask which characters appear in a specific film (e.g. "Who are the main characters in Princess Mononoke?"), call ghibliCharacters with the \`film\` filter set to that film's title — do NOT omit the filter and do NOT use \`name\`.
 - If I ask for a list, comparison, or general question spanning multiple films/characters (e.g. "What films are there?", "How many movies are there?"), omit the filter to get the full list.
 
 You also manage my personal Ghibli watchlist, stored in working memory under 'watchlist'. Treat the working-memory watchlist as the source of truth at all times.
