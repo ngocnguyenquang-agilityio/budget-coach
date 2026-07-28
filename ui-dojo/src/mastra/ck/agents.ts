@@ -64,22 +64,44 @@ export const ckReasoningAgent = new Agent({
   memory: new Memory({ storage: getStorage() }),
 });
 
-/** Frontend tools — a plain agent. The sync + async client tools are declared
- *  on the page via useFrontendTool; CopilotKit forwards their schemas so the
- *  agent knows to call them. */
-export const ckFrontendToolsAgent = new Agent({
-  id: "ck_frontend_tools",
-  name: "ck_frontend_tools",
-  instructions: `You are a helpful assistant that can control the UI through frontend tools.
+const FRONTEND_TOOLS_BASE_INSTRUCTIONS = `You are a helpful assistant that can control the UI through frontend tools.
 - Use change_background to change the page background (a synchronous tool).
 - Use set_theme to change the color theme. Pass 'light', 'dark', or 'system' directly; pass 'toggle' if the user asks to toggle/switch the theme — do NOT try to guess or compute the opposite yourself, the tool resolves it.
 - Use set_sidebar to collapse or expand the navigation sidebar. Pass action 'toggle' if the user asks to toggle it — do NOT try to guess the current state yourself, the tool resolves it.
 - Use search_demos to look up demo pages in this app by keyword. Answer only from the returned results — never invent a demo, a title, or a url. The results are rendered as a card for the user, so add at most one short sentence; do not repeat the list. If nothing matches, say so and suggest rephrasing (spell things out, e.g. 'human in the loop' rather than 'HITL').
 - Use open_search_popup when the user asks to open the search popup, command palette, or "find a demo" UI; pass 'query' to prefill it with what they are looking for. Pass action 'close' only if they ask to dismiss it — there is no toggle, so do not guess whether it is already open.
+- When the user asks about their pinned/starred conversations or threads, answer from the "Pinned conversations" entry in "Current client-side context" below — never invent a title. If it's empty, say so.
 - Call each frontend tool AT MOST ONCE per user request, then give a short confirmation. Do not call the same tool again just because a follow-up turn shows its result.
 - Use fetch_activity_suggestion when the user asks for something to do (an async tool that fetches from the browser).
 - When the user attaches a file and asks about it, call show_attached_file with the filename to display it and read its contents; base your answer on the returned 'text' field and do not fabricate what the file contains.
-Call the appropriate tool when the user asks. Keep replies short.`,
+Call the appropriate tool when the user asks. Keep replies short.`;
+
+/** Frontend tools — a plain agent. The sync + async client tools are declared
+ *  on the page via useFrontendTool; CopilotKit forwards their schemas so the
+ *  agent knows to call them.
+ *
+ *  CopilotKit's useAgentContext (see the page) sends {description, value}
+ *  pairs over AG-UI's RunAgentInput.context, but @ag-ui/mastra only parks
+ *  that array in requestContext under the "ag-ui" key — it does NOT inject
+ *  it into the prompt on its own (Mastra's requestContext is a plain data
+ *  bag; nothing reads well-known keys automatically). Instructions must be a
+ *  function that reads it back out, or client-side context like the current
+ *  theme or the pinned-conversations list never reaches the model. */
+export const ckFrontendToolsAgent = new Agent({
+  id: "ck_frontend_tools",
+  name: "ck_frontend_tools",
+  instructions: async ({ requestContext }) => {
+    const agui = requestContext?.get("ag-ui") as
+      | { context?: Array<{ description: string; value: string }> }
+      | undefined;
+    const items = agui?.context ?? [];
+    if (items.length === 0) return FRONTEND_TOOLS_BASE_INSTRUCTIONS;
+
+    const contextBlock = items
+      .map(({ description, value }) => `- ${description}: ${value}`)
+      .join("\n");
+    return `${FRONTEND_TOOLS_BASE_INSTRUCTIONS}\n\nCurrent client-side context:\n${contextBlock}`;
+  },
   model: MASTRA_GATEWAY_MODEL,
   memory: new Memory({ storage: getStorage() }),
   defaultOptions: {

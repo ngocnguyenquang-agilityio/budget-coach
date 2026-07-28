@@ -1,5 +1,5 @@
 import "@copilotkit/react-core/v2/styles.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
@@ -11,6 +11,7 @@ import {
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 import { readFileAsBase64, type AttachmentUploadResult } from "@copilotkit/shared";
+import type { StorageThreadType } from "@mastra/core/memory";
 import { SearchIcon } from "lucide-react";
 import { z } from "zod";
 import { MASTRA_BASE_URL } from "@/constants";
@@ -26,6 +27,7 @@ import { extractFileText } from "@/lib/extract-file-text";
 import { searchDemos } from "@/lib/demo-catalog";
 import { ThreadSidebar } from "@/components/thread-sidebar";
 import { useThreadManager } from "@/hooks/use-thread-manager";
+import { isPinned } from "@/lib/thread-metadata";
 
 /** Text the model is allowed to see per attached file, to keep prompts bounded. */
 const MAX_EXTRACTED_CHARACTERS = 20_000;
@@ -64,19 +66,19 @@ const FrontendToolsCopilotKitDemo = () => {
       runtimeUrl={`${MASTRA_BASE_URL}/copilotkit`}
       agent={resolvedAgentId}
     >
-      <div className="grid grid-cols-[130px_1fr] md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr] gap-x-2 size-full">
-        <ThreadPanel agentId={resolvedAgentId} threadId={threadId} />
-        <Chat agentId={resolvedAgentId} threadId={threadId} />
-      </div>
+      <DemoBody agentId={resolvedAgentId} threadId={threadId} />
     </CopilotKit>
   );
 };
 
-// Thread list for the frontend-tools conversation. Lists threads from the
-// same LibSQL memory the runtime persists to, and refetches when a run
-// finishes so a brand-new thread appears in the sidebar after its first
-// message.
-function ThreadPanel({
+// Fetches the thread list ONCE and hands it to both the sidebar and the chat
+// panel. ThreadPanel and Chat previously each called useThreadManager
+// independently; with staleTime/gcTime both 0 on that query, two separate
+// observers could desync (the sidebar showing pinned threads while Chat's own
+// copy of `threads` was still empty), so the agent's "pinned conversations"
+// context reported empty even though the sidebar clearly showed pins. A
+// single shared call guarantees both sides see the exact same data.
+function DemoBody({
   agentId,
   threadId,
 }: {
@@ -104,23 +106,28 @@ function ThreadPanel({
   }, [agent.isRunning, refreshThreads]);
 
   return (
-    <ThreadSidebar
-      rootPath="copilot-kit/frontend-tools"
-      threads={threads}
-      isLoading={isThreadsLoading}
-      threadId={threadId}
-      agentId={agentId}
-      {...handlers}
-    />
+    <div className="grid grid-cols-[130px_1fr] md:grid-cols-[180px_1fr] lg:grid-cols-[250px_1fr] gap-x-2 size-full">
+      <ThreadSidebar
+        rootPath="copilot-kit/frontend-tools"
+        threads={threads}
+        isLoading={isThreadsLoading}
+        threadId={threadId}
+        agentId={agentId}
+        {...handlers}
+      />
+      <Chat agentId={agentId} threadId={threadId} threads={threads} />
+    </div>
   );
 }
 
 const Chat = ({
   agentId,
   threadId,
+  threads,
 }: {
   agentId: string;
   threadId?: string;
+  threads: StorageThreadType[];
 }) => {
   const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
   const { theme, setTheme } = useTheme();
@@ -153,6 +160,30 @@ const Chat = ({
   // repeatedly in a single turn.
   useAgentContext({ description: "Current UI theme", value: theme });
   useAgentContext({ description: "Current sidebar state", value: state });
+
+  // Shared state, same pattern as theme/sidebar above: the pinned-thread list
+  // is pushed into context on every change rather than fetched via a tool
+  // call, so the agent always has it on hand instead of needing to decide to
+  // "look it up".
+  const pinnedConversations = useMemo(
+    () =>
+      threads
+        .filter(isPinned)
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        )
+        .map((thread) => ({
+          id: thread.id,
+          title: thread.title?.trim() || "Untitled Thread",
+          updatedAt: new Date(thread.updatedAt).toISOString(),
+        })),
+    [threads],
+  );
+  useAgentContext({
+    description: "Pinned conversations (title, most recently updated first)",
+    value: pinnedConversations,
+  });
 
   // SYNC frontend tool: mutates UI state synchronously and returns immediately.
   useFrontendTool({
@@ -505,6 +536,11 @@ const Chat = ({
         title: "Open search",
         message: "Open the search popup and prefill it with 'workflow'.",
         className: "frontend-tools-suggestion-open-search",
+      },
+      {
+        title: "Pinned conversations",
+        message: "List my pinned conversations.",
+        className: "frontend-tools-suggestion-list-pinned",
       },
     ],
     available: "always",
