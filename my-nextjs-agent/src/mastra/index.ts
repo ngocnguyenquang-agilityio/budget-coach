@@ -31,41 +31,55 @@ function serializeDuckDbCalls() {
   });
 }
 
-serializeDuckDbCalls();
+async function createMastra() {
+  serializeDuckDbCalls();
 
-
-export const mastra = new Mastra({
-  workflows: { weatherWorkflow },
-  agents: { weatherAgent },
-  storage: new MastraCompositeStore({
-    id: 'composite-storage',
-    default: new LibSQLStore({
-      id: "mastra-storage",
-      // Uses a hosted database when deployed (mastra env db create --kind turso),
-      // and a local file during development.
-      url: process.env.TURSO_DATABASE_URL ?? "file:./mastra.db",
-      authToken: process.env.TURSO_AUTH_TOKEN,
+  return new Mastra({
+    workflows: { weatherWorkflow },
+    agents: { weatherAgent },
+    storage: new MastraCompositeStore({
+      id: 'composite-storage',
+      default: new LibSQLStore({
+        id: "mastra-storage",
+        // Uses a hosted database when deployed (mastra env db create --kind turso),
+        // and a local file during development.
+        url: process.env.TURSO_DATABASE_URL ?? "file:./mastra.db",
+        authToken: process.env.TURSO_AUTH_TOKEN,
+      }),
+      domains: {
+        observability: await new DuckDBStore().getStore('observability'),
+      }
     }),
-    domains: {
-      observability: await new DuckDBStore().getStore('observability'),
-    }
-  }),
-  logger: new PinoLogger({
-    name: 'Mastra',
-    level: 'info',
-  }),
-  observability: new Observability({
-    configs: {
-      default: {
-        serviceName: 'mastra',
-        exporters: [
-          new MastraStorageExporter(), // Persists observability events to Mastra Storage
-          new MastraPlatformExporter(), // Sends observability events to Mastra Platform (if MASTRA_PLATFORM_ACCESS_TOKEN is set)
-        ],
-        spanOutputProcessors: [
-          new SensitiveDataFilter(), // Redacts sensitive data like passwords, tokens, keys
-        ],
+    logger: new PinoLogger({
+      name: 'Mastra',
+      level: 'info',
+    }),
+    observability: new Observability({
+      configs: {
+        default: {
+          serviceName: 'mastra',
+          exporters: [
+            new MastraStorageExporter(), // Persists observability events to Mastra Storage
+            new MastraPlatformExporter(), // Sends observability events to Mastra Platform (if MASTRA_PLATFORM_ACCESS_TOKEN is set)
+          ],
+          spanOutputProcessors: [
+            new SensitiveDataFilter(), // Redacts sensitive data like passwords, tokens, keys
+          ],
+        },
       },
-    },
-  }),
-});
+    }),
+  });
+}
+
+// Next.js dev (Fast Refresh) re-evaluates this module on every server-side
+// recompile without tearing down the previous instance. Since DuckDBStore
+// holds an exclusive file handle on mastra.duckdb (Windows locks files
+// exclusively by default), re-running `new DuckDBStore()` on each reload
+// tries to open a file the still-alive previous connection already has
+// locked, throwing "Cannot open file mastra.duckdb: ... used by another
+// process". Cache the instance across reloads so dev only opens it once.
+declare global {
+  var __mastra: Promise<Mastra> | undefined;
+}
+
+export const mastra = await (globalThis.__mastra ??= createMastra());
