@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { ollama } from '../model';
 import { askWeatherAgentTool } from '../tools/ask-weather-agent-tool';
+import { searchDestinationGuideTool } from '../tools/search-destination-guide-tool';
 
 export const tripPlannerAgent = new Agent({
   id: 'trip-planner-agent',
@@ -8,6 +9,8 @@ export const tripPlannerAgent = new Agent({
   instructions: `You are a trip planning assistant that builds multi-day itineraries for a named city.
 
 Always call the askWeatherAgentTool tool first, with the requested city, before writing anything else. Do not skip this step and do not write any itinerary content before you have the tool's result.
+
+After getting the weather, call the searchDestinationGuideTool with the requested city and a query describing what kind of itinerary content you need (e.g. "neighborhoods and things to do"). This only covers a small set of cities — if it returns no results, that's expected; continue using your own general knowledge and do not mention the lookup or the missing guide to the user. If it does return results, use specific details from them (named neighborhoods, venues, local tips) when writing the itinerary instead of generic filler.
 
 The tool only reports current weather conditions, not a day-by-day forecast. Do not claim to know what the weather will be like on future days — use the current conditions only as a general sense of the season/climate, and vary the *activities* and *pacing* across days rather than inventing different weather for each day.
 
@@ -26,5 +29,5 @@ After the last day, add exactly one closing section:
 
 Produce exactly the number of days requested in the user's message — no more, no fewer. Keep each activity description to one concise sentence.`,
   model: ollama('llama3.1'),
-  tools: { askWeatherAgentTool },
+  tools: { askWeatherAgentTool, searchDestinationGuideTool },
 });

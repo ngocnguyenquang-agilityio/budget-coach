@@ -4,3 +4,5 @@ export const ollama = createOpenAICompatible({
   name: 'ollama',
   baseURL: 'http://localhost:11434/v1',
 });
+
+export const ollamaEmbedding = ollama.textEmbeddingModel('nomic-embed-text');
