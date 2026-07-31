@@ -31,7 +31,8 @@ import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/componen
 
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 
-import { ActivityPlanCard, SuggestActivitiesButton, isActivityPlanMessage } from '@/components/activity-plan'
+import { ActivityPlanCard, type ActivityPlanMetadata, SuggestActivitiesButton, isActivityPlanMessage } from '@/components/activity-plan'
+import { PlanTripButton } from '@/components/trip-plan'
 import { WeatherCard, WeatherCardError, WeatherCardLoading, type WeatherCardData } from '@/components/weather-card'
 
 const SUGGESTIONS = ['Weather in Tokyo', 'Weather in Paris', 'Weather in Berlin']
@@ -92,82 +93,99 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
             </ConversationEmptyState>
           )}
 
-          {messages.map(message => (
-            <div
-              key={message.id}
-              className={`flex items-start gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
-            >
-              <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                {message.role === 'user' ? (
-                  <UserIcon className="size-4" />
-                ) : (
-                  <BotIcon className="size-4" />
-                )}
-              </div>
+          {messages.map(message => {
+            const activityPlanCity = isActivityPlanMessage(message)
+              ? (message.metadata as ActivityPlanMetadata | undefined)?.city
+              : undefined
 
-              <div className="flex min-w-0 max-w-[85%] flex-1 flex-col gap-2">
-                {isActivityPlanMessage(message) ? (
-                  <ActivityPlanCard message={message} />
-                ) : (
-                  message.parts?.map((part, i) => {
-                    if (part.type === 'text') {
-                      return (
-                        <Message key={`${message.id}-${i}`} from={message.role} className="max-w-full">
-                          <MessageContent>
-                            <MessageResponse>{part.text}</MessageResponse>
-                          </MessageContent>
-                        </Message>
-                      )
-                    }
+            return (
+              <div
+                key={message.id}
+                className={`flex items-start gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+              >
+                <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  {message.role === 'user' ? (
+                    <UserIcon className="size-4" />
+                  ) : (
+                    <BotIcon className="size-4" />
+                  )}
+                </div>
 
-                    if (part.type === 'tool-weatherTool') {
-                      const toolPart = part as ToolUIPart
-
-                      if (toolPart.state === 'output-error') {
-                        return <WeatherCardError key={`${message.id}-${i}`} message={toolPart.errorText} />
-                      }
-
-                      if (toolPart.state === 'output-available' && toolPart.output) {
-                        const weather = toolPart.output as WeatherCardData
+                <div className="flex min-w-0 max-w-[85%] flex-1 flex-col gap-2">
+                  {isActivityPlanMessage(message) ? (
+                    <ActivityPlanCard message={message}>
+                      {activityPlanCity && (
+                        <PlanTripButton
+                          city={activityPlanCity}
+                          threadId={threadId}
+                          disabled={status !== 'ready'}
+                          onMessage={newMessage =>
+                            setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
+                          }
+                        />
+                      )}
+                    </ActivityPlanCard>
+                  ) : (
+                    message.parts?.map((part, i) => {
+                      if (part.type === 'text') {
                         return (
-                          <WeatherCard key={`${message.id}-${i}`} data={weather}>
-                            <SuggestActivitiesButton
-                              city={weather.location}
-                              threadId={threadId}
-                              onMessage={newMessage =>
-                                setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
-                              }
-                            />
-                          </WeatherCard>
+                          <Message key={`${message.id}-${i}`} from={message.role} className="max-w-full">
+                            <MessageContent>
+                              <MessageResponse>{part.text}</MessageResponse>
+                            </MessageContent>
+                          </Message>
                         )
                       }
 
-                      const input = toolPart.input as { location?: string } | undefined
-                      return <WeatherCardLoading key={`${message.id}-${i}`} location={input?.location} />
-                    }
+                      if (part.type === 'tool-weatherTool') {
+                        const toolPart = part as ToolUIPart
 
-                    if (part.type?.startsWith('tool-')) {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            type={(part as ToolUIPart).type}
-                            state={(part as ToolUIPart).state || 'output-available'}
-                            className="cursor-pointer"
-                          />
-                          <ToolContent>
-                            <ToolInput input={(part as ToolUIPart).input || {}} />
-                            <ToolOutput output={(part as ToolUIPart).output} errorText={(part as ToolUIPart).errorText} />
-                          </ToolContent>
-                        </Tool>
-                      )
-                    }
+                        if (toolPart.state === 'output-error') {
+                          return <WeatherCardError key={`${message.id}-${i}`} message={toolPart.errorText} />
+                        }
 
-                    return null
-                  })
-                )}
+                        if (toolPart.state === 'output-available' && toolPart.output) {
+                          const weather = toolPart.output as WeatherCardData
+                          return (
+                            <WeatherCard key={`${message.id}-${i}`} data={weather}>
+                              <SuggestActivitiesButton
+                                city={weather.location}
+                                threadId={threadId}
+                                onMessage={newMessage =>
+                                  setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
+                                }
+                              />
+                            </WeatherCard>
+                          )
+                        }
+
+                        const input = toolPart.input as { location?: string } | undefined
+                        return <WeatherCardLoading key={`${message.id}-${i}`} location={input?.location} />
+                      }
+
+                      if (part.type?.startsWith('tool-')) {
+                        return (
+                          <Tool key={`${message.id}-${i}`}>
+                            <ToolHeader
+                              type={(part as ToolUIPart).type}
+                              state={(part as ToolUIPart).state || 'output-available'}
+                              className="cursor-pointer"
+                            />
+                            <ToolContent>
+                              <ToolInput input={(part as ToolUIPart).input || {}} />
+                              <ToolOutput output={(part as ToolUIPart).output} errorText={(part as ToolUIPart).errorText} />
+                            </ToolContent>
+                          </Tool>
+                        )
+                      }
+
+                      return null
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
           <ConversationScrollButton />
         </ConversationContent>
       </Conversation>

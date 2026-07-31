@@ -1,13 +1,8 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { ollama } from '../model';
 import { weatherTool } from '../tools/weather-tool';
 import { setTemperatureUnitTool } from '../tools/set-temperature-unit-tool';
-
-const ollama = createOpenAICompatible({
-  name: 'ollama',
-  baseURL: 'http://localhost:11434/v1',
-});
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',

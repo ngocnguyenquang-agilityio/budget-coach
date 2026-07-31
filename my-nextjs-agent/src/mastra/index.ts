@@ -7,6 +7,7 @@ import { MastraCompositeStore } from '@mastra/core/storage';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
 import { weatherWorkflow } from './workflows/weather-workflow';
 import { weatherAgent } from './agents/weather-agent';
+import { tripPlannerAgent } from './agents/trip-planner-agent';
 
 // DuckDB only allows a single write batch/compaction against an instance at a
 // time (its C API has no concurrent-writer support), but DuckDBConnection
@@ -36,7 +37,7 @@ async function createMastra() {
 
   return new Mastra({
     workflows: { weatherWorkflow },
-    agents: { weatherAgent },
+    agents: { weatherAgent, tripPlannerAgent },
     storage: new MastraCompositeStore({
       id: 'composite-storage',
       default: new LibSQLStore({

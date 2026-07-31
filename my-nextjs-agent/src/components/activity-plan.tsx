@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { parseJsonEventStream, readUIMessageStream, uiMessageChunkSchema, type UIMessage, type UIMessageChunk } from 'ai'
 import { Loader2Icon, SparklesIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { MessageResponse } from '@/components/ai-elements/message'
 
-export type ActivityPlanMetadata = { kind: 'activity-plan' }
+export type ActivityPlanMetadata = { kind: 'activity-plan'; city?: string }
 
 export function isActivityPlanMessage(message: UIMessage): boolean {
   const metadata = message.metadata as ActivityPlanMetadata | undefined
@@ -33,7 +33,7 @@ function getMessageText(message: UIMessage): string {
   )
 }
 
-export function ActivityPlanCard({ message }: { message: UIMessage }) {
+export function ActivityPlanCard({ message, children }: { message: UIMessage; children?: ReactNode }) {
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-4">
       <div className="flex items-center gap-2 text-muted-foreground text-xs font-medium uppercase tracking-wide">
@@ -41,6 +41,7 @@ export function ActivityPlanCard({ message }: { message: UIMessage }) {
         Activity Plan
       </div>
       <MessageResponse>{getMessageText(message)}</MessageResponse>
+      {children && <div className="pt-1">{children}</div>}
     </div>
   )
 }
@@ -86,7 +87,7 @@ export function SuggestActivitiesButton({
       )
 
       for await (const message of readUIMessageStream({ stream: chunkStream })) {
-        onMessage({ ...message, metadata: { kind: 'activity-plan' } as ActivityPlanMetadata })
+        onMessage({ ...message, metadata: { kind: 'activity-plan', city } as ActivityPlanMetadata })
       }
 
       setStatus('idle')
