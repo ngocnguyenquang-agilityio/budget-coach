@@ -51,3 +51,8 @@ Observability exports to `MastraStorageExporter` (persisted to the store above) 
 ### Environment
 
 `.env` currently only sets `GOOGLE_API_KEY` (unused by the wired-up weather agent, which runs against local Ollama). Turso vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`) and `MASTRA_PLATFORM_ACCESS_TOKEN` are optional and only needed for hosted storage/observability.
+
+## Plan execution handoff
+
+See the `plan-execution-handoff` skill (`.claude/skills/plan-execution-handoff/SKILL.md`)
+— it overrides `superpowers:writing-plans`' normal execution-mode choice.
