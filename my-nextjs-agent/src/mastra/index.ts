@@ -79,7 +79,7 @@ async function createMastra() {
 // locked, throwing "Cannot open file mastra.duckdb: ... used by another
 // process". Cache the instance across reloads so dev only opens it once.
 declare global {
-  var __mastra: Promise<Mastra> | undefined;
+  var __mastra: ReturnType<typeof createMastra> | undefined;
 }
 
 export const mastra = await (globalThis.__mastra ??= createMastra());

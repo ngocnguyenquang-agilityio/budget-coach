@@ -2,9 +2,8 @@ import { handleChatStream } from '@mastra/ai-sdk'
 import { toAISdkV5Messages } from '@mastra/ai-sdk/ui'
 import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import { mastra } from '@/mastra'
+import { RESOURCE_ID } from '@/mastra/constants'
 import { NextResponse } from 'next/server'
-
-const RESOURCE_ID = 'weather-chat'
 
 function extractLatestUserText(messages: unknown[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
