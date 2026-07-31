@@ -33,6 +33,7 @@ import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 
 import { ActivityPlanCard, type ActivityPlanMetadata, SuggestActivitiesButton, isActivityPlanMessage } from '@/components/activity-plan'
 import { PlanTripButton } from '@/components/trip-plan'
+import { TripPlanReviewButton } from '@/components/trip-plan-review'
 import { WeatherCard, WeatherCardError, WeatherCardLoading, type WeatherCardData } from '@/components/weather-card'
 
 const SUGGESTIONS = ['Weather in Tokyo', 'Weather in Paris', 'Weather in Berlin']
@@ -115,14 +116,24 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
                   {isActivityPlanMessage(message) ? (
                     <ActivityPlanCard message={message}>
                       {activityPlanCity && (
-                        <PlanTripButton
-                          city={activityPlanCity}
-                          threadId={threadId}
-                          disabled={status !== 'ready'}
-                          onMessage={newMessage =>
-                            setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
-                          }
-                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <PlanTripButton
+                            city={activityPlanCity}
+                            threadId={threadId}
+                            disabled={status !== 'ready'}
+                            onMessage={newMessage =>
+                              setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
+                            }
+                          />
+                          <TripPlanReviewButton
+                            city={activityPlanCity}
+                            threadId={threadId}
+                            disabled={status !== 'ready'}
+                            onMessage={newMessage =>
+                              setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
+                            }
+                          />
+                        </div>
                       )}
                     </ActivityPlanCard>
                   ) : (

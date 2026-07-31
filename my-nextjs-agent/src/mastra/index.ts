@@ -6,6 +6,7 @@ import { DuckDBConnection, DuckDBStore } from "@mastra/duckdb";
 import { MastraCompositeStore } from '@mastra/core/storage';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
 import { weatherWorkflow } from './workflows/weather-workflow';
+import { tripPlanReviewWorkflow } from './workflows/trip-plan-review-workflow';
 import { weatherAgent } from './agents/weather-agent';
 import { tripPlannerAgent } from './agents/trip-planner-agent';
 
@@ -36,7 +37,7 @@ async function createMastra() {
   serializeDuckDbCalls();
 
   return new Mastra({
-    workflows: { weatherWorkflow },
+    workflows: { weatherWorkflow, tripPlanReviewWorkflow },
     agents: { weatherAgent, tripPlannerAgent },
     storage: new MastraCompositeStore({
       id: 'composite-storage',

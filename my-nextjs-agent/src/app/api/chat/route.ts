@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     if (thread && !thread.title) {
       const latestUserText = extractLatestUserText(params.messages ?? [])
       if (latestUserText) {
-        await memory.updateThread({ id: threadId, title: titleFromText(latestUserText) })
+        await memory.updateThread({ id: threadId, title: titleFromText(latestUserText), metadata: thread.metadata ?? {} })
       }
     }
   }
