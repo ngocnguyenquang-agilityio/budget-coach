@@ -3,9 +3,9 @@
 import '@/app/globals.css'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { DefaultChatTransport, ToolUIPart } from 'ai'
+import { DefaultChatTransport, ToolUIPart, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { BotIcon, CloudSunIcon, UserIcon } from 'lucide-react'
+import { AlertTriangleIcon, BotIcon, CloudSunIcon, ThermometerIcon, UserIcon } from 'lucide-react'
 
 import { ChatSidebar, type ChatSidebarHandle } from '@/components/chat-sidebar'
 
@@ -31,6 +31,9 @@ import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/componen
 
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+
 import { ActivityPlanCard, type ActivityPlanMetadata, SuggestActivitiesButton, isActivityPlanMessage } from '@/components/activity-plan'
 import { PlanTripButton } from '@/components/trip-plan'
 import { TripPlanReviewButton } from '@/components/trip-plan-review'
@@ -40,8 +43,11 @@ const SUGGESTIONS = ['Weather in Tokyo', 'Weather in Paris', 'Weather in Berlin'
 
 function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessageFinished: () => void }) {
   const [input, setInput] = useState<string>('')
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyRetryToken, setHistoryRetryToken] = useState(0)
 
-  const { messages, setMessages, sendMessage, status, stop } = useChat({
+  const { messages, setMessages, sendMessage, regenerate, clearError, status, error, stop } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
       body: { threadId },
@@ -50,13 +56,29 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
   })
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchMessages = async () => {
-      const res = await fetch(`/api/chat?threadId=${threadId}`)
-      const data = await res.json()
-      setMessages([...data])
+      setIsLoadingHistory(true)
+      setHistoryError(null)
+
+      try {
+        const res = await fetch(`/api/chat?threadId=${threadId}`)
+        if (!res.ok) throw new Error('Failed to load this conversation.')
+        const data = await res.json()
+        if (!cancelled) setMessages([...data])
+      } catch {
+        if (!cancelled) setHistoryError('Failed to load this conversation.')
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false)
+      }
     }
     fetchMessages()
-  }, [setMessages, threadId])
+
+    return () => {
+      cancelled = true
+    }
+  }, [setMessages, threadId, historyRetryToken])
 
   const handleSubmit = async () => {
     if (!input.trim()) return
@@ -65,11 +87,33 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
     setInput('')
   }
 
+  const replaceMessage = (newMessage: UIMessage) =>
+    setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden px-4">
       <Conversation className="h-full">
         <ConversationContent>
-          {messages.length === 0 && (
+          {isLoadingHistory && (
+            <div className="flex flex-1 items-center justify-center py-12 text-muted-foreground text-sm">
+              Loading conversation...
+            </div>
+          )}
+
+          {!isLoadingHistory && historyError && (
+            <Alert variant="destructive">
+              <AlertTriangleIcon className="size-4" />
+              <AlertTitle>Couldn&apos;t load this conversation</AlertTitle>
+              <AlertDescription>{historyError}</AlertDescription>
+              <AlertAction>
+                <Button size="sm" variant="outline" onClick={() => setHistoryRetryToken(token => token + 1)}>
+                  Retry
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
+
+          {!isLoadingHistory && !historyError && messages.length === 0 && (
             <ConversationEmptyState>
               <div className="flex flex-col items-center gap-3">
                 <div className="text-muted-foreground">
@@ -121,17 +165,13 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
                             city={activityPlanCity}
                             threadId={threadId}
                             disabled={status !== 'ready'}
-                            onMessage={newMessage =>
-                              setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
-                            }
+                            onMessage={replaceMessage}
                           />
                           <TripPlanReviewButton
                             city={activityPlanCity}
                             threadId={threadId}
                             disabled={status !== 'ready'}
-                            onMessage={newMessage =>
-                              setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
-                            }
+                            onMessage={replaceMessage}
                           />
                         </div>
                       )}
@@ -159,19 +199,43 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
                           const weather = toolPart.output as WeatherCardData
                           return (
                             <WeatherCard key={`${message.id}-${i}`} data={weather}>
-                              <SuggestActivitiesButton
-                                city={weather.location}
-                                threadId={threadId}
-                                onMessage={newMessage =>
-                                  setMessages(prev => [...prev.filter(m => m.id !== newMessage.id), newMessage])
-                                }
-                              />
+                              <SuggestActivitiesButton city={weather.location} threadId={threadId} onMessage={replaceMessage} />
                             </WeatherCard>
                           )
                         }
 
                         const input = toolPart.input as { location?: string } | undefined
                         return <WeatherCardLoading key={`${message.id}-${i}`} location={input?.location} />
+                      }
+
+                      if (part.type === 'tool-setTemperatureUnitTool') {
+                        const toolPart = part as ToolUIPart
+
+                        if (toolPart.state === 'output-error') {
+                          return (
+                            <div key={`${message.id}-${i}`} className="flex items-center gap-1.5 text-destructive text-xs">
+                              <ThermometerIcon className="size-3.5" />
+                              Failed to save temperature preference.
+                            </div>
+                          )
+                        }
+
+                        if (toolPart.state === 'output-available' && toolPart.output) {
+                          const result = toolPart.output as { unit: 'celsius' | 'fahrenheit'; saved: boolean }
+                          return (
+                            <div key={`${message.id}-${i}`} className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                              <ThermometerIcon className="size-3.5" />
+                              Saved temperature preference: {result.unit === 'fahrenheit' ? '°F' : '°C'}
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div key={`${message.id}-${i}`} className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                            <ThermometerIcon className="size-3.5" />
+                            Saving temperature preference...
+                          </div>
+                        )
                       }
 
                       if (part.type?.startsWith('tool-')) {
@@ -197,6 +261,28 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
               </div>
             )
           })}
+          {error && (
+            <Alert variant="destructive">
+              <AlertTriangleIcon className="size-4" />
+              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertDescription>{error.message || 'The assistant failed to respond.'}</AlertDescription>
+              <AlertAction className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    clearError()
+                    regenerate()
+                  }}
+                >
+                  Retry
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearError}>
+                  Dismiss
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
           <ConversationScrollButton />
         </ConversationContent>
       </Conversation>

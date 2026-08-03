@@ -1,14 +1,18 @@
-
-import { Mastra } from '@mastra/core/mastra';
-import { PinoLogger } from '@mastra/loggers';
-import { LibSQLStore } from '@mastra/libsql';
+import { Mastra } from "@mastra/core/mastra";
+import { PinoLogger } from "@mastra/loggers";
+import { LibSQLStore } from "@mastra/libsql";
 import { DuckDBConnection, DuckDBStore } from "@mastra/duckdb";
-import { MastraCompositeStore } from '@mastra/core/storage';
-import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
-import { weatherWorkflow } from './workflows/weather-workflow';
-import { tripPlanReviewWorkflow } from './workflows/trip-plan-review-workflow';
-import { weatherAgent } from './agents/weather-agent';
-import { tripPlannerAgent } from './agents/trip-planner-agent';
+import { MastraCompositeStore } from "@mastra/core/storage";
+import {
+  Observability,
+  MastraStorageExporter,
+  MastraPlatformExporter,
+  SensitiveDataFilter,
+} from "@mastra/observability";
+import { weatherWorkflow } from "./workflows/weather-workflow";
+import { tripPlanReviewWorkflow } from "./workflows/trip-plan-review-workflow";
+import { weatherAgent } from "./agents/weather-agent";
+import { tripPlannerAgent } from "./agents/trip-planner-agent";
 
 // DuckDB only allows a single write batch/compaction against an instance at a
 // time (its C API has no concurrent-writer support), but DuckDBConnection
@@ -19,8 +23,11 @@ import { tripPlannerAgent } from './agents/trip-planner-agent';
 // time instead of racing.
 function serializeDuckDbCalls() {
   let queue: Promise<unknown> = Promise.resolve();
-  const proto = DuckDBConnection.prototype as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
-  (['query', 'execute', 'executeBatch'] as const).forEach((method) => {
+  const proto = DuckDBConnection.prototype as unknown as Record<
+    string,
+    (...args: unknown[]) => Promise<unknown>
+  >;
+  (["query", "execute", "executeBatch"] as const).forEach((method) => {
     const original = proto[method];
     proto[method] = function (this: unknown, ...args: unknown[]) {
       const run = queue.then(() => original.apply(this, args));
@@ -40,7 +47,7 @@ async function createMastra() {
     workflows: { weatherWorkflow, tripPlanReviewWorkflow },
     agents: { weatherAgent, tripPlannerAgent },
     storage: new MastraCompositeStore({
-      id: 'composite-storage',
+      id: "composite-storage",
       default: new LibSQLStore({
         id: "mastra-storage",
         // Uses a hosted database when deployed (mastra env db create --kind turso),
@@ -49,17 +56,17 @@ async function createMastra() {
         authToken: process.env.TURSO_AUTH_TOKEN,
       }),
       domains: {
-        observability: await new DuckDBStore().getStore('observability'),
-      }
+        observability: await new DuckDBStore().getStore("observability"),
+      },
     }),
     logger: new PinoLogger({
-      name: 'Mastra',
-      level: 'info',
+      name: "Mastra",
+      level: "info",
     }),
     observability: new Observability({
       configs: {
         default: {
-          serviceName: 'mastra',
+          serviceName: "mastra",
           exporters: [
             new MastraStorageExporter(), // Persists observability events to Mastra Storage
             new MastraPlatformExporter(), // Sends observability events to Mastra Platform (if MASTRA_PLATFORM_ACCESS_TOKEN is set)
@@ -67,6 +74,10 @@ async function createMastra() {
           spanOutputProcessors: [
             new SensitiveDataFilter(), // Redacts sensitive data like passwords, tokens, keys
           ],
+          logging: {
+            enabled: true,
+            level: "info",
+          },
         },
       },
     }),
