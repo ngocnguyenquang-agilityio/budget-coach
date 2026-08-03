@@ -1,5 +1,7 @@
 import { Agent } from '@mastra/core/agent';
+import { ResponseCache } from '@mastra/core/processors';
 import { ollama } from '../model';
+import { responseCache } from '../cache';
 import { askWeatherAgentTool } from '../tools/ask-weather-agent-tool';
 import { searchDestinationGuideTool } from '../tools/search-destination-guide-tool';
 
@@ -30,4 +32,5 @@ After the last day, add exactly one closing section:
 Produce exactly the number of days requested in the user's message — no more, no fewer. Keep each activity description to one concise sentence.`,
   model: ollama('llama3.1'),
   tools: { askWeatherAgentTool, searchDestinationGuideTool },
+  inputProcessors: [new ResponseCache({ cache: responseCache, ttl: 600 })],
 });
