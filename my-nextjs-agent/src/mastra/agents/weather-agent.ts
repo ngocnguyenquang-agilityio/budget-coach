@@ -6,6 +6,7 @@ import { responseCache } from '../cache';
 import { promptInjectionGuardrail } from '../guardrails';
 import { weatherTool } from '../tools/weather-tool';
 import { setTemperatureUnitTool } from '../tools/set-temperature-unit-tool';
+import { temperatureUnitScorer } from '../scorers/temperature-unit-scorer';
 
 export const weatherAgent = new Agent({
   id: 'weather-agent',
@@ -35,4 +36,10 @@ You have a "Temperature Unit" preference available in your working memory (Prefe
       },
     },
   }),
+  scorers: {
+    temperatureUnitCompliance: {
+      scorer: temperatureUnitScorer,
+      sampling: { type: 'ratio', rate: 1 },
+    },
+  },
 });

@@ -14,6 +14,7 @@ import { weatherWorkflow } from "./workflows/weather-workflow";
 import { tripPlanReviewWorkflow } from "./workflows/trip-plan-review-workflow";
 import { weatherAgent } from "./agents/weather-agent";
 import { tripPlannerAgent } from "./agents/trip-planner-agent";
+import { temperatureUnitScorer } from "./scorers/temperature-unit-scorer";
 
 // DuckDB only allows a single write batch/compaction against an instance at a
 // time (its C API has no concurrent-writer support), but DuckDBConnection
@@ -73,6 +74,7 @@ async function createMastra() {
   return new Mastra({
     workflows: { weatherWorkflow, tripPlanReviewWorkflow },
     agents: { weatherAgent, tripPlannerAgent },
+    scorers: { temperatureUnitCompliance: temperatureUnitScorer },
     server: {
       middleware: studioMiddleware,
     },
