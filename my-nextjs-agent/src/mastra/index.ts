@@ -1,4 +1,5 @@
 import { Mastra } from "@mastra/core/mastra";
+import type { Middleware, ContextWithMastra } from "@mastra/core/server";
 import { PinoLogger } from "@mastra/loggers";
 import { LibSQLStore } from "@mastra/libsql";
 import { DuckDBConnection, DuckDBStore } from "@mastra/duckdb";
@@ -40,12 +41,41 @@ function serializeDuckDbCalls() {
   });
 }
 
+// Applies only to requests handled by Mastra's own dev/Studio server
+// (`mastra dev`, localhost:4111) or a deployed Mastra server. The Next.js
+// app's /api/chat route calls handleChatStream() in-process and never goes
+// through this server, so this middleware does not run for real chat traffic.
+const studioMiddleware: Middleware[] = [
+  async (c: ContextWithMastra, next) => {
+    const start = Date.now();
+    await next();
+    console.log(`[mastra-studio] ${c.req.method} ${c.req.url} - ${Date.now() - start}ms`);
+  },
+  {
+    path: "/api/*",
+    handler: async (c: ContextWithMastra, next) => {
+      c.header("Access-Control-Allow-Origin", process.env.MASTRA_STUDIO_ALLOWED_ORIGIN ?? "*");
+      c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+      if (c.req.method === "OPTIONS") {
+        return new Response(null, { status: 204 });
+      }
+
+      await next();
+    },
+  },
+];
+
 async function createMastra() {
   serializeDuckDbCalls();
 
   return new Mastra({
     workflows: { weatherWorkflow, tripPlanReviewWorkflow },
     agents: { weatherAgent, tripPlannerAgent },
+    server: {
+      middleware: studioMiddleware,
+    },
     storage: new MastraCompositeStore({
       id: "composite-storage",
       default: new LibSQLStore({

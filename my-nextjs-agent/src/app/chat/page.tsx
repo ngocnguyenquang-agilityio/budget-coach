@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DefaultChatTransport, ToolUIPart, type UIMessage } from 'ai'
 import { useChat } from '@ai-sdk/react'
-import { AlertTriangleIcon, BotIcon, CloudSunIcon, ThermometerIcon, UserIcon } from 'lucide-react'
+import { AlertTriangleIcon, BotIcon, CloudSunIcon, ShieldAlertIcon, ThermometerIcon, UserIcon } from 'lucide-react'
 
 import { ChatSidebar, type ChatSidebarHandle } from '@/components/chat-sidebar'
 
@@ -235,6 +235,19 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
                             <ThermometerIcon className="size-3.5" />
                             Saving temperature preference...
                           </div>
+                        )
+                      }
+
+                      if (part.type === 'data-tripwire') {
+                        const tripwireData = (part as { data?: { reason?: string } }).data
+                        return (
+                          <Alert key={`${message.id}-${i}`}>
+                            <ShieldAlertIcon className="size-4" />
+                            <AlertTitle>Message blocked</AlertTitle>
+                            <AlertDescription>
+                              {tripwireData?.reason ?? 'This message was blocked by a content guardrail.'}
+                            </AlertDescription>
+                          </Alert>
                         )
                       }
 
