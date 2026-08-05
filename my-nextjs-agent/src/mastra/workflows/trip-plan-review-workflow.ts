@@ -1,12 +1,12 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod'
 import { tripPlannerAgent } from '../agents/trip-planner-agent'
-import { RESOURCE_ID } from '../constants'
 
 const loopSchema = z.object({
   city: z.string(),
   days: z.number(),
   threadId: z.string(),
+  resourceId: z.string(),
   itinerary: z.string().optional(),
   decision: z.enum(['approve', 'revise', 'discard']).optional(),
   feedback: z.string().optional(),
@@ -18,7 +18,7 @@ const draftItinerary = createStep({
   inputSchema: loopSchema,
   outputSchema: loopSchema,
   execute: async ({ inputData, writer }) => {
-    const { city, days, threadId, feedback } = inputData
+    const { city, days, threadId, resourceId, feedback } = inputData
 
     let prompt = `Plan a ${days}-day trip to ${city}.`
     if (feedback) {
@@ -33,7 +33,7 @@ const draftItinerary = createStep({
       await writer.write({ type: 'text-delta', payload: { id: 'draft-itinerary', text: chunk } })
     }
 
-    return { city, days, threadId, itinerary, decision: undefined, feedback: undefined }
+    return { city, days, threadId, resourceId, itinerary, decision: undefined, feedback: undefined }
   },
 })
 
@@ -75,7 +75,7 @@ const finalize = createStep({
     status: z.enum(['saved', 'discarded']),
   }),
   execute: async ({ inputData, mastra }) => {
-    const { itinerary, decision, threadId } = inputData
+    const { itinerary, decision, threadId, resourceId } = inputData
 
     if (decision === 'approve' && itinerary) {
       const memory = await mastra.getAgentById('weather-agent').getMemory()
@@ -87,7 +87,7 @@ const finalize = createStep({
               role: 'assistant',
               createdAt: new Date(),
               threadId,
-              resourceId: RESOURCE_ID,
+              resourceId,
               content: {
                 format: 2,
                 parts: [{ type: 'text', text: itinerary }],
@@ -109,6 +109,7 @@ export const tripPlanReviewWorkflow = createWorkflow({
     city: z.string().describe('The city to plan a trip to'),
     days: z.number().describe('Number of days in the itinerary'),
     threadId: z.string().describe('Chat thread to persist the approved itinerary to'),
+    resourceId: z.string().describe('Mastra resource id to persist the approved itinerary under'),
   }),
   outputSchema: z.object({
     itinerary: z.string(),

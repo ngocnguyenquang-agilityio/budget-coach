@@ -1,5 +1,6 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 import { mastra } from '@/mastra'
+import { getResourceId } from '@/mastra/get-resource-id'
 import { NextResponse } from 'next/server'
 
 export async function POST(req: Request) {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     execute: async ({ writer }) => {
       const workflow = mastra.getWorkflow('tripPlanReviewWorkflow')
       const run = await workflow.createRun()
-      const runOutput = run.stream({ inputData: { city, days, threadId } })
+      const runOutput = run.stream({ inputData: { city, days, threadId, resourceId: getResourceId(req) } })
 
       writer.write({ type: 'start', messageId })
       writer.write({ type: 'text-start', id: messageId })

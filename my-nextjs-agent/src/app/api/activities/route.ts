@@ -1,6 +1,6 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 import { mastra } from '@/mastra'
-import { RESOURCE_ID } from '@/mastra/constants'
+import { getResourceId } from '@/mastra/get-resource-id'
 import { NextResponse } from 'next/server'
 
 const CHUNK_SIZE = 40
@@ -26,7 +26,7 @@ async function runActivityWorkflow(city: string): Promise<string> {
   return result.result.activities
 }
 
-async function persistActivityPlan(threadId: string, messageId: string, text: string) {
+async function persistActivityPlan(threadId: string, resourceId: string, messageId: string, text: string) {
   const memory = await mastra.getAgentById('weather-agent').getMemory()
   if (!memory) return
 
@@ -37,7 +37,7 @@ async function persistActivityPlan(threadId: string, messageId: string, text: st
         role: 'assistant',
         createdAt: new Date(),
         threadId,
-        resourceId: RESOURCE_ID,
+        resourceId,
         content: {
           format: 2,
           parts: [{ type: 'text', text }],
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
   }
 
   const messageId = crypto.randomUUID()
+  const resourceId = getResourceId(req)
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
       writer.write({ type: 'text-end', id: messageId })
       writer.write({ type: 'finish' })
 
-      await persistActivityPlan(threadId, messageId, text)
+      await persistActivityPlan(threadId, resourceId, messageId, text)
     },
   })
 

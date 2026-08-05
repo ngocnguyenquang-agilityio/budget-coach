@@ -2,7 +2,7 @@ import { handleChatStream } from '@mastra/ai-sdk'
 import { toAISdkV5Messages } from '@mastra/ai-sdk/ui'
 import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import { mastra } from '@/mastra'
-import { RESOURCE_ID } from '@/mastra/constants'
+import { getResourceId } from '@/mastra/get-resource-id'
 import { NextResponse } from 'next/server'
 
 function extractLatestUserText(messages: unknown[]): string | null {
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       memory: {
         ...params.memory,
         thread: threadId,
-        resource: RESOURCE_ID,
+        resource: getResourceId(req),
       },
     },
   })
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
   try {
     response = await memory?.recall({
       threadId,
-      resourceId: RESOURCE_ID,
+      resourceId: getResourceId(req),
     })
   } catch {
     console.log('No previous messages found.')

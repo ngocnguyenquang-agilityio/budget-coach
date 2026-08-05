@@ -1,9 +1,9 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from 'ai'
 import { mastra } from '@/mastra'
-import { RESOURCE_ID } from '@/mastra/constants'
+import { getResourceId } from '@/mastra/get-resource-id'
 import { NextResponse } from 'next/server'
 
-async function persistTripPlan(threadId: string, messageId: string, text: string) {
+async function persistTripPlan(threadId: string, resourceId: string, messageId: string, text: string) {
   const memory = await mastra.getAgentById('weather-agent').getMemory()
   if (!memory) return
 
@@ -14,7 +14,7 @@ async function persistTripPlan(threadId: string, messageId: string, text: string
         role: 'assistant',
         createdAt: new Date(),
         threadId,
-        resourceId: RESOURCE_ID,
+        resourceId,
         content: {
           format: 2,
           parts: [{ type: 'text', text }],
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
   }
 
   const messageId = crypto.randomUUID()
+  const resourceId = getResourceId(req)
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       writer.write({ type: 'text-end', id: messageId })
       writer.write({ type: 'finish' })
 
-      await persistTripPlan(threadId, messageId, text)
+      await persistTripPlan(threadId, resourceId, messageId, text)
     },
   })
 

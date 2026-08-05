@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { mastra } from '@/mastra'
+import { getResourceId } from '@/mastra/get-resource-id'
 
-const RESOURCE_ID = 'weather-chat'
-
-export async function GET() {
+export async function GET(req: Request) {
   const memory = await mastra.getAgentById('weather-agent').getMemory()
 
   if (!memory) {
@@ -11,7 +10,7 @@ export async function GET() {
   }
 
   const result = await memory.listThreads({
-    filter: { resourceId: RESOURCE_ID },
+    filter: { resourceId: getResourceId(req) },
     orderBy: { field: 'updatedAt', direction: 'DESC' },
     perPage: false,
   })
@@ -26,14 +25,14 @@ export async function GET() {
   return NextResponse.json(threads)
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const memory = await mastra.getAgentById('weather-agent').getMemory()
 
   if (!memory) {
     return NextResponse.json({ error: 'weather-agent has no Memory instance configured' }, { status: 500 })
   }
 
-  const thread = await memory.createThread({ resourceId: RESOURCE_ID })
+  const thread = await memory.createThread({ resourceId: getResourceId(req) })
 
   return NextResponse.json({
     id: thread.id,
