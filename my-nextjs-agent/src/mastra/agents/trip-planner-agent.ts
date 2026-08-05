@@ -5,6 +5,8 @@ import { responseCache } from '../cache';
 import { promptInjectionGuardrail } from '../guardrails';
 import { askWeatherAgentTool } from '../tools/ask-weather-agent-tool';
 import { searchDestinationGuideTool } from '../tools/search-destination-guide-tool';
+import { tripItineraryFormatScorer } from '../scorers/trip-itinerary-format-scorer';
+import { tripToolUsageScorer } from '../scorers/trip-tool-usage-scorer';
 
 export const tripPlannerAgent = new Agent({
   id: 'trip-planner-agent',
@@ -34,4 +36,14 @@ Produce exactly the number of days requested in the user's message — no more, 
   model: ollama('llama3.1'),
   tools: { askWeatherAgentTool, searchDestinationGuideTool },
   inputProcessors: [promptInjectionGuardrail, new ResponseCache({ cache: responseCache, ttl: 600 })],
+  scorers: {
+    tripItineraryFormat: {
+      scorer: tripItineraryFormatScorer,
+      sampling: { type: 'ratio', rate: 1 },
+    },
+    tripToolUsage: {
+      scorer: tripToolUsageScorer,
+      sampling: { type: 'ratio', rate: 1 },
+    },
+  },
 });

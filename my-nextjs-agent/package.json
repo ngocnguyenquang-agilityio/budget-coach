@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:guides": "tsx scripts/seed-destination-guides.ts"
+    "seed:guides": "tsx scripts/seed-destination-guides.ts",
+    "eval:guardrail": "tsx scripts/guardrail-eval.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.16",
