@@ -30,6 +30,10 @@ You have a "Temperature Unit" preference available in your working memory (Prefe
   inputProcessors: [promptInjectionGuardrail, new ResponseCache({ cache: responseCache, ttl: 300 })],
   memory: new Memory({
     options: {
+      // Explicit cap on recalled thread history sent to llama3.1 (limited context
+      // window via Ollama) each turn. The client only sends the newest message
+      // (see chat/page.tsx), so this is the sole source of history bounding.
+      lastMessages: 10,
       workingMemory: {
         enabled: true,
         template: `# Preferences\n- Temperature Unit: [celsius | fahrenheit]`,

@@ -51,6 +51,19 @@ function ChatPanel({ threadId, onMessageFinished }: { threadId: string; onMessag
     transport: new DefaultChatTransport({
       api: '/api/chat',
       body: { threadId },
+      // Mastra recalls thread history from memory itself (bounded by lastMessages);
+      // resending the full transcript on every turn is redundant and makes it grow
+      // unbounded. Regenerate is left as-is since it needs to look back past the
+      // message being redone, and it's a rare manual action rather than a per-turn cost.
+      prepareSendMessagesRequest: ({ id, messages, trigger, messageId, body }) => ({
+        body: {
+          ...body,
+          id,
+          trigger,
+          messageId,
+          messages: trigger === 'regenerate-message' ? messages : messages.slice(-1),
+        },
+      }),
     }),
     onFinish: onMessageFinished,
   })
