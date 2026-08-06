@@ -36,6 +36,14 @@ pnpm build
 
 **Prerequisite:** Ollama must be running with `llama3.1` pulled (`ollama serve`). Or set `MODEL_PROVIDER=google` in `.env` to use Gemini instead.
 
+## Dependency versions
+
+Key packages are pinned to their latest **stable** releases as of 2026-08-06: `@ag-ui/mastra` 1.1.1 (up from a `0.2.x` beta), `@mastra/libsql`/`@mastra/memory`/`mastra`/`@mastra/client-js` (up from alpha releases), `@ai-sdk/openai` v4, `zod` v4.
+
+- **`typescript` is pinned to `^6.0.3`, not the `latest` dist-tag (`7.x`).** TypeScript 7 is the native/Go-ported compiler; as of this pin it breaks `next.config.ts` loading (`Cannot read properties of undefined (reading 'fileExists')`) and has an unmet peer dep in Mastra's build tooling (`typescript-paths` wants `^4.7.2 || ^5 || ^6`). Don't bump past `6.x` until the Next.js/Mastra toolchains support the TS7 compiler.
+- **`tsconfig.json` sets `"noUncheckedSideEffectImports": false`.** TS 6 defaults this on, which errors on side-effect CSS imports (`import "./globals.css"`) that have no ambient module declaration — Next.js's own type shims only cover `*.module.css`, not plain stylesheet imports. Required for `tsc --noEmit` to pass; `next build` itself doesn't typecheck by default so this only surfaces via explicit `tsc`.
+- **`@mastra/client-js`'s transitive `@ai-sdk/ui-utils`** still wants `zod@^3.23.8` and shows as an unmet peer warning after the zod v4 bump. It's an unused legacy dependency path (not exercised by anything in this repo) — safe to ignore until Mastra drops it upstream.
+
 ## Architecture
 
 This is a **chat-first personal budget coach** that exercises the full CopilotKit v2 + Mastra + AG-UI stack end to end.

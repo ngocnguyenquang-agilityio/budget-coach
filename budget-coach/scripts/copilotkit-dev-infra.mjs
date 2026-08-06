@@ -6,15 +6,12 @@
 // yourself.
 import { existsSync, readFileSync } from 'node:fs';
 
-/** Vendor API keys this scaffold needs before chat and generations will work. */
-const REQUIRED_ENV_KEYS = [
-  {
-    "key": "OPENAI_API_KEY",
-    "note": "Required by the agent runtime.",
-    "url": "https://platform.openai.com/api-keys",
-    "example": "sk-..."
-  }
-];
+/**
+ * Vendor API keys this scaffold needs before chat and generations will work.
+ * Empty: the default model provider is local Ollama (see src/mastra/model.ts),
+ * which needs no API key. Set MODEL_PROVIDER=google to require a Gemini key instead.
+ */
+const REQUIRED_ENV_KEYS = [];
 
 /**
  * Mock-provider base-URL map baked at scaffold time, keyed by vendor API-key
