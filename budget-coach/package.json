@@ -9,7 +9,8 @@
     "dev:debug": "LOG_LEVEL=debug pnpm run dev",
     "build": "next build",
     "start": "next start",
-    "dev:infra": "node scripts/copilotkit-dev-infra.mjs"
+    "dev:infra": "node scripts/copilotkit-dev-infra.mjs",
+    "seed": "tsx scripts/seed-db.ts"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
@@ -23,6 +24,7 @@
     "@mastra/core": "1.57.0",
     "@mastra/libsql": "1.19.0",
     "@mastra/memory": "1.26.0",
+    "@mastra/observability": "1.16.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.7",

@@ -5,6 +5,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createLocalAgents } from "@/agent";
+import { getResourceId } from "@/mastra/get-resource-id";
 
 const runtime = new CopilotRuntime({
   agents: createLocalAgents(),
@@ -17,9 +18,13 @@ const runtime = new CopilotRuntime({
           wsUrl:
             process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         }),
-        // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-        // before any multi-user deployment, or all users share one thread history.
-        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        // Scoped to the per-browser resourceId set by src/middleware.ts, so
+        // Intelligence thread history isolates the same way Mastra working
+        // memory does — not a real auth identity.
+        identifyUser: (request: Request) => ({
+          id: getResourceId(request),
+          name: "Budget Coach User",
+        }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
