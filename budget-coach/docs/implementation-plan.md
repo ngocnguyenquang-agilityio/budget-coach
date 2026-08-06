@@ -76,7 +76,7 @@ Seeding is per-`resourceId` and runs lazily on first read, so each browser gets 
 
 ## Step 2 — Mastra infrastructure
 
-Mirror `my-nextjs-agent`'s proven patterns, minus the DuckDB observability layer (it adds Windows file-lock complexity and wasn't in scope).
+Mirror `my-nextjs-agent`'s proven patterns, minus DuckDB (it adds Windows file-lock complexity). Observability instead uses `@mastra/observability`'s `MastraStorageExporter`, writing traces to the same file-backed LibSQL store already required for suspend/resume — no extra infra, no file-lock risk.
 
 - **`src/mastra/model.ts`** — env-swappable provider:
   ```ts
@@ -88,6 +88,7 @@ Mirror `my-nextjs-agent`'s proven patterns, minus the DuckDB observability layer
     : ollama(process.env.OLLAMA_MODEL ?? "llama3.1");
   ```
 - **`src/mastra/storage.ts`** — `new LibSQLStore({ id: "budget-coach-storage", url: "file:./budget-coach.db" })`. Must be file-backed; an in-memory DB breaks suspend/resume because pooled connections each see an empty DB.
+- **`src/mastra/observability.ts`** — `new Observability({ configs: { default: { serviceName: "budget-coach", exporters: [new MastraStorageExporter()] } } })` from `@mastra/observability`, passed as `observability` on the `Mastra` instance. `MastraStorageExporter` writes spans to the same LibSQL store above, so traces for every agent/tool/workflow call show up in Mastra Studio with zero extra infra.
 - **`src/middleware.ts`** + **`src/mastra/get-resource-id.ts`** — copy `my-nextjs-agent`'s per-browser `resource_id` httpOnly cookie → `x-resource-id` header pattern verbatim. Widen the matcher to cover `/api/copilotkit/:path*` as well as `/api/:path*`.
 - **`src/mastra/processors/blocked-phrase-guardrail.ts`** — port `my-nextjs-agent`'s `Processor` implementation as-is (`readonly id`, sync `processInput({messages, abort})`, checks only the latest user message, calls `abort(...)` rather than throwing).
 - **`src/mastra/guardrails.ts`** — two instances:

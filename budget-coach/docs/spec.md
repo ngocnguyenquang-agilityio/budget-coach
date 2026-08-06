@@ -16,6 +16,8 @@ Planning artifact from the grilling session, captured before implementation plan
 | LLM — dev | Ollama, `llama3.1` (local) | Mirrors `my-nextjs-agent/src/mastra/model.ts` pattern |
 | LLM — prod | Google Gemini | Swap via env var when deploying; deploy target/platform out of scope for now |
 | Currency/locale | Hardcoded USD | No i18n/multi-currency |
+| Eval | Deterministic Mastra scorers (`createScorer`, no LLM judge) | Attached per-agent, viewable in Mastra Studio |
+| Observability | `@mastra/observability`, `MastraStorageExporter` | Writes traces to the same file-backed LibSQL store; viewed in Mastra Studio — no DuckDB, avoids Windows file-lock issues |
 
 ## Domain
 
@@ -44,6 +46,7 @@ Personal Budget Coach — chat-based budgeting assistant with a seeded transacti
 - **Remembers your goals** — tell it about a savings goal (e.g. "saving $2,000 for a trip by December") and it keeps that in mind across conversations, even after you close the tab and come back later.
 - **Quick add-transaction shortcut** — when you mention a purchase in chat, it can pop open a pre-filled form so you can add it with one click instead of typing everything out.
 - **Stays on topic and safe** — it's built to stick to budgeting help and won't offer real investment/financial advice, and it's hardened against attempts to manipulate it into ignoring its instructions.
+- **Quality checks under the hood** — categorization accuracy, on-topic scope, and budget-adjustment sanity are scored automatically after every run, and every agent/tool/workflow call is traced, both viewable in Mastra Studio.
 - **Picks up where you left off** — your transaction history, budgets, and chat history are saved, so nothing resets when you refresh or come back the next day. Each browser gets its own separate budget.
 
 ## Explicitly Out of Scope (for now)
