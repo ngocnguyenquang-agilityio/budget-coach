@@ -11,3 +11,25 @@ export function getResourceId(req: Request): string {
 
   return resourceId;
 }
+
+// Tools resolve resourceId two ways: `context.agent.resourceId` when the
+// caller is an agent invoked with `memory.resource` set (the Coach's own
+// tools), or `context.requestContext` when a tool is invoked by a memory-less
+// sub-agent (e.g. the Analyst, called by the Coach's analyze-spending tool,
+// which threads resourceId through requestContext rather than trusting the
+// model to pass it as a normal argument).
+export function resolveResourceId(context: {
+  agent?: { resourceId?: string };
+  requestContext?: { get(key: string): unknown };
+}): string {
+  const resourceId =
+    context.agent?.resourceId ?? (context.requestContext?.get("resourceId") as string | undefined);
+
+  if (!resourceId) {
+    throw new Error(
+      "Missing resourceId — call the agent with memory.resource set, or pass resourceId via requestContext"
+    );
+  }
+
+  return resourceId;
+}
