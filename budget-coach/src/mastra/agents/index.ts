@@ -4,7 +4,6 @@ import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import { model } from "@/mastra/model";
-import { promptInjectionGuardrail, financialAdviceGuardrail } from "@/mastra/guardrails";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -16,9 +15,6 @@ export const weatherAgent = new Agent({
   tools: { weatherTool },
   model,
   instructions: "You are a helpful assistant.",
-  // TODO(Day 3): move to the Coach agent once it exists; kept here for now so
-  // the guardrails are testable against the only registered agent.
-  inputProcessors: [promptInjectionGuardrail, financialAdviceGuardrail],
   memory: new Memory({
     storage: new LibSQLStore({
       id: "weather-agent-memory",
@@ -33,3 +29,7 @@ export const weatherAgent = new Agent({
     },
   }),
 });
+
+export { categorizerAgent } from "./categorizer";
+export { analystAgent } from "./analyst";
+export { coachAgent } from "./coach";
