@@ -1,15 +1,4 @@
 {
-  "extraKnownMarketplaces": {
-    "mattpocock": {
-      "source": {
-        "source": "github",
-        "repo": "mattpocock/skills"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "mattpocock-skills@mattpocock": true
-  },
   "hooks": {
     "PostToolUse": [
       {
@@ -17,13 +6,24 @@
         "hooks": [
           {
             "type": "agent",
-            "model": "claude-sonnet-5",
             "prompt": "You are the code-reviewer agent for this repo (see .claude/agents/code-reviewer.md). A file was just edited via the Edit/Write/NotebookEdit tool. Run `git diff` to see what changed (fall back to `git diff HEAD` if needed) and review just that change for: correctness bugs, security issues, and violations of this repo's CLAUDE.md conventions (Mastra agents referenced by registration key not id; CopilotChatConfigurationProvider must stay uncontrolled; storage must stay file-backed LibSQL; @ag-ui/* versions must stay pinned; workflow suspends must use `return suspend(...)` not `await suspend()`; useRenderTool schema fields must all be .optional(); tool `result` values must be parsed defensively as JSON strings; useHumanInTheLoop/useFrontendTool names must match the tools map key; only the Coach agent carries Memory, scoped to \"resource\"). Do not flag style nits a linter would catch. Report findings ranked most-severe first with file:line and the concrete failure scenario. If nothing survives scrutiny, say so plainly.\n\nTool call details:\n$ARGUMENTS",
             "timeout": 120,
+            "model": "claude-sonnet-5",
             "statusMessage": "code-reviewer agent checking the change..."
           }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "mattpocock-skills@mattpocock": true
+  },
+  "extraKnownMarketplaces": {
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
+    }
   }
 }

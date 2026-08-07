@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "dev:infra": "node scripts/copilotkit-dev-infra.mjs",
-    "seed": "tsx scripts/seed-db.ts"
+    "seed": "tsx scripts/seed-db.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
@@ -45,7 +46,8 @@
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@ag-ui/client": "0.0.57",
