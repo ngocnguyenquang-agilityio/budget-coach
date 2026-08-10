@@ -1,9 +1,9 @@
 import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
-import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
 import { model } from "@/mastra/model";
+import { storage } from "@/mastra/storage";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -16,10 +16,7 @@ export const weatherAgent = new Agent({
   model,
   instructions: "You are a helpful assistant.",
   memory: new Memory({
-    storage: new LibSQLStore({
-      id: "weather-agent-memory",
-      url: "file::memory:",
-    }),
+    storage,
     options: {
       workingMemory: {
         enabled: true,
