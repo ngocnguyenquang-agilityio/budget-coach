@@ -1,15 +1,70 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { resolveResourceId } from "@/mastra/get-resource-id";
+import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { MonthlyReviewSuspendSchema, MonthlyReviewResumeSchema } from "@/mastra/workflows/monthly-review-workflow";
 
-// Stub only — ticket 04 replaces this with the real suspend/resume wiring
-// against monthlyReviewWorkflow's approvalGate (`suspendSchema`/`resumeSchema`,
-// `return suspend(...)`, never `await suspend()`).
+// The Coach's entry point into monthlyReviewWorkflow. Suspends server-side
+// (tool-level suspend, distinct from the workflow's own approvalGate suspend)
+// so CopilotKit v2's useInterrupt can render the proposal and relay the
+// user's decision back via resumeData.
 export const approveBudgetTool = createTool({
   id: "approve-budget",
-  description: "Approve or reject proposed category limit adjustments from a Monthly Review.",
+  description: "Run the Monthly Review and approve or reject the proposed category limit adjustments.",
   inputSchema: z.object({}),
+  suspendSchema: MonthlyReviewSuspendSchema,
+  resumeSchema: MonthlyReviewResumeSchema,
   outputSchema: z.object({ message: z.string() }),
-  execute: async () => ({
-    message: "Monthly Review approval isn't wired up yet — check back after ticket 04.",
-  }),
+  execute: async (_input, context) => {
+    const resourceId = resolveResourceId(context);
+    const threadId = context.agent?.threadId;
+    if (!threadId) {
+      throw new Error("Missing threadId — approveBudget must be called within an agent thread");
+    }
+
+    const { resumeData, suspend } = context.agent ?? {};
+    if (!suspend) {
+      throw new Error("Missing suspend — approveBudget must be called within an agent thread");
+    }
+
+    const workflow = context.mastra?.getWorkflow("monthlyReviewWorkflow");
+    if (!workflow) {
+      throw new Error("monthlyReviewWorkflow is not registered");
+    }
+
+    if (resumeData) {
+      const coachAgent = context.mastra?.getAgent("coach");
+      const memory = await coachAgent?.getMemory();
+      const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
+      const pending = parseWorkingMemory(raw).pendingApproval as { runId?: string } | undefined;
+
+      if (!pending?.runId) {
+        return { message: "There's no pending Monthly Review to respond to." };
+      }
+
+      const run = await workflow.createRun({ runId: pending.runId });
+      await run.resume({ resumeData });
+
+      return {
+        message:
+          resumeData.decision === "approve"
+            ? "Approved — your new category limits are saved."
+            : "Rejected — your budget is unchanged.",
+      };
+    }
+
+    // Always starts a fresh run. If /api/monthly-review/ensure already
+    // suspended an earlier run for this resourceId, that run is superseded —
+    // approvalGate overwrites pendingApproval with this run's id.
+    const run = await workflow.createRun();
+    const result = await run.start({ inputData: { resourceId, threadId } });
+
+    if (result.status === "suspended") {
+      // result.suspendPayload is keyed by suspended step id, not the flat
+      // payload — read the approval-gate step's own suspendPayload instead.
+      return suspend(result.steps["approval-gate"].suspendPayload);
+    }
+
+    return { message: "No budget changes were needed this month." };
+  },
 });
