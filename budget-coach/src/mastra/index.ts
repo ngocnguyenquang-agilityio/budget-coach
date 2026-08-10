@@ -3,6 +3,7 @@ import { weatherAgent, categorizerAgent, analystAgent, coachAgent } from "./agen
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { storage } from "./storage";
 import { observability } from "./observability";
+import { monthlyReviewWorkflow } from "./workflows/monthly-review-workflow";
 
 const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 
@@ -12,6 +13,9 @@ export const mastra = new Mastra({
     categorizer: categorizerAgent,
     analyst: analystAgent,
     coach: coachAgent,
+  },
+  workflows: {
+    monthlyReviewWorkflow,
   },
   storage,
   observability,
