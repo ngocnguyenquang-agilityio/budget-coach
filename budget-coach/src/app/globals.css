@@ -39,6 +39,19 @@
   /* Drawer typography follows mastra's Geist app font stack. */
   --font-body: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --font-code: var(--font-geist-mono), "SFMono-Regular", Menlo, monospace;
+
+  /* Categorical chart palette (light) — validated for CVD-safe adjacent
+     pairs via the dataviz skill's palette.md / validate_palette.js. Fixed
+     hue-per-slot order, never cycled. */
+  --chart-1: #2a78d6; /* blue */
+  --chart-2: #eb6834; /* orange */
+  --chart-3: #1baf7a; /* aqua */
+  --chart-4: #eda100; /* yellow */
+  --chart-5: #e87ba4; /* magenta */
+  --chart-6: #008300; /* green */
+  --chart-7: #4a3aa7; /* violet */
+  --chart-8: #e34948; /* red */
+  --chart-neutral: #78716c; /* uncategorized/"Other" — deliberately outside the categorical set */
 }
 
 @theme inline {
@@ -48,12 +61,11 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* The dashboard sits beside a chat sidebar that's hard-pinned to CopilotKit's
+   LIGHT V2 design system (see below) — there's no dark counterpart for it to
+   match, so a dark dashboard can only ever look inconsistent next to it. The
+   whole product commits to the light theme instead of flipping with the OS
+   color scheme. */
 
 /* mastra's CopilotSidebar (CopilotKit's V2 chat) stays LIGHT regardless of the
    OS color scheme, so the threads panel is held light too — otherwise it would
