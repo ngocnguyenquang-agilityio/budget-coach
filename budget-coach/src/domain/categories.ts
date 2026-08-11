@@ -16,3 +16,7 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 export const CategorySchema = z.enum(CATEGORIES);
+
+// Shared shape for a per-category limit map — not every category need have
+// one, hence Partial rather than Record.
+export type CategoryLimits = Partial<Record<Category, number>>;

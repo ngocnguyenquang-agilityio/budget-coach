@@ -25,7 +25,7 @@ const RootLayout = ({
   children: React.ReactNode;
 }>) => {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       {/*
         suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
         attributes like data-gr-ext-installed onto <body> before React hydrates,

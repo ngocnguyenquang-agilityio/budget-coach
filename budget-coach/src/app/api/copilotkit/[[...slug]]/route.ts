@@ -8,7 +8,12 @@ import { createLocalAgents } from "@/agent";
 import { getResourceId } from "@/mastra/get-resource-id";
 
 const runtime = new CopilotRuntime({
-  agents: createLocalAgents(),
+  // Agents are constructed per-request (not once at module scope) so each
+  // Mastra agent's `resourceId` matches the per-browser id middleware.ts
+  // derives from the `resource_id` cookie — otherwise memory/tool writes get
+  // scoped to the AG-UI thread id instead, diverging from what GET
+  // /api/transactions reads.
+  agents: ({ request }) => createLocalAgents(getResourceId(request)),
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {

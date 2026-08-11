@@ -11,6 +11,12 @@ Adapted from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpa
 3. **Surgical changes** — touch only what the task requires; don't refactor or "improve" adjacent code; match existing style; remove only the imports/vars your own change orphaned.
 4. **Goal-driven execution** — turn vague asks into verifiable success criteria (e.g. "fix the bug" → reproduce with a test, then make it pass) and loop until verified, per the Verification checklist below.
 
+## Code style
+
+- Always use arrow functions (`const foo = () => {}`), not `function` declarations.
+- Constants (e.g. color palettes, fixed lookup tables) belong in `src/constants/`, not inline in the file that uses them.
+- `src/app/**/page.tsx` files must stay thin shells (layout/providers only) — extract any real component (e.g. a `Dashboard`) into `src/components/` and import it.
+
 ## Planning requests
 
 If the user's message contains planning-related keywords ("plan", "planning", "roadmap", "design a plan", "implementation plan", "how should we approach") for a non-trivial change, call `EnterPlanMode` first, then delegate the design work to the `planner` subagent (`.claude/agents/planner.md`, runs on Opus, read-only). Present its output to the user for approval via `ExitPlanMode` before writing any code.
@@ -34,7 +40,7 @@ pnpm dev:debug
 pnpm build
 ```
 
-**Prerequisite:** Ollama must be running with `llama3.1` pulled (`ollama serve`). Or set `MODEL_PROVIDER=google` in `.env` to use Gemini instead.
+**Prerequisite:** Ollama must be running with `qwen2.5:7b` pulled (`ollama serve`). Or set `MODEL_PROVIDER=google` in `.env` to use Gemini instead.
 
 ## Dependency versions
 
@@ -113,7 +119,7 @@ Each browser gets its own `resourceId` via an httpOnly cookie → `x-resource-id
 ```env
 OPENAI_API_KEY=           # or swap to Ollama/Gemini
 OLLAMA_BASE_URL=          # default: http://localhost:11434/v1
-OLLAMA_MODEL=             # default: llama3.1
+OLLAMA_MODEL=             # default: qwen2.5:7b
 MODEL_PROVIDER=google     # set to use Gemini instead of Ollama
 LOG_LEVEL=debug           # optional verbose logging
 

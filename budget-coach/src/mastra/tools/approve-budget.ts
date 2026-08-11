@@ -53,9 +53,15 @@ export const approveBudgetTool = createTool({
       };
     }
 
-    // Always starts a fresh run. If /api/monthly-review/ensure already
-    // suspended an earlier run for this resourceId, that run is superseded —
-    // approvalGate overwrites pendingApproval with this run's id.
+    const coachAgent = context.mastra?.getAgent("coach");
+    const memory = await coachAgent?.getMemory();
+    const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
+    const lastReviewDate = parseWorkingMemory(raw).lastReviewDate as string | undefined;
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (lastReviewDate?.slice(0, 7) === currentMonth) {
+      return { message: "You've already completed this month's budget review." };
+    }
+
     const run = await workflow.createRun();
     const result = await run.start({ inputData: { resourceId, threadId } });
 

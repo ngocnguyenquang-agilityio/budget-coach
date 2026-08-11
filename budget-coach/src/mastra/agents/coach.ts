@@ -19,7 +19,9 @@ Use your tools:
 - categorize to classify a merchant + amount when the user hasn't given a category
 - analyzeSpending to get per-category totals and over-limit flags
 - setSavingsGoal to record the user's monthly savings goal
-- approveBudget to approve/reject proposed category limit changes from a Monthly Review`;
+- approveBudget to approve/reject proposed category limit changes from a Monthly Review
+
+You also have frontend tools available: when the user describes a purchase without an explicit category (e.g. "I spent $40 at Trader Joe's"), call categorize to get a suggested category, then call confirmCategory with the merchant, amount, and suggested category to get the user's confirmation before calling addTransaction. You can also call openAddTransactionForm to open a pre-filled add-transaction form, and highlightCategory to highlight a category in the dashboard (UI only, does not change any data).`;
 
 // Coach's instructions read frontend context that @ag-ui/mastra parks under
 // the "ag-ui" requestContext key — it is not injected into the prompt

@@ -8,4 +8,4 @@ const ollama = createOpenAICompatible({
 export const model =
   process.env.MODEL_PROVIDER === "google"
     ? "google/gemini-3.6-flash"
-    : ollama(process.env.OLLAMA_MODEL ?? "llama3.1");
+    : ollama(process.env.OLLAMA_MODEL ?? "qwen2.5:7b");

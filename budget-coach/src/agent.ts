@@ -8,9 +8,10 @@ import { mastra } from "@/mastra";
  * Unlike the HTTP-backed starters there is no agent server here: the agents run
  * in this process.
  */
-export const createLocalAgents = (): Record<string, AbstractAgent> => {
-  // @ts-expect-error - ignore for now, typing error
-  return MastraAgent.getLocalAgents({ mastra }) as Record<
+export const createLocalAgents = (
+  resourceId: string
+): Record<string, AbstractAgent> => {
+  return MastraAgent.getLocalAgents({ mastra, resourceId }) as Record<
     string,
     AbstractAgent
   >;
