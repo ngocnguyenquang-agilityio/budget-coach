@@ -9,6 +9,7 @@ import { categorizeTool } from "@/mastra/tools/categorize";
 import { analyzeSpendingTool } from "@/mastra/tools/analyze-spending";
 import { setSavingsGoalTool } from "@/mastra/tools/set-savings-goal";
 import { approveBudgetTool } from "@/mastra/tools/approve-budget";
+import { coachScopeScorer } from "@/mastra/scorers/coach-scope";
 
 const BASE_INSTRUCTIONS = `You are the Budget Coach — a friendly, practical personal budgeting assistant.
 
@@ -36,6 +37,12 @@ export const coachAgent = new Agent({
     return `${BASE_INSTRUCTIONS}\n\nFrontend context:\n${JSON.stringify(frontendContext)}`;
   },
   inputProcessors: [promptInjectionGuardrail, financialAdviceGuardrail],
+  scorers: {
+    coachScope: {
+      scorer: coachScopeScorer,
+      sampling: { type: "ratio", rate: 1 },
+    },
+  },
   tools: {
     listTransactions: listTransactionsTool,
     addTransaction: addTransactionTool,
