@@ -5,6 +5,7 @@ import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits } from "@/domain/propose-limits";
 import { listTransactions, seedIfEmpty } from "@/db/transactions";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reasonableness";
 
 // partialRecord, not record — see src/mastra/tools/analyze-transactions.ts for
 // why Zod v4's z.record with an enum key schema doesn't fit here.
@@ -13,7 +14,10 @@ const CategoryLimitsSchema = z.partialRecord(CategorySchema, z.number());
 // Shared by every step as both inputSchema and outputSchema, so resourceId
 // (and the bookkeeping threadId used for Coach working-memory reads/writes)
 // flows through the whole pipeline unchanged.
-const reviewSchema = z.object({
+// Exported so adjustmentReasonablenessScorer (src/mastra/scorers/adjustment-reasonableness.ts)
+// can type its run.input/run.output against the same shape the
+// proposeAdjustments step actually reads and returns.
+export const reviewSchema = z.object({
   resourceId: z.string(),
   threadId: z.string(),
   categoryLimits: CategoryLimitsSchema.optional(),
@@ -82,6 +86,12 @@ const proposeAdjustments = createStep({
   description: "Proposes new category limits at ~110% of trailing spend — same formula for a first run or a later adjustment.",
   inputSchema: reviewSchema,
   outputSchema: reviewSchema,
+  scorers: {
+    adjustmentReasonableness: {
+      scorer: adjustmentReasonablenessScorer,
+      sampling: { type: "ratio", rate: 1 },
+    },
+  },
   execute: async ({ inputData }) => {
     const analysis = inputData.analysis ?? { categoryTotals: [], trailingSpend: 0 };
     const proposedLimits = proposeCategoryLimits(analysis);

@@ -4,6 +4,9 @@ import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { storage } from "./storage";
 import { observability } from "./observability";
 import { monthlyReviewWorkflow } from "./workflows/monthly-review-workflow";
+import { categorizerAccuracyScorer } from "./scorers/categorizer-accuracy";
+import { coachScopeScorer } from "./scorers/coach-scope";
+import { adjustmentReasonablenessScorer } from "./scorers/adjustment-reasonableness";
 
 const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 
@@ -16,6 +19,11 @@ export const mastra = new Mastra({
   },
   workflows: {
     monthlyReviewWorkflow,
+  },
+  scorers: {
+    categorizerAccuracy: categorizerAccuracyScorer,
+    coachScope: coachScopeScorer,
+    adjustmentReasonableness: adjustmentReasonablenessScorer,
   },
   storage,
   observability,
