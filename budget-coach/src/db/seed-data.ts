@@ -10,11 +10,11 @@ interface SeedTransaction {
 
 // Trailing-30-days offsets from "today" at seed time, so the data always
 // looks recent regardless of when the app is run.
-function daysAgo(n: number): string {
+const daysAgo = (n: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toISOString().slice(0, 10);
-}
+};
 
 // ~28 transactions across the trailing 30 days spanning most categories.
 // Dining and Shopping are deliberately heavy so the first Monthly Review

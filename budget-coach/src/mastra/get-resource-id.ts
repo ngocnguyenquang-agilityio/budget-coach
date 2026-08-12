@@ -2,7 +2,7 @@
 // scoping Mastra memory (working memory, thread listings) and transactions
 // to the visitor making the request instead of sharing one resource across
 // everyone.
-export function getResourceId(req: Request): string {
+export const getResourceId = (req: Request): string => {
   const resourceId = req.headers.get("x-resource-id");
 
   if (!resourceId) {
@@ -10,7 +10,7 @@ export function getResourceId(req: Request): string {
   }
 
   return resourceId;
-}
+};
 
 // Tools resolve resourceId two ways: `context.agent.resourceId` when the
 // caller is an agent invoked with `memory.resource` set (the Coach's own
@@ -18,10 +18,10 @@ export function getResourceId(req: Request): string {
 // sub-agent (e.g. the Analyst, called by the Coach's analyze-spending tool,
 // which threads resourceId through requestContext rather than trusting the
 // model to pass it as a normal argument).
-export function resolveResourceId(context: {
+export const resolveResourceId = (context: {
   agent?: { resourceId?: string };
   requestContext?: { get(key: string): unknown };
-}): string {
+}): string => {
   const resourceId =
     context.agent?.resourceId ?? (context.requestContext?.get("resourceId") as string | undefined);
 
@@ -32,4 +32,4 @@ export function resolveResourceId(context: {
   }
 
   return resourceId;
-}
+};

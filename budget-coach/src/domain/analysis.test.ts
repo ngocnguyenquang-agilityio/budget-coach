@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { computeAnalysis } from "./analysis";
 
-function daysAgo(n: number): string {
+const daysAgo = (n: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toISOString().slice(0, 10);
-}
+};
 
 describe("computeAnalysis", () => {
   it("sums amounts per category exactly, excluding Income", () => {

@@ -7,9 +7,9 @@ import { middleware } from "./middleware";
 // itself under this prefix for the edge runtime to replay downstream.
 const FORWARDED_HEADER_PREFIX = "x-middleware-request-";
 
-function forwardedHeader(res: ReturnType<typeof middleware>, name: string): string | null {
+const forwardedHeader = (res: ReturnType<typeof middleware>, name: string): string | null => {
   return res.headers.get(`${FORWARDED_HEADER_PREFIX}${name}`);
-}
+};
 
 describe("middleware resourceId assignment", () => {
   it("assigns two different browsers (no existing cookie) two different resourceIds", () => {

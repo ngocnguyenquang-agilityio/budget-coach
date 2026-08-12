@@ -1,7 +1,7 @@
 import type { Processor, ProcessInputArgs, ProcessInputResult } from "@mastra/core/processors";
 import type { MastraDBMessage } from "@mastra/core/memory";
 
-function getMessageText(message: MastraDBMessage): string {
+const getMessageText = (message: MastraDBMessage): string => {
   let text = "";
 
   if (message.content.parts) {
@@ -17,7 +17,7 @@ function getMessageText(message: MastraDBMessage): string {
   }
 
   return text;
-}
+};
 
 export class BlockedPhraseGuardrail implements Processor {
   readonly id = "blocked-phrase-guardrail";

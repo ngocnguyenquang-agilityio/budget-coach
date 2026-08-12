@@ -92,7 +92,7 @@ const proposeAdjustments = createStep({
       sampling: { type: "ratio", rate: 1 },
     },
   },
-  execute: async ({ inputData }) => {
+  execute: async ({ inputData }: { inputData: z.infer<typeof reviewSchema> }) => {
     const analysis = inputData.analysis ?? { categoryTotals: [], trailingSpend: 0 };
     const proposedLimits = proposeCategoryLimits(analysis);
     return { ...inputData, proposedLimits };

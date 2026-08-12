@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { MastraDBMessage } from "@mastra/core/memory";
 import { BlockedPhraseGuardrail } from "./blocked-phrase-guardrail";
 
-function userMessage(text: string): MastraDBMessage {
+const userMessage = (text: string): MastraDBMessage => {
   return {
     role: "user",
     content: { content: text },
   } as unknown as MastraDBMessage;
-}
+};
 
 describe("BlockedPhraseGuardrail", () => {
   it("calls abort (rather than throwing) when the latest user message contains a blocked phrase", () => {
