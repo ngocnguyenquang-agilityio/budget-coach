@@ -7,7 +7,7 @@ const RESOURCE_ID_HEADER = "x-resource-id";
 // one per browser here. Without this, working memory (savings goal, category
 // limits), thread listings, and transactions would be shared across everyone
 // hitting the app instead of scoped to the person using it.
-export function middleware(req: NextRequest) {
+export const middleware = (req: NextRequest) => {
   const existing = req.cookies.get(RESOURCE_ID_COOKIE)?.value;
   const resourceId = existing ?? crypto.randomUUID();
 
@@ -26,7 +26,7 @@ export function middleware(req: NextRequest) {
   }
 
   return response;
-}
+};
 
 export const config = {
   matcher: ["/api/:path*", "/api/copilotkit/:path*"],

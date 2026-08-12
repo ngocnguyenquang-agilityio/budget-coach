@@ -3,7 +3,7 @@ import type { MastraDBMessage } from "@mastra/core/memory";
 // Same content-shape handling as BlockedPhraseGuardrail's getMessageText
 // (src/mastra/processors/blocked-phrase-guardrail.ts) — text can live in
 // `content.parts` (text parts) or fall back to `content.content`.
-function getMessageText(message: MastraDBMessage): string {
+const getMessageText = (message: MastraDBMessage): string => {
   let text = "";
 
   if (message.content.parts) {
@@ -19,16 +19,16 @@ function getMessageText(message: MastraDBMessage): string {
   }
 
   return text;
-}
+};
 
 // Scorer run output for an agent is the full MastraDBMessage[] response —
 // joins every assistant message's text, since a tool-using turn (e.g. the
 // Coach) can span several.
-export function getAssistantText(messages: unknown): string {
+export const getAssistantText = (messages: unknown): string => {
   if (!Array.isArray(messages)) return "";
 
   return messages
     .filter((message): message is MastraDBMessage => message?.role === "assistant")
     .map(getMessageText)
     .join(" ");
-}
+};

@@ -5,7 +5,7 @@ import type { Category } from "./categories";
 // categoryLimits) and every later adjustment — the Monthly Review workflow's
 // proposeAdjustments step calls this unconditionally rather than branching on
 // whether limits already exist, per the "same code path" requirement.
-export function proposeCategoryLimits(analysis: AnalysisResult): Partial<Record<Category, number>> {
+export const proposeCategoryLimits = (analysis: AnalysisResult): Partial<Record<Category, number>> => {
   const proposed: Partial<Record<Category, number>> = {};
 
   for (const { category, total } of analysis.categoryTotals) {
@@ -13,4 +13,4 @@ export function proposeCategoryLimits(analysis: AnalysisResult): Partial<Record<
   }
 
   return proposed;
-}
+};

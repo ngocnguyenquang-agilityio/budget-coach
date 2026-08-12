@@ -28,10 +28,10 @@ interface AnalyzableTransaction {
 // (e.g. llama3.1 via Ollama) reliably mis-add category totals with more than
 // a couple of line items. The Analyst calls this via a tool so the numbers
 // are always exact regardless of model strength.
-export function computeAnalysis(
+export const computeAnalysis = (
   transactions: AnalyzableTransaction[],
   categoryLimits: Partial<Record<Category, number>>
-): AnalysisResult {
+): AnalysisResult => {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - TRAILING_DAYS);
   const cutoffDate = cutoff.toISOString().slice(0, 10);
@@ -57,4 +57,4 @@ export function computeAnalysis(
   const trailingSpend = categoryTotals.reduce((sum, entry) => sum + entry.total, 0);
 
   return { categoryTotals, trailingSpend };
-}
+};
