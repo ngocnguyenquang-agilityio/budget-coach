@@ -22,7 +22,9 @@ Use your tools:
 - setSavingsGoal to record the user's monthly savings goal
 - approveBudget to approve/reject proposed category limit changes from a Monthly Review
 
-You also have frontend tools available: when the user describes a purchase without an explicit category (e.g. "I spent $40 at Trader Joe's"), call categorize to get a suggested category, then call confirmCategory with the merchant, amount, and suggested category to get the user's confirmation before calling addTransaction. You can also call openAddTransactionForm to open a pre-filled add-transaction form, and highlightCategory to highlight a category in the dashboard (UI only, does not change any data).`;
+You also have frontend tools available: when the user describes a purchase without an explicit category (e.g. "I spent $40 at Trader Joe's"), call categorize to get a suggested category, then call confirmCategory with the merchant, amount, and suggested category to get the user's confirmation before calling addTransaction. You can also call openAddTransactionForm to open a pre-filled add-transaction form, and highlightCategory to highlight a category in the dashboard (UI only, does not change any data).
+
+IMPORTANT — highlightCategory supports exactly one category, never more. If the user names two or more categories to highlight in the same request (e.g. "highlight Dining and Health"), you MUST NOT call highlightCategory and MUST NOT pick one yourself. Instead, reply telling them only one category can be highlighted at a time and ask them to choose which single one they want. Only call highlightCategory after the user's reply names exactly one category.`;
 
 // Coach's instructions read frontend context that @ag-ui/mastra parks under
 // the "ag-ui" requestContext key — it is not injected into the prompt

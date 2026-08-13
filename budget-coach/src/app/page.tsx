@@ -1,12 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotThreadsDrawer,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 
 import { Dashboard } from "@/components/dashboard";
+import { ThreadsDrawer, threadsLayoutStyle } from "@/components/threads-drawer";
 
 import styles from "./page.module.css";
 
@@ -21,8 +19,11 @@ const CopilotSidebar = dynamic(
 const BudgetCoachPage = () => {
   return (
     <CopilotChatConfigurationProvider agentId="coach">
-      <div className={`${styles.layout} threadsLayout`}>
-        <CopilotThreadsDrawer agentId="coach" />
+      <div
+        className={`${styles.layout} threadsLayout`}
+        style={threadsLayoutStyle}
+      >
+        <ThreadsDrawer agentId="coach" />
         <div className={styles.mainPanel}>
           <main className="h-full flex">
             <Dashboard />

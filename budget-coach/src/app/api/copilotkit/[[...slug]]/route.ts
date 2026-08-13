@@ -6,6 +6,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import { createLocalAgents } from "@/agent";
 import { getResourceId } from "@/mastra/get-resource-id";
+import { threadNamingHooks } from "@/mastra/thread-naming";
 
 const runtime = new CopilotRuntime({
   // Agents are constructed per-request (not once at module scope) so each
@@ -31,6 +32,14 @@ const runtime = new CopilotRuntime({
           name: "Budget Coach User",
         }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+        // The built-in feature sends its title-format instruction as a
+        // system-role message on the AG-UI agent clone, but @ag-ui/mastra's
+        // message converter drops system-role messages — the model never
+        // sees the instruction and title generation fails almost every
+        // time. threadNamingHooks (src/mastra/thread-naming.ts) replaces it
+        // with a direct agent.generate() call, which applies system
+        // messages correctly.
+        generateThreadNames: false,
       }
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---
@@ -39,6 +48,7 @@ const runtime = new CopilotRuntime({
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
+  hooks: threadNamingHooks,
 });
 
 export const GET = handler;
