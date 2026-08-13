@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const emptyAnalysis: AnalysisResult = { categoryTotals: [], trailingSpend: 0 };
+const HIGHLIGHTED_CATEGORY_STORAGE_KEY = "budget-coach:highlightedCategory";
 
 export const Dashboard = () => {
   const { agent, isReady } = useAgent({
@@ -48,7 +49,13 @@ export const Dashboard = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [highlightedCategory, setHighlightedCategory] = useState<
     Category | undefined
-  >();
+  >(() => {
+    if (typeof window === "undefined") return undefined;
+    const stored = window.localStorage.getItem(HIGHLIGHTED_CATEGORY_STORAGE_KEY);
+    return CategorySchema.safeParse(stored).success
+      ? (stored as Category)
+      : undefined;
+  });
   const [formOpen, setFormOpen] = useState(false);
   const [formPrefill, setFormPrefill] = useState<AddTransactionFormPrefill>({});
 
@@ -257,6 +264,17 @@ export const Dashboard = () => {
     },
     [],
   );
+
+  useEffect(() => {
+    if (highlightedCategory) {
+      window.localStorage.setItem(
+        HIGHLIGHTED_CATEGORY_STORAGE_KEY,
+        highlightedCategory,
+      );
+    } else {
+      window.localStorage.removeItem(HIGHLIGHTED_CATEGORY_STORAGE_KEY);
+    }
+  }, [highlightedCategory]);
 
   useAgentContext({
     description:

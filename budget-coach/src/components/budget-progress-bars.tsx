@@ -24,7 +24,7 @@ export const BudgetProgressBars = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-1.5">
       {rows.map(({ category, total, overLimit }) => {
         const limit = categoryLimits[category];
         const pct = limit
@@ -35,11 +35,11 @@ export const BudgetProgressBars = ({
         return (
           <div
             key={category}
-            className={
+            className={`rounded-[var(--radius)] p-1.5 ${
               highlighted
-                ? "rounded-[var(--radius)] ring-2 ring-[var(--ring)] ring-offset-2 ring-offset-[var(--card)] p-1.5 -m-1.5"
-                : undefined
-            }
+                ? "ring-2 ring-[var(--ring)] ring-offset-2 ring-offset-[var(--card)]"
+                : ""
+            }`}
           >
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="flex items-center gap-1.5 font-medium">
