@@ -1,5 +1,4 @@
-onlyBuiltDependencies:
-  - esbuild
-neverBuiltDependencies:
-  - '@scarf/scarf'
-  - sharp
+allowBuilds:
+  '@scarf/scarf': false
+  esbuild: true
+  sharp: false
