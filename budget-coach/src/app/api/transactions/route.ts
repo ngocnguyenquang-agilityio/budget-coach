@@ -7,8 +7,8 @@ import {
   seedIfEmpty,
 } from "@/db/transactions";
 
-// Plain (non-agent) route the dashboard reads directly — transactions are
-// deliberately not part of agent working memory/shared state.
+export const runtime = "nodejs";
+
 export const GET = async (req: Request) => {
   const resourceId = getResourceId(req);
 
@@ -18,8 +18,6 @@ export const GET = async (req: Request) => {
   return NextResponse.json({ transactions });
 };
 
-// Used by the dashboard's own AddTransactionForm — a plain UI submission,
-// not routed back through the agent.
 export const POST = async (req: Request) => {
   const resourceId = getResourceId(req);
   const body = await req.json();

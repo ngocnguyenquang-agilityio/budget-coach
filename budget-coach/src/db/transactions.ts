@@ -74,7 +74,22 @@ export async function seedIfEmpty(resourceId: string): Promise<void> {
 
   if (existing.rows.length > 0) return;
 
-  for (const seed of SEED_TRANSACTIONS) {
-    await addTransaction({ ...seed, resourceId });
-  }
+  // A single batched statement instead of 28 sequential round-trips — trivial
+  // locally, but each new browser's first request would otherwise pay 28
+  // network round-trips against a remote Turso database.
+  await dbClient.batch(
+    SEED_TRANSACTIONS.map((seed) => ({
+      sql: "INSERT INTO transactions (id, resourceId, date, merchant, amount, category, seedCategory) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      args: [
+        crypto.randomUUID(),
+        resourceId,
+        seed.date,
+        seed.merchant,
+        seed.amount,
+        seed.category,
+        seed.seedCategory,
+      ],
+    })),
+    "write",
+  );
 }

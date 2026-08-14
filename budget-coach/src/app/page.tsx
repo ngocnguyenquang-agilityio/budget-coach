@@ -8,9 +8,6 @@ import { ThreadsDrawer, threadsLayoutStyle } from "@/components/threads-drawer";
 
 import styles from "./page.module.css";
 
-// Client-only: CopilotSidebar reaches for browser APIs the server can't
-// prerender, and eager-loading it can race the lazily-compiled API route in
-// dev.
 const CopilotSidebar = dynamic(
   () => import("@copilotkit/react-core/v2").then((mod) => mod.CopilotSidebar),
   { ssr: false },

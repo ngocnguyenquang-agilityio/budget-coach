@@ -138,20 +138,34 @@ export const threadNamingHooks: CopilotRuntimeHooks = {
     if (!threadId || !userText) return;
 
     const intelligence = runtime.intelligence;
-    intelligence
-      .getOrCreateThread({ threadId, userId, agentId: route.agentId })
-      .then(({ thread, created }) => {
-        if (!created || thread.name?.trim()) return;
-        return generateTitleForThread({
-          agentId: route.agentId,
-          threadId,
-          userId,
-          userText: userText!,
-          intelligence,
-        });
-      })
-      .catch(() => {
-        // Best-effort naming; never block or fail the actual chat request.
+
+    // The thread must provably exist on the Intelligence platform before the
+    // agent run begins, or the run fails with 404 THREAD_NOT_FOUND — so this
+    // call is awaited (unlike title generation below, which is best-effort).
+    let created = false;
+    try {
+      const result = await intelligence.getOrCreateThread({
+        threadId,
+        userId,
+        agentId: route.agentId,
       });
+      created = result.created && !result.thread.name?.trim();
+    } catch {
+      // A genuine Intelligence outage shouldn't hard-fail the chat request;
+      // let the agent run proceed and surface its own error if the thread
+      // truly doesn't exist.
+      return;
+    }
+
+    if (!created) return;
+    generateTitleForThread({
+      agentId: route.agentId,
+      threadId,
+      userId,
+      userText,
+      intelligence,
+    }).catch(() => {
+      // Best-effort naming; never block or fail the actual chat request.
+    });
   },
 };

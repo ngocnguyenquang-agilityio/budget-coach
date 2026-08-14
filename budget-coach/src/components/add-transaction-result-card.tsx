@@ -8,10 +8,6 @@ export interface AddTransactionResultCardProps {
   onComplete: () => void;
 }
 
-// `result` arrives as a JSON string once the tool call completes — parsed
-// defensively since a weak local model's tool output isn't guaranteed
-// well-formed. `onComplete` refreshes the dashboard's own transaction list,
-// which is fetched separately over REST rather than living in shared state.
 export const AddTransactionResultCard = ({
   status,
   result,

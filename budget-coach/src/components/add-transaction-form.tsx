@@ -18,10 +18,6 @@ export interface AddTransactionFormProps {
   onSaved: () => void;
 }
 
-// Opened by the `openAddTransactionForm` frontend action (pre-filled from
-// what the user described in chat). Submission itself is a plain UI action —
-// it posts straight to /api/transactions rather than round-tripping back
-// through the agent.
 export const AddTransactionForm = ({
   open,
   prefill,

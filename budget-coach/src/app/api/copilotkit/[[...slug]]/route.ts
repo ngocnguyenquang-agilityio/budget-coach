@@ -8,7 +8,13 @@ import { createLocalAgents } from "@/agent";
 import { getResourceId } from "@/mastra/get-resource-id";
 import { threadNamingHooks } from "@/mastra/thread-naming";
 
-const runtime = new CopilotRuntime({
+export const runtime = "nodejs";
+// Vercel's default function timeout (10s) is too short for a Gemini-backed
+// agent turn that orchestrates sub-agents and tool calls; 60s is the ceiling
+// on the Hobby plan.
+export const maxDuration = 60;
+
+const copilotRuntime = new CopilotRuntime({
   // Agents are constructed per-request (not once at module scope) so each
   // Mastra agent's `resourceId` matches the per-browser id middleware.ts
   // derives from the `resource_id` cookie — otherwise memory/tool writes get
@@ -46,7 +52,7 @@ const runtime = new CopilotRuntime({
 });
 
 const handler = createCopilotRuntimeHandler({
-  runtime,
+  runtime: copilotRuntime,
   basePath: "/api/copilotkit",
   hooks: threadNamingHooks,
 });
