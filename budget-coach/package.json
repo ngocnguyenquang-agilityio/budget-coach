@@ -2,6 +2,7 @@
   "name": "starter",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.1.0",
   "scripts": {
     "dev": "pnpm run dev:infra && concurrently \"pnpm run dev:ui\" \"pnpm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
     "dev:agent": "mastra dev",
