@@ -28,6 +28,13 @@ export const middleware = (req: NextRequest) => {
   return response;
 };
 
+// Page requests are matched too, not just /api/*. A first-time visitor's page
+// load fires several API calls at once (threads, transactions, working memory,
+// the CopilotKit handshake); if the cookie is only minted on /api/* then each
+// of those arrives without one and mints a *different* resourceId, and only the
+// last Set-Cookie survives. Everything written under a losing id is orphaned —
+// the run persists a thread nobody can list. Matching the document means the
+// cookie exists before any of those requests are made.
 export const config = {
-  matcher: ["/api/:path*", "/api/copilotkit/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

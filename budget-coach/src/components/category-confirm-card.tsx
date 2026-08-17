@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CATEGORIES, type Category } from "@/domain/categories";
+import { parseToolResult } from "@/lib/parse-tool-result";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +18,33 @@ export interface CategoryConfirmCardProps {
   suggested?: Category;
   status: "inProgress" | "executing" | "complete";
   respond?: (response: unknown) => void;
+  /** Set once the call has completed — including on a replayed transcript. */
+  result?: string;
 }
+
+// What the card sent back through `respond`, as it comes back on a restored
+// transcript. Local `decision` state covers the live path; this covers a
+// conversation re-opened later, where that state no longer exists and the card
+// would otherwise render as an inert dropdown with no buttons.
+const restoreDecision = (
+  result: string | undefined,
+): { decision: "confirmed" | "cancelled"; category?: Category } | null => {
+  if (!result) return null;
+
+  // The value arrives JSON-encoded; a raw string is the defensive fallback.
+  const parsed = parseToolResult<unknown>(result, result);
+  const text = typeof parsed === "string" ? parsed : "";
+
+  // Matches the instructions handleConfirm/handleCancel send below.
+  if (text.startsWith("User cancelled")) return { decision: "cancelled" };
+  if (!text.startsWith("User confirmed")) return null;
+
+  const category = text.match(/category "([^"]+)"/)?.[1];
+  return {
+    decision: "confirmed",
+    ...(category ? { category: category as Category } : {}),
+  };
+};
 
 // Gate 1 (useHumanInTheLoop): purely client-side confirmation, no server
 // suspend. `respond` feeds the model a natural-language instruction rather
@@ -29,17 +56,22 @@ export const CategoryConfirmCard = ({
   suggested,
   status,
   respond,
+  result,
 }: CategoryConfirmCardProps) => {
   const [chosen, setChosen] = useState<Category | undefined>(suggested);
-  const [decision, setDecision] = useState<"confirmed" | "cancelled" | null>(
-    null,
-  );
+  const [localDecision, setLocalDecision] = useState<
+    "confirmed" | "cancelled" | null
+  >(null);
 
-  if (decision === "confirmed" && chosen) {
+  const restored = restoreDecision(result);
+  const decision = localDecision ?? restored?.decision ?? null;
+  const confirmedCategory = chosen ?? restored?.category;
+
+  if (decision === "confirmed" && confirmedCategory) {
     return (
       <Card className="mx-auto my-2 w-full max-w-md">
         <CardContent className="pt-6 text-sm text-[var(--muted-foreground)]">
-          Confirmed {merchant ?? "this transaction"} as {chosen}.
+          Confirmed {merchant ?? "this transaction"} as {confirmedCategory}.
         </CardContent>
       </Card>
     );
@@ -57,7 +89,7 @@ export const CategoryConfirmCard = ({
 
   const handleConfirm = () => {
     if (!chosen) return;
-    setDecision("confirmed");
+    setLocalDecision("confirmed");
     respond?.(
       `User confirmed the category "${chosen}" for ${merchant ?? "this transaction"}` +
         `${amount !== undefined ? ` ($${amount.toFixed(2)})` : ""}. ` +
@@ -66,7 +98,7 @@ export const CategoryConfirmCard = ({
   };
 
   const handleCancel = () => {
-    setDecision("cancelled");
+    setLocalDecision("cancelled");
     respond?.("User cancelled — do not record this transaction.");
   };
 
