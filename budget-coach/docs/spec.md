@@ -68,7 +68,7 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 - Generative UI (`useRenderTool` per tool + one `useDefaultRenderTool` catch-all): `CategoryBreakdownChart` (recharts donut, from `analyzeSpendingTool`), `BudgetProgressBars` (from `analyzeSpendingTool`), `TransactionListCard` (from `listTransactionsTool`), `MonthlyReviewCard` (from the `useInterrupt` render).
 - Frontend actions via `useFrontendTool`: `openAddTransactionForm` (pre-fills from chat), `highlightCategory` (UI-only, non-mutating, included deliberately for contrast with mutating actions).
 - Three confirmed render-side gotchas: every `useRenderTool` `parameters` field must be `.optional()` because params stream in incrementally even when the tool requires them; tool `result` arrives as a JSON string and must be parsed defensively; the `name` passed to `useRenderTool`/`useFrontendTool` must match the agent's `tools` map key, not the tool's `id`.
-- `CopilotChatConfigurationProvider` must stay uncontrolled (no `threadId` prop) for `CopilotThreadsDrawer`'s "+ New" thread to work.
+- `CopilotChatConfigurationProvider` must stay uncontrolled (no `threadId` prop): `setActiveThreadId` and `startNewThread` — how the custom `ThreadsDrawer` switches and creates conversations — are documented no-ops when the threadId is prop-controlled.
 - `useAgentContext` feeds the currently-visible month and any highlighted category into `requestContext`; only reaches the model because of the dynamic-instructions wiring on the Coach.
 
 ### CopilotKit runtime route

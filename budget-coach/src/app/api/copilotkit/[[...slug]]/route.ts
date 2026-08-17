@@ -1,12 +1,10 @@
 import {
   CopilotRuntime,
-  CopilotKitIntelligence,
   createCopilotRuntimeHandler,
-  InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createLocalAgents } from "@/agent";
 import { getResourceId } from "@/mastra/get-resource-id";
-import { threadNamingHooks } from "@/mastra/thread-naming";
+import { MastraReplayAgentRunner } from "@/mastra/agui-replay-runner";
 
 export const runtime = "nodejs";
 // Vercel's default function timeout (10s) is too short for a Gemini-backed
@@ -21,40 +19,20 @@ const copilotRuntime = new CopilotRuntime({
   // scoped to the AG-UI thread id instead, diverging from what GET
   // /api/transactions reads.
   agents: ({ request }) => createLocalAgents(getResourceId(request)),
-  // --- copilotkit:intelligence (remove this block to opt out) ---
-  ...(process.env.COPILOTKIT_LICENSE_TOKEN
-    ? {
-        intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
-          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          wsUrl:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-        }),
-        // Scoped to the per-browser resourceId set by src/middleware.ts, so
-        // Intelligence thread history isolates the same way Mastra working
-        // memory does — not a real auth identity.
-        identifyUser: (request: Request) => ({
-          id: getResourceId(request),
-          name: "Budget Coach User",
-        }),
-        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
-        // The built-in feature sends its title-format instruction as a
-        // system-role message on the AG-UI agent clone, but @ag-ui/mastra's
-        // message converter drops system-role messages — the model never
-        // sees the instruction and title generation fails almost every
-        // time. threadNamingHooks (src/mastra/thread-naming.ts) replaces it
-        // with a direct agent.generate() call, which applies system
-        // messages correctly.
-        generateThreadNames: false,
-      }
-    : { runner: new InMemoryAgentRunner() }),
-  // --- /copilotkit:intelligence ---
+  // CopilotKit Intelligence used to be wired up here whenever
+  // COPILOTKIT_LICENSE_TOKEN was set. It cannot work on serverless: its
+  // IntelligenceAgentRunner returns the HTTP response as soon as its WebSocket
+  // to the gateway joins and then runs the agent in the background, which Vercel
+  // freezes the instant the response is sent — every run died with
+  // RUNNER_CONNECTION_DROPPED. Thread history now comes from Mastra memory in
+  // LibSQL instead (see MastraReplayAgentRunner and /api/threads), which needs
+  // no license and no long-lived server, so dev and production run the same path.
+  runner: new MastraReplayAgentRunner(),
 });
 
 const handler = createCopilotRuntimeHandler({
   runtime: copilotRuntime,
   basePath: "/api/copilotkit",
-  hooks: threadNamingHooks,
 });
 
 export const GET = handler;

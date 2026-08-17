@@ -31,17 +31,13 @@ const MOCK_PROVIDER_BASE_URLS = {
  * (no values — those live only in .env). Empty for a non-hosted build. A
  * missing/blank value means the generated .env was overwritten.
  */
-const REQUIRED_INTELLIGENCE_KEYS = [
-  {
-    "key": "INTELLIGENCE_API_URL"
-  },
-  {
-    "key": "INTELLIGENCE_GATEWAY_WS_URL"
-  },
-  {
-    "key": "INTELLIGENCE_API_KEY"
-  }
-];
+// Emptied deliberately. This app no longer uses CopilotKit Intelligence: its
+// runner keeps a WebSocket open past the end of the HTTP response, which a
+// serverless function freezes, so every deployed run failed with
+// RUNNER_CONNECTION_DROPPED. Durable threads now come from Mastra memory in
+// LibSQL (src/mastra/threads.ts). Warning about unset INTELLIGENCE_* vars would
+// point at a feature the app deliberately does not have.
+const REQUIRED_INTELLIGENCE_KEYS = [];
 
 const envFileExists = existsSync('.env');
 const envFileContent = envFileExists ? readFileSync('.env', 'utf8') : '';

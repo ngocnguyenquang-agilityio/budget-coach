@@ -109,13 +109,14 @@ export const Dashboard = () => {
         amount: z.number().optional(),
         suggested: CategorySchema.optional(),
       }),
-      render: ({ args, status, respond }) => (
+      render: ({ args, status, respond, result }) => (
         <CategoryConfirmCard
           merchant={args.merchant}
           amount={args.amount}
           suggested={args.suggested}
           status={status}
           respond={respond}
+          result={result}
         />
       ),
     },

@@ -1,36 +1,41 @@
-import type { CopilotRuntimeHooks } from "@copilotkit/runtime/v2";
 import { mastra } from "@/mastra";
-import { getResourceId } from "@/mastra/get-resource-id";
+import { getCoachMemory, isOwnedBy } from "@/mastra/threads";
 
-// @copilotkit/runtime's built-in `generateThreadNames` sends its
-// "return JSON only" title-format instruction as a system-role message on
-// the AG-UI agent clone — but @ag-ui/mastra's AG-UI-to-Mastra message
-// converter only forwards assistant/user/tool roles, silently dropping
-// system messages. The model never sees the format instruction, so it
-// answers the fake "generate a title" transcript as a real user request
-// instead (sometimes even attempting a tool call), and title generation
-// fails almost every time regardless of which model is configured. This
-// hook replaces the built-in feature (disabled via `generateThreadNames:
-// false` on the runtime) with a direct call to the agent's own
-// `.generate()`, which does apply system messages correctly.
+// Generates the short conversation titles the drawer shows.
+//
+// This used to run as a CopilotRuntime hook that wrote to the Intelligence
+// platform. Two reasons it no longer does: Intelligence is gone (its runner
+// cannot survive serverless), and the hook fired title generation
+// fire-and-forget *inside* the agent-run request — work continuing after the
+// response, which is precisely what Vercel freezes. It is now an explicit call
+// the client awaits, and the title lands in mastra_threads.title.
+//
+// The generation itself is unchanged and still needed: @ag-ui/mastra's message
+// converter drops system-role messages, so a title asked for through the AG-UI
+// stream never sees its format instruction. Calling agent.generate() directly
+// applies system messages correctly.
+
 const MAX_TITLE_WORDS = 8;
 
-const extractLatestUserText = (messages: unknown): string | null => {
-  if (!Array.isArray(messages)) return null;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i] as { role?: string; content?: unknown };
-    if (message?.role !== "user") continue;
-    if (typeof message.content === "string") return message.content.trim() || null;
-    if (Array.isArray(message.content)) {
-      const text = message.content
-        .filter((part: { type?: string }) => part?.type === "text")
-        .map((part: { text?: string }) => part.text ?? "")
-        .join("")
-        .trim();
-      return text || null;
-    }
-    return null;
+type MastraMessagePart = { type?: string; text?: string };
+type MastraStoredMessage = {
+  role?: string;
+  content?: { parts?: MastraMessagePart[] } | null;
+};
+
+const extractFirstUserText = (messages: MastraStoredMessage[]): string | null => {
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+
+    const text = (message.content?.parts ?? [])
+      .filter((part) => part.type === "text")
+      .map((part) => part.text ?? "")
+      .join("")
+      .trim();
+
+    if (text) return text;
   }
+
   return null;
 };
 
@@ -67,105 +72,64 @@ const fallbackTitleFromUserText = (userText: string): string => {
   return words.length > 60 ? `${words.slice(0, 57)}...` : words;
 };
 
-const generateTitleForThread = async ({
-  agentId,
+/**
+ * Generates and persists a title for a thread the caller owns.
+ *
+ * Returns the stored title, or null when the thread is missing, not the
+ * caller's, already titled, or has no user message to summarize.
+ */
+export const generateThreadTitle = async ({
   threadId,
-  userId,
-  userText,
-  intelligence,
+  resourceId,
 }: {
-  agentId: string;
   threadId: string;
-  userId: string;
-  userText: string;
-  intelligence: NonNullable<import("@copilotkit/runtime/v2").CopilotRuntime["intelligence"]>;
-}) => {
-  const fallback = fallbackTitleFromUserText(userText);
+  resourceId: string;
+}): Promise<string | null> => {
+  const memory = await getCoachMemory();
+  const thread = await memory.getThreadById({ threadId });
+  if (!isOwnedBy(thread, resourceId)) return null;
+  if (thread?.title?.trim()) return thread.title;
 
-  let title = fallback;
-  try {
-    const agent = mastra.getAgent(agentId as Parameters<typeof mastra.getAgent>[0]);
-    if (agent) {
-      const result = await agent.generate(
-        [
-          {
-            role: "system",
-            content: [
-              "You generate short, specific conversation titles.",
-              'Return JSON only in this exact shape: {"title":"..."}',
-              "The title must be 2 to 5 words.",
-              "Use sentence case. No quotes, emoji, or markdown. No trailing punctuation.",
-              "Do not call tools.",
-            ].join("\n"),
-          },
-          { role: "user", content: `Generate a short title for this conversation.\n\nUser: ${userText}` },
-        ],
-        { toolChoice: "none" },
-      );
-      const generated = normalizeGeneratedTitle(result.text);
-      if (generated) title = generated;
-    }
-  } catch {
-    // Keep the heuristic fallback — never leave a thread stuck "Untitled".
-  }
+  // The text is read from stored memory rather than taken from the request, so a
+  // caller cannot influence what gets summarized for someone else's thread.
+  const { messages } = await memory.recall({ threadId, resourceId });
+  const userText = extractFirstUserText(messages as unknown as MastraStoredMessage[]);
+  if (!userText) return null;
+
+  let title = fallbackTitleFromUserText(userText);
 
   try {
-    await intelligence.updateThread({
-      threadId,
-      userId,
-      agentId,
-      updates: { name: title },
-    });
+    const result = await mastra.getAgent("coach").generate(
+      [
+        {
+          role: "system",
+          content: [
+            "You generate short, specific conversation titles.",
+            'Return JSON only in this exact shape: {"title":"..."}',
+            "The title must be 2 to 5 words.",
+            "Use sentence case. No quotes, emoji, or markdown. No trailing punctuation.",
+            "Do not call tools.",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: `Generate a short title for this conversation.\n\nUser: ${userText}`,
+        },
+      ],
+      { toolChoice: "none" },
+    );
+
+    const generated = normalizeGeneratedTitle(result.text);
+    if (generated) title = generated;
   } catch {
-    // Best-effort naming; a failed rename must never break the chat request.
+    // Keep the heuristic fallback — never leave a thread stuck untitled.
   }
-};
 
-export const threadNamingHooks: CopilotRuntimeHooks = {
-  onBeforeHandler: async ({ request, route, runtime }) => {
-    if (route.method !== "agent/run" || !runtime.intelligence) return;
+  await memory.updateThread({
+    id: threadId,
+    title,
+    metadata: thread?.metadata ?? {},
+  });
 
-    const userId = getResourceId(request);
-    let threadId: string | undefined;
-    let userText: string | null = null;
-    try {
-      const body = await request.clone().json();
-      threadId = body?.threadId;
-      userText = extractLatestUserText(body?.messages);
-    } catch {
-      return;
-    }
-    if (!threadId || !userText) return;
-
-    const intelligence = runtime.intelligence;
-
-    // The thread must provably exist on the Intelligence platform before the
-    // agent run begins, or the run fails with 404 THREAD_NOT_FOUND — so this
-    // call is awaited (unlike title generation below, which is best-effort).
-    let created = false;
-    try {
-      const result = await intelligence.getOrCreateThread({
-        threadId,
-        userId,
-        agentId: route.agentId,
-      });
-      created = result.created && !result.thread.name?.trim();
-    } catch {
-      // A genuine Intelligence outage shouldn't hard-fail the chat request;
-      // let the agent run proceed and surface its own error if the thread
-      // truly doesn't exist.
-      return;
-    }
-
-    if (!created) return;
-    generateTitleForThread({
-      agentId: route.agentId,
-      threadId,
-      userId,
-      userText,
-      intelligence,
-    }).catch(() => {
-      // Best-effort naming; never block or fail the actual chat request.
-    });
-  },
+  return title;
 };

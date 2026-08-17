@@ -1,0 +1,22 @@
+# The Vercel CLI uploads this directory as the deployment source. Without these
+# rules it ships budget-coach/.env, which Next.js then loads at build AND at
+# runtime inside the serverless function — silently overriding whatever is
+# configured on the Vercel project (it re-supplied COPILOTKIT_LICENSE_TOKEN
+# after that variable was deleted, forcing the Intelligence runner on).
+.env
+.env.*
+!.env.example
+
+# Local build/dev artifacts — regenerated on the builder.
+node_modules
+.next
+.mastra
+*.db
+*.db-shm
+*.db-wal
+
+# Sibling apps in this repo. The Vercel project's Root Directory is
+# budget-coach, so nothing outside it is ever built.
+ag-ui-app
+my-nextjs-agent
+ui-dojo
