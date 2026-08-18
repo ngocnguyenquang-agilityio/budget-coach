@@ -40,7 +40,7 @@ pnpm dev:debug
 pnpm build
 ```
 
-**Prerequisite:** Ollama must be running with `qwen2.5:7b` pulled (`ollama serve`). Or set `MODEL_PROVIDER=google` in `.env` to use Gemini instead.
+**Prerequisite:** `CEREBRAS_API_KEY` must be set in `.env` (get one at cloud.cerebras.ai).
 
 ## Dependency versions
 
@@ -117,10 +117,7 @@ Each browser gets its own `resourceId` via an httpOnly cookie → `x-resource-id
 ## Environment variables
 
 ```env
-OPENAI_API_KEY=           # or swap to Ollama/Gemini
-OLLAMA_BASE_URL=          # default: http://localhost:11434/v1
-OLLAMA_MODEL=             # default: qwen2.5:7b
-MODEL_PROVIDER=google     # set to use Gemini instead of Ollama
+CEREBRAS_API_KEY=         # required — get one at cloud.cerebras.ai
 LOG_LEVEL=debug           # optional verbose logging
 
 # CopilotKit Intelligence (optional, enables durable threads)

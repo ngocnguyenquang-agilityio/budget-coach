@@ -1,4 +1,5 @@
 import { Agent } from "@mastra/core/agent";
+import { StreamErrorRetryProcessor } from "@mastra/core/processors";
 import { Memory } from "@mastra/memory";
 import { model } from "@/mastra/model";
 import { storage } from "@/mastra/storage";
@@ -39,6 +40,15 @@ export const coachAgent = new Agent({
     return `${BASE_INSTRUCTIONS}\n\nFrontend context:\n${JSON.stringify(frontendContext)}`;
   },
   inputProcessors: [promptInjectionGuardrail, financialAdviceGuardrail],
+  // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
+  // with backoff instead of surfacing them to the user.
+  errorProcessors: [
+    new StreamErrorRetryProcessor({
+      retryUnknownErrors: true,
+      maxRetries: 2,
+      delayMs: ({ retryCount }) => Math.min(4000 * 2 ** retryCount, 20000),
+    }),
+  ],
   scorers: {
     coachScope: {
       scorer: coachScopeScorer,

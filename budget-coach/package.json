@@ -18,8 +18,8 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/mastra": "1.1.1",
+    "@ai-sdk/cerebras": "^3.0.30",
     "@ai-sdk/openai": "^4.0.32",
-    "@ai-sdk/openai-compatible": "^3.0.25",
     "@copilotkit/react-core": "1.65.0",
     "@copilotkit/runtime": "1.65.0",
     "@libsql/client": "^0.15.15",
