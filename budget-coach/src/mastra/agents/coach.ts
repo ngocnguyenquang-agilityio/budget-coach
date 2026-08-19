@@ -4,6 +4,7 @@ import { Memory } from "@mastra/memory";
 import { model } from "@/mastra/model";
 import { storage } from "@/mastra/storage";
 import { promptInjectionGuardrail, financialAdviceGuardrail } from "@/mastra/guardrails";
+import { DedupeToolCallsProcessor } from "@/mastra/processors/dedupe-tool-calls";
 import { BudgetStateSchema } from "@/domain/budget-state";
 import { listTransactionsTool, addTransactionTool } from "@/mastra/tools/transactions";
 import { categorizeTool } from "@/mastra/tools/categorize";
@@ -39,7 +40,7 @@ export const coachAgent = new Agent({
     if (!frontendContext) return BASE_INSTRUCTIONS;
     return `${BASE_INSTRUCTIONS}\n\nFrontend context:\n${JSON.stringify(frontendContext)}`;
   },
-  inputProcessors: [promptInjectionGuardrail, financialAdviceGuardrail],
+  inputProcessors: [new DedupeToolCallsProcessor(), promptInjectionGuardrail, financialAdviceGuardrail],
   // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
   // with backoff instead of surfacing them to the user.
   errorProcessors: [

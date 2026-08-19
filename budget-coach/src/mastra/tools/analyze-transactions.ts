@@ -10,7 +10,7 @@ import { resolveResourceId } from "@/mastra/get-resource-id";
 // few categories having limits set (including {}).
 const CategoryLimitsSchema = z.partialRecord(CategorySchema, z.number());
 
-// Local models (e.g. llama3.1 via Ollama) sometimes pass this as a JSON
+// Open-weight models (e.g. this app's gpt-oss-120b via Cerebras) sometimes pass this as a JSON
 // string instead of an object, despite the schema — parse defensively,
 // mirroring how tool *outputs* are already parsed defensively elsewhere
 // (src/mastra/parse-working-memory.ts).
@@ -27,9 +27,6 @@ const CategoryLimitsInputSchema = z
     }
   });
 
-// Deterministic — computeAnalysis does the arithmetic in code rather than
-// leaving per-category sums to the model. Given to the Analyst agent so its
-// only job is to call this and relay the (already-correct) result.
 export const analyzeTransactionsTool = createTool({
   id: "analyze-transactions",
   description: "Fetch transactions and compute per-category totals, over-limit flags, and trailing spend.",

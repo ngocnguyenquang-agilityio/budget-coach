@@ -8,10 +8,17 @@ import { existsSync, readFileSync } from 'node:fs';
 
 /**
  * Vendor API keys this scaffold needs before chat and generations will work.
- * Empty: the default model provider is local Ollama (see src/mastra/model.ts),
- * which needs no API key. Set MODEL_PROVIDER=google to require a Gemini key instead.
+ * The model provider is Cerebras (see src/mastra/model.ts), which requires
+ * CEREBRAS_API_KEY.
  */
-const REQUIRED_ENV_KEYS = [];
+const REQUIRED_ENV_KEYS = [
+  {
+    key: "CEREBRAS_API_KEY",
+    note: "Used by the Mastra agents (see src/mastra/model.ts) to call gpt-oss-120b on Cerebras.",
+    url: "https://cloud.cerebras.ai",
+    example: "csk-...",
+  },
+];
 
 /**
  * Mock-provider base-URL map baked at scaffold time, keyed by vendor API-key

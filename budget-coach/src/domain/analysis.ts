@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { CategorySchema, type Category } from "./categories";
 
-// Pinned output shape for the Analyst agent — kept stable so the Coach (and
-// later the Monthly Review workflow) can rely on its structure.
+// Pinned output shape shared by the Analyst agent and the Coach.
 export const CategoryTotalSchema = z.object({
   category: CategorySchema,
   total: z.number(),
@@ -24,10 +23,7 @@ interface AnalyzableTransaction {
   date: string;
 }
 
-// Deterministic aggregation, deliberately not left to the LLM: local models
-// (e.g. llama3.1 via Ollama) reliably mis-add category totals with more than
-// a couple of line items. The Analyst calls this via a tool so the numbers
-// are always exact regardless of model strength.
+// Deterministic aggregation, deliberately not left to the LLM.
 export const computeAnalysis = (
   transactions: AnalyzableTransaction[],
   categoryLimits: Partial<Record<Category, number>>
