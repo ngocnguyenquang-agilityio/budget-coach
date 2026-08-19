@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 
 import { Dashboard } from "@/components/dashboard";
+import { reasoningMessageSlot } from "@/components/chat-reasoning-message";
 import { ThreadsDrawer } from "@/components/threads-drawer";
 
 import styles from "./page.module.css";
@@ -28,6 +29,7 @@ const BudgetCoachPage = () => {
                 welcomeMessageText:
                   "👋 Hi, I'm your Budget Coach. Ask me about your spending, set a savings goal, or add a transaction.",
               }}
+              messageView={{ reasoningMessage: reasoningMessageSlot }}
             />
           </main>
         </div>
