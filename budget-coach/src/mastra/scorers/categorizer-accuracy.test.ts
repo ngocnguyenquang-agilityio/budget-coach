@@ -41,4 +41,24 @@ describe("categorizerAccuracyScorer", () => {
 
     expect(result.score).toBe(1);
   });
+
+  it("scores 1 when the assigned type matches income ground truth", async () => {
+    const result = await categorizerAccuracyScorer.run({
+      input: EMPTY_SCORER_INPUT,
+      output: [assistantMessage('{"type":"income"}')],
+      groundTruth: "Income",
+    });
+
+    expect(result.score).toBe(1);
+  });
+
+  it("scores 0 when an expense is assigned but income was expected", async () => {
+    const result = await categorizerAccuracyScorer.run({
+      input: EMPTY_SCORER_INPUT,
+      output: [assistantMessage('{"type":"expense","category":"Shopping"}')],
+      groundTruth: "Income",
+    });
+
+    expect(result.score).toBe(0);
+  });
 });

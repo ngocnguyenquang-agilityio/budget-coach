@@ -38,6 +38,7 @@ export const analyzeTransactionsTool = createTool({
     const resourceId = resolveResourceId(context);
     await seedIfEmpty(resourceId);
     const transactions = await listTransactions(resourceId);
-    return computeAnalysis(transactions, categoryLimits ?? {});
+    const period = new Date().toISOString().slice(0, 7);
+    return computeAnalysis(transactions, categoryLimits ?? {}, period);
   },
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getResourceId } from "@/mastra/get-resource-id";
-import { CategorySchema } from "@/domain/categories";
+import { CategorySchema, type Category } from "@/domain/categories";
 import {
   addTransaction,
   listTransactions,
@@ -24,20 +24,33 @@ export const POST = async (req: Request) => {
 
   const merchant = String(body.merchant ?? "").trim();
   const amount = Number(body.amount);
-  const category = CategorySchema.safeParse(body.category);
+  const type = body.type === "income" ? "income" : body.type === "expense" ? "expense" : undefined;
 
-  if (!merchant || !Number.isFinite(amount) || !category.success) {
+  if (!merchant || !Number.isFinite(amount) || !type) {
     return NextResponse.json(
-      { error: "merchant, amount, and a valid category are required" },
+      { error: "merchant, amount, and a valid type are required" },
       { status: 400 },
     );
+  }
+
+  let category: Category | null = null;
+  if (type === "expense") {
+    const parsed = CategorySchema.safeParse(body.category);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "a valid category is required for expenses" },
+        { status: 400 },
+      );
+    }
+    category = parsed.data;
   }
 
   const transaction = await addTransaction({
     resourceId,
     merchant,
     amount,
-    category: category.data,
+    type,
+    category,
     date: new Date().toISOString().slice(0, 10),
     seedCategory: null,
   });

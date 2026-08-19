@@ -11,11 +11,13 @@ export const categorizerAgent = new Agent({
   id: "categorizer",
   name: "Categorizer",
   model,
-  instructions: `You classify a single transaction into exactly one category.
+  instructions: `You classify a single transaction.
 
-Valid categories: ${CATEGORIES.join(", ")}.
+First decide whether it is income (money coming in, e.g. salary, bonus, freelance payment, proceeds from selling something) or an expense (money going out).
 
-Given a merchant name and an amount, respond with the single best-fitting category from the list above. Never invent a category outside this list.`,
+If it is an expense, also assign exactly one category from this list: ${CATEGORIES.join(", ")}. Never invent a category outside this list. If it is income, do not assign a category.
+
+Given a merchant name and an amount, respond with your best judgment.`,
   // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
   // with backoff instead of surfacing them to the user.
   errorProcessors: [

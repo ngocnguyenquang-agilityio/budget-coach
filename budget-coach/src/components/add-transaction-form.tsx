@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export interface AddTransactionFormPrefill {
   merchant?: string;
   amount?: number;
+  type?: "income" | "expense";
   category?: Category;
 }
 
@@ -28,6 +29,9 @@ export const AddTransactionForm = ({
   const [amount, setAmount] = useState(
     prefill.amount !== undefined ? String(prefill.amount) : "",
   );
+  const [type, setType] = useState<"income" | "expense">(
+    prefill.type ?? "expense",
+  );
   const [category, setCategory] = useState<Category>(
     prefill.category ?? "Other",
   );
@@ -36,6 +40,7 @@ export const AddTransactionForm = ({
   useEffect(() => {
     setMerchant(prefill.merchant ?? "");
     setAmount(prefill.amount !== undefined ? String(prefill.amount) : "");
+    setType(prefill.type ?? "expense");
     setCategory(prefill.category ?? "Other");
   }, [prefill]);
 
@@ -48,7 +53,12 @@ export const AddTransactionForm = ({
       await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ merchant, amount: Number(amount), category }),
+        body: JSON.stringify({
+          merchant,
+          amount: Number(amount),
+          type,
+          ...(type === "expense" ? { category } : {}),
+        }),
       });
       onSaved();
       onClose();
@@ -80,17 +90,37 @@ export const AddTransactionForm = ({
             onChange={(event) => setAmount(event.target.value)}
             required
           />
-          <select
-            className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
-            value={category}
-            onChange={(event) => setCategory(event.target.value as Category)}
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={type === "expense" ? "default" : "ghost"}
+              className="flex-1"
+              onClick={() => setType("expense")}
+            >
+              Expense
+            </Button>
+            <Button
+              type="button"
+              variant={type === "income" ? "default" : "ghost"}
+              className="flex-1"
+              onClick={() => setType("income")}
+            >
+              Income
+            </Button>
+          </div>
+          {type === "expense" && (
+            <select
+              className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as Category)}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="flex gap-2">
             <Button type="submit" className="flex-1" disabled={saving}>
               {saving ? "Saving…" : "Save"}

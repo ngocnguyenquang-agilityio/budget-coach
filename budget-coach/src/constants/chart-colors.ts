@@ -9,6 +9,7 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   Shopping: "var(--chart-6)",
   Housing: "var(--chart-7)",
   Health: "var(--chart-8)",
-  Income: "var(--chart-neutral)",
   Other: "var(--chart-neutral)",
 };
+
+export const INCOME_COLOR = "var(--chart-positive)";

@@ -25,18 +25,20 @@ export const AddTransactionResultCard = ({
     );
   }
 
-  let parsed: { merchant?: string; amount?: number; category?: string } = {};
+  let parsed: { merchant?: string; amount?: number; type?: string; category?: string } = {};
   try {
     parsed = result ? JSON.parse(result) : {};
   } catch {
     // fall through with an empty summary
   }
 
+  const label = parsed.type === "income" ? "Income" : parsed.category;
+
   return (
     <p className="text-sm">
       Added {parsed.merchant ?? "transaction"}
       {parsed.amount !== undefined ? ` — $${parsed.amount.toFixed(2)}` : ""}
-      {parsed.category ? ` (${parsed.category})` : ""}
+      {label ? ` (${label})` : ""}
     </p>
   );
 };

@@ -127,7 +127,7 @@ describe("coachAgent tool resolution (bypassing the CopilotKit route)", () => {
 });
 
 describe("monthlyReviewWorkflow", () => {
-  it("suspends at approval-gate with proposed limits ~110% of trailing spend on first run", async () => {
+  it("suspends at approval-gate with proposed limits ~110% of spend on first run", async () => {
     const resourceId = "wf-suspend-shape";
     const { result } = await startSuspendedReview(resourceId, "thread-suspend-shape");
 
@@ -135,7 +135,8 @@ describe("monthlyReviewWorkflow", () => {
     const suspendPayload = parseSuspendPayload(result);
 
     const transactions = await listTransactions(resourceId);
-    const expectedAnalysis = computeAnalysis(transactions, {});
+    const period = new Date().toISOString().slice(0, 7);
+    const expectedAnalysis = computeAnalysis(transactions, {}, period);
     const expectedProposed = proposeCategoryLimits(expectedAnalysis);
 
     for (const [category, limit] of Object.entries(expectedProposed) as [Category, number][]) {
@@ -162,7 +163,8 @@ describe("monthlyReviewWorkflow", () => {
     expect(resumeResult.status).toBe("success");
 
     const transactions = await listTransactions(resourceId);
-    const expectedProposed = proposeCategoryLimits(computeAnalysis(transactions, {}));
+    const period = new Date().toISOString().slice(0, 7);
+    const expectedProposed = proposeCategoryLimits(computeAnalysis(transactions, {}, period));
 
     const state = await getWorkingMemoryState(threadId, resourceId);
     expect(state.categoryLimits).toEqual(expectedProposed);
@@ -188,6 +190,7 @@ describe("monthlyReviewWorkflow", () => {
       date: new Date().toISOString().slice(0, 10),
       merchant: "Extra Dining Splurge",
       amount: 500,
+      type: "expense",
       category: "Dining",
       seedCategory: null,
     });

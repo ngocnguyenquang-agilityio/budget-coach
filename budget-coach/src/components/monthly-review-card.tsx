@@ -52,7 +52,7 @@ export const MonthlyReviewCard = ({
       <CardHeader>
         <CardTitle className="text-base">Monthly Review</CardTitle>
         <CardDescription>
-          Proposed category limits based on trailing spend
+          Proposed category limits based on this month's spend
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

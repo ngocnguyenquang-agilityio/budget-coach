@@ -10,7 +10,7 @@ const previousDbUrl = process.env.TURSO_DATABASE_URL;
 const tmpDir = mkdtempSync(path.join(tmpdir(), "budget-coach-test-"));
 process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
-const { seedIfEmpty, listTransactions } = await import("./transactions");
+const { seedIfEmpty, listTransactions, addTransaction } = await import("./transactions");
 const { SEED_TRANSACTIONS } = await import("./seed-data");
 const { dbClient } = await import("./client");
 
@@ -36,8 +36,12 @@ describe("seedIfEmpty / listTransactions", () => {
     expect(transactions).toHaveLength(SEED_TRANSACTIONS.length);
     expect(transactions.every((t) => t.resourceId === "resource-a")).toBe(true);
 
-    const categories = new Set(transactions.map((t) => t.category));
+    const categories = new Set(transactions.map((t) => t.category).filter((c) => c !== null));
     expect(categories.size).toBeGreaterThanOrEqual(7);
+
+    const incomeTransactions = transactions.filter((t) => t.type === "income");
+    expect(incomeTransactions.length).toBeGreaterThan(0);
+    expect(incomeTransactions.every((t) => t.category === null)).toBe(true);
   });
 
   it("does not re-seed on a second call for the same resourceId", async () => {
@@ -46,6 +50,33 @@ describe("seedIfEmpty / listTransactions", () => {
     const transactions = await listTransactions("resource-b");
 
     expect(transactions).toHaveLength(SEED_TRANSACTIONS.length);
+  });
+
+  it("orders by createdAt, not by the (possibly shared) business date", async () => {
+    const sameDate = "2026-01-15";
+    const older = await addTransaction({
+      resourceId: "resource-order",
+      date: sameDate,
+      merchant: "First",
+      amount: 10,
+      type: "expense",
+      category: "Other",
+      seedCategory: null,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const newer = await addTransaction({
+      resourceId: "resource-order",
+      date: sameDate,
+      merchant: "Second",
+      amount: 20,
+      type: "expense",
+      category: "Other",
+      seedCategory: null,
+    });
+
+    const transactions = await listTransactions("resource-order");
+    expect(transactions[0].id).toBe(newer.id);
+    expect(transactions[1].id).toBe(older.id);
   });
 
   it("seeds two different resourceIds independently", async () => {
