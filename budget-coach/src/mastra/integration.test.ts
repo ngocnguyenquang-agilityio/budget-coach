@@ -41,7 +41,7 @@ const mockUsage = {
 };
 
 // A fake LanguageModelV3 that calls one tool by name, then replies with
-// plain text — stands in for Ollama/Gemini so these tests don't need a live
+// plain text — stands in for Cerebras so these tests don't need a live
 // model server. Hand-rolled (rather than `ai/test`'s MockLanguageModelV3)
 // because `ai` is only a transitive dependency here, not hoisted by pnpm.
 //
