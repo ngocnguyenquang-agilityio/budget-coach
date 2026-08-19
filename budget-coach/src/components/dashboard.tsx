@@ -26,7 +26,7 @@ import { parseToolResult } from "@/lib/parse-tool-result";
 import { CategoryBreakdownChart } from "@/components/category-breakdown-chart";
 import { BudgetProgressBars } from "@/components/budget-progress-bars";
 import { TransactionListCard } from "@/components/transaction-list-card";
-import { CategoryConfirmCard } from "@/components/category-confirm-card";
+import { ConfirmTransactionCard } from "@/components/confirm-transaction-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import {
   AddTransactionForm,
@@ -36,7 +36,7 @@ import { AddTransactionResultCard } from "@/components/add-transaction-result-ca
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const emptyAnalysis: AnalysisResult = { categoryTotals: [], trailingSpend: 0 };
+const emptyAnalysis: AnalysisResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
 const HIGHLIGHTED_CATEGORY_STORAGE_KEY = "budget-coach:highlightedCategory";
 
 export const Dashboard = () => {
@@ -92,8 +92,8 @@ export const Dashboard = () => {
   const visibleMonth = new Date().toISOString().slice(0, 7);
 
   const analysis = useMemo(
-    () => computeAnalysis(transactions, state.categoryLimits ?? {}),
-    [transactions, state.categoryLimits],
+    () => computeAnalysis(transactions, state.categoryLimits ?? {}, visibleMonth),
+    [transactions, state.categoryLimits, visibleMonth],
   );
 
   // Gate 1 — pure frontend tool, no server suspend. The Coach calls this
@@ -101,19 +101,23 @@ export const Dashboard = () => {
   // confirm it's told to call addTransaction itself.
   useHumanInTheLoop(
     {
-      name: "confirmCategory",
+      name: "confirmTransaction",
       description:
-        "Ask the user to confirm the suggested category for a transaction before recording it.",
+        "Ask the user to confirm the suggested type (income/expense) and category for a transaction before recording it.",
       parameters: z.object({
         merchant: z.string().optional(),
         amount: z.number().optional(),
+        type: z.enum(["income", "expense"]).optional(),
         suggested: CategorySchema.optional(),
+        date: z.string().optional(),
       }),
       render: ({ args, status, respond, result }) => (
-        <CategoryConfirmCard
+        <ConfirmTransactionCard
           merchant={args.merchant}
           amount={args.amount}
+          type={args.type}
           suggested={args.suggested}
+          date={args.date}
           status={status}
           respond={respond}
           result={result}
@@ -214,6 +218,7 @@ export const Dashboard = () => {
       parameters: z.object({
         merchant: z.string().optional(),
         amount: z.number().optional(),
+        type: z.enum(["income", "expense"]).optional(),
         category: CategorySchema.optional(),
         date: z.string().optional(),
       }),
@@ -239,10 +244,11 @@ export const Dashboard = () => {
       parameters: z.object({
         merchant: z.string().optional(),
         amount: z.number().optional(),
+        type: z.enum(["income", "expense"]).optional(),
         category: CategorySchema.optional(),
       }),
-      handler: async ({ merchant, amount, category }) => {
-        setFormPrefill({ merchant, amount, category });
+      handler: async ({ merchant, amount, type, category }) => {
+        setFormPrefill({ merchant, amount, type, category });
         setFormOpen(true);
         return "Opened the add-transaction form.";
       },
@@ -287,9 +293,10 @@ export const Dashboard = () => {
     available: "always",
     suggestions: [
       { title: "Log a purchase", message: "I spent $40 at Trader Joe's." },
+      { title: "Log income", message: "I got paid $3000." },
       {
         title: "Set a savings goal",
-        message: "Set a savings goal of $2,000 by December.",
+        message: "Set a monthly savings goal of $500.",
       },
       { title: "Review my budget", message: "Run my monthly budget review." },
       {
@@ -337,26 +344,41 @@ export const Dashboard = () => {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
-                Trailing 30-day spend
+                Income this month
               </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                ${analysis.trailingSpend.toFixed(2)}
+              <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: "var(--chart-positive)" }}>
+                ${analysis.incomeTotal.toFixed(2)}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
-                Savings goal
+                Expenses this month
               </p>
               <p className="mt-1 text-xl font-semibold tabular-nums">
-                {state.savingsGoal !== undefined
-                  ? `$${state.savingsGoal.toFixed(2)}/mo`
-                  : "—"}
+                ${analysis.expenseTotal.toFixed(2)}
               </p>
             </CardContent>
           </Card>
-          <Card className="col-span-2 md:col-span-1">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Net savings
+                {state.savingsGoal !== undefined ? ` / $${state.savingsGoal.toFixed(2)} goal` : ""}
+              </p>
+              <p
+                className={`mt-1 text-xl font-semibold tabular-nums ${
+                  state.savingsGoal !== undefined && analysis.netSavings < state.savingsGoal
+                    ? "text-[var(--destructive)]"
+                    : ""
+                }`}
+              >
+                ${analysis.netSavings.toFixed(2)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="col-span-2 md:col-span-3">
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
                 Over budget

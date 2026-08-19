@@ -10,35 +10,41 @@ export const CategoryTotalSchema = z.object({
 
 export const AnalysisResultSchema = z.object({
   categoryTotals: z.array(CategoryTotalSchema),
-  trailingSpend: z.number(),
+  expenseTotal: z.number(),
+  incomeTotal: z.number(),
+  netSavings: z.number(),
 });
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
-const TRAILING_DAYS = 30;
-
 interface AnalyzableTransaction {
-  category: Category;
+  type: "income" | "expense";
+  category?: Category | null;
   amount: number;
   date: string;
 }
 
-// Deterministic aggregation, deliberately not left to the LLM.
+// Deterministic aggregation, deliberately not left to the LLM. `period` is
+// the calendar month (YYYY-MM) to scope the analysis to — passed in rather
+// than read from `new Date()` here so callers (and tests) control it.
 export const computeAnalysis = (
   transactions: AnalyzableTransaction[],
-  categoryLimits: Partial<Record<Category, number>>
+  categoryLimits: Partial<Record<Category, number>>,
+  period: string
 ): AnalysisResult => {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - TRAILING_DAYS);
-  const cutoffDate = cutoff.toISOString().slice(0, 10);
-
   const totals = new Map<Category, number>();
+  let incomeTotal = 0;
 
   for (const transaction of transactions) {
-    if (transaction.category === "Income") continue;
-    if (transaction.date < cutoffDate) continue;
+    if (transaction.date.slice(0, 7) !== period) continue;
 
-    totals.set(transaction.category, (totals.get(transaction.category) ?? 0) + transaction.amount);
+    if (transaction.type === "income") {
+      incomeTotal += transaction.amount;
+      continue;
+    }
+
+    const category = transaction.category ?? "Other";
+    totals.set(category, (totals.get(category) ?? 0) + transaction.amount);
   }
 
   const categoryTotals = [...totals.entries()].map(([category, total]) => {
@@ -50,7 +56,7 @@ export const computeAnalysis = (
     };
   });
 
-  const trailingSpend = categoryTotals.reduce((sum, entry) => sum + entry.total, 0);
+  const expenseTotal = categoryTotals.reduce((sum, entry) => sum + entry.total, 0);
 
-  return { categoryTotals, trailingSpend };
+  return { categoryTotals, expenseTotal, incomeTotal, netSavings: incomeTotal - expenseTotal };
 };

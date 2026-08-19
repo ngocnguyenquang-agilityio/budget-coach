@@ -36,7 +36,7 @@ export const CategoryBreakdownChart = ({
   if (data.length === 0) {
     return (
       <p className="text-sm text-[var(--muted-foreground)]">
-        No spending in the trailing 30 days.
+        No spending yet this month.
       </p>
     );
   }

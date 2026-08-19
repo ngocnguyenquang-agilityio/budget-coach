@@ -31,7 +31,7 @@ export const analyzeSpendingTool = createTool({
     const requestContext = new RequestContext();
     requestContext.set("resourceId", resourceId);
 
-    const emptyResult = { categoryTotals: [], trailingSpend: 0 };
+    const emptyResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
 
     const result = await analystAgent.generate(
       `Category limits (JSON): ${JSON.stringify(categoryLimits)}\n\nCall analyzeTransactions and report the result.`,

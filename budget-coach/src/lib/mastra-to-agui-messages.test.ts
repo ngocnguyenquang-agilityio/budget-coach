@@ -48,7 +48,7 @@ describe("mastraToAGUIMessages", () => {
                 toolCallId: "call_1",
                 toolName: "analyzeSpending",
                 args: {},
-                result: { trailingSpend: 3106.41 },
+                result: { expenseTotal: 3106.41 },
               },
             },
             { type: "step-start" },
@@ -75,7 +75,7 @@ describe("mastraToAGUIMessages", () => {
         id: "call_1-result",
         role: "tool",
         toolCallId: "call_1",
-        content: '{"trailingSpend":3106.41}',
+        content: '{"expenseTotal":3106.41}',
       },
       {
         id: "a1-agui-text",

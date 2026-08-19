@@ -75,7 +75,8 @@ const analyzeSpending = createStep({
       (parseWorkingMemory(raw).categoryLimits as z.infer<typeof CategoryLimitsSchema> | undefined) ?? {};
 
     const transactions = await listTransactions(resourceId);
-    const analysis = computeAnalysis(transactions, categoryLimits);
+    const period = new Date().toISOString().slice(0, 7);
+    const analysis = computeAnalysis(transactions, categoryLimits, period);
 
     return { ...inputData, categoryLimits, analysis };
   },
@@ -93,7 +94,7 @@ const proposeAdjustments = createStep({
     },
   },
   execute: async ({ inputData }: { inputData: z.infer<typeof reviewSchema> }) => {
-    const analysis = inputData.analysis ?? { categoryTotals: [], trailingSpend: 0 };
+    const analysis = inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
     const proposedLimits = proposeCategoryLimits(analysis);
     return { ...inputData, proposedLimits };
   },
@@ -127,7 +128,7 @@ const approvalGate = createStep({
       // run continue past this point without actually waiting for resume.
       return suspend({
         proposedLimits: inputData.proposedLimits ?? {},
-        analysis: inputData.analysis ?? { categoryTotals: [], trailingSpend: 0 },
+        analysis: inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 },
       });
     }
 

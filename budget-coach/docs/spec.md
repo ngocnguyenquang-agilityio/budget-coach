@@ -13,7 +13,7 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 ## User Stories
 
 1. As a user, I want to tell the assistant what I bought in plain English ("I spent $40 at Trader Joe's"), so that I don't have to fill out a form to log a transaction.
-2. As a user, I want every transaction to be auto-categorized into a fixed taxonomy (Groceries, Dining, Transport, Utilities, Entertainment, Shopping, Housing, Health, Income, Other), so that I don't have to categorize my own spending.
+2. As a user, I want every transaction to be auto-classified as income or an expense, and every expense auto-categorized into a fixed taxonomy (Groceries, Dining, Transport, Utilities, Entertainment, Shopping, Housing, Health, Other), so that I don't have to categorize my own spending.
 3. As a user, I want to be asked to confirm the suggested category before it's saved, so that a miscategorized purchase never slips through silently.
 4. As a user, I want a quick-add-transaction form that pre-fills from what I just typed in chat, so that I can log a purchase with one click instead of typing every field.
 5. As a user, I want to see a visual breakdown (chart) of where my money is going by category, so that I can understand my spending at a glance.
