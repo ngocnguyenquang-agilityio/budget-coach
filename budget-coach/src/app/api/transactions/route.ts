@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 import { getResourceId } from "@/mastra/get-resource-id";
 import { CategorySchema, type Category } from "@/domain/categories";
-import {
-  addTransaction,
-  listTransactions,
-  seedIfEmpty,
-} from "@/db/transactions";
+import { addTransaction, listTransactions } from "@/db/transactions";
 
 export const runtime = "nodejs";
 
 export const GET = async (req: Request) => {
   const resourceId = getResourceId(req);
 
-  await seedIfEmpty(resourceId);
   const transactions = await listTransactions(resourceId);
 
   return NextResponse.json({ transactions });

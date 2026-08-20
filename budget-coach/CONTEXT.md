@@ -4,6 +4,10 @@ A chat-first personal budget coach: tracks money in and out, per-category spendi
 
 ## Language
 
+**User**:
+The person authenticated via Clerk who owns one isolated set of Transactions, Category limits, and a Savings Goal. No sharing between Users — each has their own budget.
+_Avoid_: account, visitor, resourceId (the internal key data is scoped by — an implementation detail, not domain language)
+
 **Transaction**:
 A single recorded movement of money — either Income or an Expense. Has a date, merchant, amount, a `type`, and (for expenses only) a Category.
 _Avoid_: entry, record

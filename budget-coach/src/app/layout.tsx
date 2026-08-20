@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { ClerkProvider } from "@clerk/nextjs";
+import { clerkAppearance } from "@/constants/clerk-appearance";
 import "./globals.css";
-import "@copilotkit/react-core/v2/styles.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,9 +30,14 @@ const RootLayout = ({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+        <ClerkProvider
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          afterSignOutUrl="/sign-in"
+          appearance={clerkAppearance}
+        >
           {children}
-        </CopilotKit>
+        </ClerkProvider>
       </body>
     </html>
   );

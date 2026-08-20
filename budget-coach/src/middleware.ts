@@ -1,40 +1,33 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
-const RESOURCE_ID_COOKIE = "resource_id";
 const RESOURCE_ID_HEADER = "x-resource-id";
 
-// Every visitor to this app shares one Mastra `resourceId` unless we assign
-// one per browser here. Without this, working memory (savings goal, category
-// limits), thread listings, and transactions would be shared across everyone
-// hitting the app instead of scoped to the person using it.
-export const middleware = (req: NextRequest) => {
-  const existing = req.cookies.get(RESOURCE_ID_COOKIE)?.value;
-  const resourceId = existing ?? crypto.randomUUID();
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set(RESOURCE_ID_HEADER, resourceId);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-
-  if (!existing) {
-    response.cookies.set(RESOURCE_ID_COOKIE, resourceId, {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365,
-      path: "/",
-    });
+// resourceId scoping (working memory, thread listings, transactions) is
+// keyed directly off the authenticated Clerk userId — see ADR-0004. No
+// mapping table: whatever string lands in x-resource-id is what every
+// downstream consumer (getResourceId, resolveResourceId) trusts.
+export default clerkMiddleware(async (auth, req) => {
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
   }
 
-  return response;
-};
+  await auth.protect();
+  const { userId } = await auth();
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(RESOURCE_ID_HEADER, userId!);
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
+});
 
 // Page requests are matched too, not just /api/*. A first-time visitor's page
 // load fires several API calls at once (threads, transactions, working memory,
-// the CopilotKit handshake); if the cookie is only minted on /api/* then each
-// of those arrives without one and mints a *different* resourceId, and only the
-// last Set-Cookie survives. Everything written under a losing id is orphaned —
-// the run persists a thread nobody can list. Matching the document means the
-// cookie exists before any of those requests are made.
+// the CopilotKit handshake); every one of them needs x-resource-id attached or
+// getResourceId throws. Matching the document means auth runs before any of
+// those requests reach a route handler.
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

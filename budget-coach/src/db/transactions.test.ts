@@ -10,11 +10,10 @@ const previousDbUrl = process.env.TURSO_DATABASE_URL;
 const tmpDir = mkdtempSync(path.join(tmpdir(), "budget-coach-test-"));
 process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
-const { seedIfEmpty, listTransactions, addTransaction } = await import("./transactions");
-const { SEED_TRANSACTIONS } = await import("./seed-data");
+const { listTransactions, addTransaction } = await import("./transactions");
 const { dbClient } = await import("./client");
 
-describe("seedIfEmpty / listTransactions", () => {
+describe("listTransactions", () => {
   afterAll(() => {
     dbClient.close();
     if (previousDbUrl === undefined) {
@@ -29,27 +28,38 @@ describe("seedIfEmpty / listTransactions", () => {
     } catch {}
   });
 
-  it("seeds ~28 transactions across most categories on first read", async () => {
-    await seedIfEmpty("resource-a");
-    const transactions = await listTransactions("resource-a");
-
-    expect(transactions).toHaveLength(SEED_TRANSACTIONS.length);
-    expect(transactions.every((t) => t.resourceId === "resource-a")).toBe(true);
-
-    const categories = new Set(transactions.map((t) => t.category).filter((c) => c !== null));
-    expect(categories.size).toBeGreaterThanOrEqual(7);
-
-    const incomeTransactions = transactions.filter((t) => t.type === "income");
-    expect(incomeTransactions.length).toBeGreaterThan(0);
-    expect(incomeTransactions.every((t) => t.category === null)).toBe(true);
+  it("returns an empty list for a resourceId with no transactions", async () => {
+    const transactions = await listTransactions("resource-empty");
+    expect(transactions).toHaveLength(0);
   });
 
-  it("does not re-seed on a second call for the same resourceId", async () => {
-    await seedIfEmpty("resource-b");
-    await seedIfEmpty("resource-b");
-    const transactions = await listTransactions("resource-b");
+  it("scopes transactions to their resourceId", async () => {
+    await addTransaction({
+      resourceId: "resource-c",
+      date: "2026-01-15",
+      merchant: "Groceries",
+      amount: 30,
+      type: "expense",
+      category: "Groceries",
+      seedCategory: null,
+    });
+    await addTransaction({
+      resourceId: "resource-d",
+      date: "2026-01-15",
+      merchant: "Rent",
+      amount: 1200,
+      type: "expense",
+      category: "Housing",
+      seedCategory: null,
+    });
 
-    expect(transactions).toHaveLength(SEED_TRANSACTIONS.length);
+    const c = await listTransactions("resource-c");
+    const d = await listTransactions("resource-d");
+
+    expect(c).toHaveLength(1);
+    expect(d).toHaveLength(1);
+    expect(c.every((t) => t.resourceId === "resource-c")).toBe(true);
+    expect(d.every((t) => t.resourceId === "resource-d")).toBe(true);
   });
 
   it("orders by createdAt, not by the (possibly shared) business date", async () => {
@@ -77,18 +87,5 @@ describe("seedIfEmpty / listTransactions", () => {
     const transactions = await listTransactions("resource-order");
     expect(transactions[0].id).toBe(newer.id);
     expect(transactions[1].id).toBe(older.id);
-  });
-
-  it("seeds two different resourceIds independently", async () => {
-    await seedIfEmpty("resource-c");
-    await seedIfEmpty("resource-d");
-
-    const c = await listTransactions("resource-c");
-    const d = await listTransactions("resource-d");
-
-    expect(c).toHaveLength(SEED_TRANSACTIONS.length);
-    expect(d).toHaveLength(SEED_TRANSACTIONS.length);
-    expect(c.every((t) => t.resourceId === "resource-c")).toBe(true);
-    expect(d.every((t) => t.resourceId === "resource-d")).toBe(true);
   });
 });

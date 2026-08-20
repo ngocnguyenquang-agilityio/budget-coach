@@ -1,6 +1,5 @@
 import { dbClient } from "./client";
 import type { Category } from "@/domain/categories";
-import { SEED_TRANSACTIONS } from "./seed-data";
 
 export interface Transaction {
   id: string;
@@ -34,6 +33,8 @@ export async function createTable(): Promise<void> {
 // transaction's own, user-editable business date) — two transactions can
 // share the same `date` and still need a stable, most-recent-first order.
 export async function listTransactions(resourceId: string): Promise<Transaction[]> {
+  await createTable();
+
   const result = await dbClient.execute({
     sql: "SELECT id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory FROM transactions WHERE resourceId = ? ORDER BY createdAt DESC",
     args: [resourceId],
@@ -55,6 +56,8 @@ export async function listTransactions(resourceId: string): Promise<Transaction[
 export async function addTransaction(
   transaction: Omit<Transaction, "id" | "createdAt"> & { id?: string; createdAt?: string }
 ): Promise<Transaction> {
+  await createTable();
+
   const id = transaction.id ?? crypto.randomUUID();
   const createdAt = transaction.createdAt ?? new Date().toISOString();
 
@@ -74,36 +77,4 @@ export async function addTransaction(
   });
 
   return { ...transaction, id, createdAt };
-}
-
-export async function seedIfEmpty(resourceId: string): Promise<void> {
-  await createTable();
-
-  const existing = await dbClient.execute({
-    sql: "SELECT 1 FROM transactions WHERE resourceId = ? LIMIT 1",
-    args: [resourceId],
-  });
-
-  if (existing.rows.length > 0) return;
-
-  // A single batched statement instead of 28 sequential round-trips — trivial
-  // locally, but each new browser's first request would otherwise pay 28
-  // network round-trips against a remote Turso database.
-  await dbClient.batch(
-    SEED_TRANSACTIONS.map((seed) => ({
-      sql: "INSERT INTO transactions (id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      args: [
-        crypto.randomUUID(),
-        resourceId,
-        seed.date,
-        seed.createdAt,
-        seed.merchant,
-        seed.amount,
-        seed.type,
-        seed.category,
-        seed.seedCategory,
-      ],
-    })),
-    "write",
-  );
 }

@@ -110,14 +110,16 @@ Transactions are in LibSQL, not in shared state. `agent.state` on the frontend r
 
 `@ag-ui/mastra` parks frontend context under the `"ag-ui"` key in `requestContext`. It does **not** inject it into the prompt automatically. The Coach's `instructions` must be a function that reads `requestContext?.get("ag-ui")` — see Step 3 of `docs/implementation-plan.md` for the exact pattern.
 
-### Per-browser isolation
+### Per-user isolation
 
-Each browser gets its own `resourceId` via an httpOnly cookie → `x-resource-id` header (set in Next.js middleware). The Mastra middleware route must cover `/api/copilotkit/:path*`. Working memory uses `scope: "resource"` so goals and limits persist across threads but stay scoped to the browser.
+Auth is handled by Clerk (`@clerk/nextjs`); the whole app is gated (`src/middleware.ts` via `clerkMiddleware` + `auth.protect()`, with only `/sign-in(.*)` and `/sign-up(.*)` public). The middleware sets `x-resource-id` to Clerk's `userId`, used **directly** as the Mastra `resourceId` — no `users` table or mapping layer, since `resourceId` is stored as plain `TEXT` everywhere. Working memory uses `scope: "resource"` so goals and limits persist across a user's devices and threads. See `docs/adr/0004-clerk-for-authentication.md`.
 
 ## Environment variables
 
 ```env
 CEREBRAS_API_KEY=         # required — get one at cloud.cerebras.ai
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  # required — keys from dashboard.clerk.com
+CLERK_SECRET_KEY=         # required
 LOG_LEVEL=debug           # optional verbose logging
 
 # CopilotKit Intelligence (optional, enables durable threads)
@@ -133,5 +135,5 @@ Before marking any feature complete:
 1. `pnpm build` passes clean
 2. Mastra Studio (`pnpm dev:agent`, port 4111) smoke-tests the agent(s) involved
 3. In-browser golden path works end to end (see `docs/implementation-plan.md` Step 7)
-4. Second browser profile shows an independent, separately-seeded budget (resourceId isolation)
+4. Signing in as the same user in a second browser profile shows the *same* budget (cross-device continuity); a second, distinct user sees an independent, separately-seeded budget (resourceId isolation)
 5. Dev server restart preserves transactions, limits, goal, and chat threads

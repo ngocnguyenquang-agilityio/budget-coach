@@ -17,7 +17,7 @@ process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
 const { mastra } = await import("./index");
 const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-workflow");
-const { seedIfEmpty, listTransactions, addTransaction } = await import("@/db/transactions");
+const { listTransactions, addTransaction } = await import("@/db/transactions");
 const { parseWorkingMemory } = await import("./parse-working-memory");
 const { dbClient } = await import("@/db/client");
 
@@ -78,7 +78,6 @@ const toolCallModel = (toolName: string, input: Record<string, unknown>) => {
 };
 
 const startSuspendedReview = async (resourceId: string, threadId: string) => {
-  await seedIfEmpty(resourceId);
   const workflow = mastra.getWorkflow("monthlyReviewWorkflow");
   const run = await workflow.createRun();
   const result = await run.start({ inputData: { resourceId, threadId } });

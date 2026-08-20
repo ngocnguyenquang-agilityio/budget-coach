@@ -2,7 +2,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
-import { listTransactions, seedIfEmpty } from "@/db/transactions";
+import { listTransactions } from "@/db/transactions";
 import { resolveResourceId } from "@/mastra/get-resource-id";
 
 // partialRecord, not record — Zod v4's z.record with an enum key schema
@@ -36,7 +36,6 @@ export const analyzeTransactionsTool = createTool({
   outputSchema: AnalysisResultSchema,
   execute: async ({ categoryLimits }, context) => {
     const resourceId = resolveResourceId(context);
-    await seedIfEmpty(resourceId);
     const transactions = await listTransactions(resourceId);
     const period = new Date().toISOString().slice(0, 7);
     return computeAnalysis(transactions, categoryLimits ?? {}, period);
