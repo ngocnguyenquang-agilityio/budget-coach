@@ -1,24 +1,33 @@
 "use client";
 
 import type { Transaction } from "@/db/transactions";
+import type { Category } from "@/domain/categories";
 import { CATEGORY_COLORS, INCOME_COLOR } from "@/constants/chart-colors";
 
 export const TransactionListCard = ({
   transactions,
+  selectedCategory,
 }: {
   transactions: Transaction[];
+  selectedCategory?: Category;
 }) => {
-  if (transactions.length === 0) {
+  const visible = selectedCategory
+    ? transactions.filter((transaction) => transaction.category === selectedCategory)
+    : transactions;
+
+  if (visible.length === 0) {
     return (
       <p className="text-sm text-[var(--muted-foreground)]">
-        No transactions yet.
+        {selectedCategory
+          ? `No ${selectedCategory} transactions this month.`
+          : "No transactions yet."}
       </p>
     );
   }
 
   return (
     <div className="max-h-80 overflow-y-auto -mx-2">
-      {transactions.slice(0, 30).map((transaction) => {
+      {visible.slice(0, 30).map((transaction) => {
         const isIncome = transaction.type === "income";
         const dotColor = isIncome ? INCOME_COLOR : CATEGORY_COLORS[transaction.category!];
         return (
