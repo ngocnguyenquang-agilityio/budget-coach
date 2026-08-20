@@ -8,10 +8,14 @@ export const BudgetProgressBars = ({
   analysis,
   categoryLimits,
   highlightedCategory,
+  selectedCategory,
+  onSelectCategory,
 }: {
   analysis: AnalysisResult;
   categoryLimits: CategoryLimits;
   highlightedCategory?: Category;
+  selectedCategory?: Category;
+  onSelectCategory?: (category: Category) => void;
 }) => {
   const rows = analysis.categoryTotals.filter((entry) => entry.total > 0);
 
@@ -31,15 +35,33 @@ export const BudgetProgressBars = ({
           ? Math.min(100, Math.round((total / limit) * 100))
           : 0;
         const highlighted = highlightedCategory === category;
+        const selected = selectedCategory === category;
 
         return (
           <div
             key={category}
-            className={`rounded-[var(--radius)] p-1.5 ${
-              highlighted
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            onClick={() => onSelectCategory?.(category)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelectCategory?.(category);
+              }
+            }}
+            className={`rounded-[var(--radius)] p-1.5 cursor-pointer transition-colors ${
+              selected
                 ? "ring-2 ring-[var(--ring)] ring-offset-2 ring-offset-[var(--card)]"
-                : ""
+                : "hover:ring-1 hover:ring-[var(--border)]"
             }`}
+            style={
+              highlighted
+                ? {
+                    backgroundColor: `color-mix(in srgb, ${CATEGORY_COLORS[category]} 16%, transparent)`,
+                  }
+                : undefined
+            }
           >
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="flex items-center gap-1.5 font-medium">

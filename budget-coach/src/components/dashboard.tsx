@@ -56,8 +56,15 @@ export const Dashboard = () => {
       ? (stored as Category)
       : undefined;
   });
+  const [selectedCategory, setSelectedCategory] = useState<
+    Category | undefined
+  >(undefined);
   const [formOpen, setFormOpen] = useState(false);
   const [formPrefill, setFormPrefill] = useState<AddTransactionFormPrefill>({});
+
+  const handleSelectCategory = useCallback((category: Category) => {
+    setSelectedCategory((current) => (current === category ? undefined : category));
+  }, []);
 
   const hydratedAgentRef = useRef<typeof agent | null>(null);
   useEffect(() => {
@@ -260,13 +267,29 @@ export const Dashboard = () => {
     {
       name: "highlightCategory",
       description:
-        "Highlight a budget category in the dashboard. UI only — does not change any data.",
+        "Visually point at a budget category in the dashboard. Does NOT filter or change any data — use this to draw attention to a category while discussing it, e.g. when explaining why it's over budget.",
       parameters: z.object({ category: CategorySchema.optional() }),
       handler: async ({ category }) => {
         setHighlightedCategory(category);
         return category
           ? `Highlighted ${category} in the dashboard.`
           : "Cleared the highlighted category.";
+      },
+    },
+    [],
+  );
+
+  useFrontendTool(
+    {
+      name: "selectCategory",
+      description:
+        "Filter the Transactions list on the dashboard down to one category, exactly as if the user clicked that category's row. Omit category to clear the filter and show all transactions again.",
+      parameters: z.object({ category: CategorySchema.optional() }),
+      handler: async ({ category }) => {
+        setSelectedCategory(category);
+        return category
+          ? `Filtered transactions to ${category}.`
+          : "Cleared the transaction filter.";
       },
     },
     [],
@@ -285,8 +308,12 @@ export const Dashboard = () => {
 
   useAgentContext({
     description:
-      "The month currently visible on the dashboard, and any category the user has highlighted",
-    value: { visibleMonth, highlightedCategory: highlightedCategory ?? null },
+      "The month currently visible on the dashboard, any category the user has highlighted, and any category the Transactions list is currently filtered to",
+    value: {
+      visibleMonth,
+      highlightedCategory: highlightedCategory ?? null,
+      selectedCategory: selectedCategory ?? null,
+    },
   });
 
   useConfigureSuggestions({
@@ -412,17 +439,33 @@ export const Dashboard = () => {
                 analysis={analysis}
                 categoryLimits={state.categoryLimits ?? {}}
                 highlightedCategory={highlightedCategory}
+                selectedCategory={selectedCategory}
+                onSelectCategory={handleSelectCategory}
               />
             </CardContent>
           </Card>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Transactions</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardTitle className="text-base">
+              {selectedCategory ? `Transactions — ${selectedCategory}` : "Transactions"}
+            </CardTitle>
+            {selectedCategory && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(undefined)}
+                className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
+              >
+                Reset
+              </button>
+            )}
           </CardHeader>
           <CardContent>
-            <TransactionListCard transactions={transactions} />
+            <TransactionListCard
+              transactions={transactions}
+              selectedCategory={selectedCategory}
+            />
           </CardContent>
         </Card>
       </div>
