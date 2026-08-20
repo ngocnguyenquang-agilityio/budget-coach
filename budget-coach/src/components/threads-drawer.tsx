@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import { useAgent, useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,8 +14,8 @@ import {
 // Intelligence runtime (its thread list lives on CopilotKit's servers, and its
 // runner can't survive serverless). This one reads Mastra's own memory tables in
 // LibSQL via /api/threads, so the conversation list is durable across cold
-// starts, redeploys and instance churn, and stays scoped to the browser's
-// resourceId cookie.
+// starts, redeploys and instance churn, and stays scoped to the signed-in
+// Clerk user's resourceId (see ADR-0004).
 
 type Thread = {
   id: string;
@@ -133,7 +134,10 @@ export const ThreadsDrawer = () => {
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-[var(--border)] bg-[var(--background)]">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
-        <span className="text-sm font-medium">Conversations</span>
+        <div className="flex items-center gap-2">
+          <UserButton />
+          <span className="text-sm font-medium">Conversations</span>
+        </div>
         <Button size="sm" variant="outline" onClick={() => configuration?.startNewThread()}>
           + New
         </Button>

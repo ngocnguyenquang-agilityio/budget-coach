@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits } from "@/domain/propose-limits";
-import { listTransactions, seedIfEmpty } from "@/db/transactions";
+import { listTransactions } from "@/db/transactions";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
 import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reasonableness";
 
@@ -47,15 +47,13 @@ const outputSchema = z.object({
 
 // Every transaction gets a category at insert time (src/db/transactions.ts),
 // so there is currently nothing for this step to do — it exists to hold this
-// pipeline position per the spec, and seeds data so later steps never see an
-// empty transaction list on a fresh resourceId.
+// pipeline position per the spec.
 const categorizeUncategorized = createStep({
   id: "categorize-uncategorized",
   description: "Categorizes any transactions missing a category before analysis runs.",
   inputSchema: reviewSchema,
   outputSchema: reviewSchema,
   execute: async ({ inputData }) => {
-    await seedIfEmpty(inputData.resourceId);
     return inputData;
   },
 });

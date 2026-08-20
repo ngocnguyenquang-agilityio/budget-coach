@@ -11,7 +11,6 @@
     "build": "next build",
     "start": "next start",
     "dev:infra": "node scripts/copilotkit-dev-infra.mjs",
-    "seed": "tsx scripts/seed-db.ts",
     "backfill:titles": "tsx scripts/backfill-thread-titles.ts",
     "test": "vitest run"
   },
@@ -20,6 +19,7 @@
     "@ag-ui/mastra": "1.1.1",
     "@ai-sdk/cerebras": "^3.0.30",
     "@ai-sdk/openai": "^4.0.32",
+    "@clerk/nextjs": "^7.7.8",
     "@copilotkit/react-core": "1.65.0",
     "@copilotkit/runtime": "1.65.0",
     "@libsql/client": "^0.15.15",

@@ -13,11 +13,15 @@ This is a starter template for building AI agents using [Mastra](https://mastra.
 
 ## Getting Started
 
-1. Add your OpenAI API key
+1. Add your Cerebras API key and Clerk keys
 
 ```bash
-# you can use whatever model Mastra supports
-echo "OPENAI_API_KEY=your-key-here" >> .env
+echo "CEREBRAS_API_KEY=your-key-here" >> .env
+
+# Create an application at https://dashboard.clerk.com, enable email/password
+# and Google as sign-in strategies, then add its keys:
+echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your-key-here" >> .env
+echo "CLERK_SECRET_KEY=your-key-here" >> .env
 ```
 
 2. Install dependencies using your preferred package manager:
@@ -122,8 +126,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Thread history is durable and needs no CopilotKit license or extra
 infrastructure. Every conversation is stored by Mastra memory in LibSQL
-(`mastra_threads` / `mastra_messages`), scoped to the per-browser `resourceId`
-cookie that `src/middleware.ts` sets.
+(`mastra_threads` / `mastra_messages`), scoped to the `resourceId` that
+`src/middleware.ts` sets from the signed-in Clerk user's `userId`.
 
 - `src/components/threads-drawer.tsx` renders the conversation list, backed by
   `/api/threads` (list, rename, delete) and `/api/threads/:id/title`.

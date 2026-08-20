@@ -46,3 +46,6 @@ next-env.d.ts
 # local LibSQL database file
 budget-coach.db*
 
+
+# clerk configuration (can include secrets)
+/.clerk/

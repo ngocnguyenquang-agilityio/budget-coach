@@ -1,7 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
-import { addTransaction, listTransactions, seedIfEmpty } from "@/db/transactions";
+import { addTransaction, listTransactions } from "@/db/transactions";
 import { resolveResourceId } from "@/mastra/get-resource-id";
 
 const TransactionSchema = z.object({
@@ -23,7 +23,6 @@ export const listTransactionsTool = createTool({
   outputSchema: z.object({ transactions: z.array(TransactionSchema) }),
   execute: async (_input, context) => {
     const resourceId = resolveResourceId(context);
-    await seedIfEmpty(resourceId);
     const transactions = await listTransactions(resourceId);
     return { transactions };
   },
