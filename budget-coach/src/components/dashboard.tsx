@@ -267,7 +267,7 @@ export const Dashboard = () => {
     {
       name: "highlightCategory",
       description:
-        "Visually point at a budget category in the dashboard. Does NOT filter or change any data — use this to draw attention to a category while discussing it, e.g. when explaining why it's over budget.",
+        "Visually point at a budget category in the dashboard. Does NOT filter or change any data. Only call this when the user explicitly asks to highlight, show, or point out a category (e.g. \"highlight Dining\") — never automatically just because a category came up while answering a question.",
       parameters: z.object({ category: CategorySchema.optional() }),
       handler: async ({ category }) => {
         setHighlightedCategory(category);
