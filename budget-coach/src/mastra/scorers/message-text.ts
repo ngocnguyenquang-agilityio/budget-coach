@@ -1,9 +1,9 @@
 import type { MastraDBMessage } from "@mastra/core/memory";
 
-// Same content-shape handling as BlockedPhraseGuardrail's getMessageText
-// (src/mastra/processors/blocked-phrase-guardrail.ts) — text can live in
-// `content.parts` (text parts) or fall back to `content.content`.
-const getMessageText = (message: MastraDBMessage): string => {
+// Text can live in `content.parts` (text parts) or fall back to
+// `content.content`. Shared by the guardrail processors that need to read
+// message text (src/mastra/processors/*.ts).
+export const getMessageText = (message: MastraDBMessage): string => {
   let text = "";
 
   if (message.content.parts) {

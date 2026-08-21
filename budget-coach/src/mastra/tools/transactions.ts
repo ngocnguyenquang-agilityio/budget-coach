@@ -18,13 +18,22 @@ const TransactionSchema = z.object({
 
 export const listTransactionsTool = createTool({
   id: "list-transactions",
-  description: "List all transactions for the current user, most recent first.",
-  inputSchema: z.object({}),
+  description:
+    "List transactions for the current user, most recent first. Optionally filter to a single category and/or a month, e.g. to answer 'what did I spend on groceries this month'.",
+  inputSchema: z.object({
+    category: CategorySchema.optional(),
+    month: z.string().optional().describe("ISO month (YYYY-MM) to filter transactions to; omit for all months"),
+  }),
   outputSchema: z.object({ transactions: z.array(TransactionSchema) }),
-  execute: async (_input, context) => {
+  execute: async ({ category, month }, context) => {
     const resourceId = resolveResourceId(context);
     const transactions = await listTransactions(resourceId);
-    return { transactions };
+    const filtered = transactions.filter(
+      (transaction) =>
+        (category === undefined || transaction.category === category) &&
+        (month === undefined || transaction.date.startsWith(month))
+    );
+    return { transactions: filtered };
   },
 });
 
