@@ -90,7 +90,7 @@ Three Mastra agents, one workflow:
 Only the **Coach** carries `Memory`. Working memory (`scope: "resource"`, survives across threads) holds:
 
 ```ts
-{ savingsGoal, categoryLimits, lastReviewDate, pendingApproval }
+{ savingsGoal, categoryLimits, lastReviewPeriod, pendingApproval }
 ```
 
 Transactions are in LibSQL, not in shared state. `agent.state` on the frontend reads only the working memory object.

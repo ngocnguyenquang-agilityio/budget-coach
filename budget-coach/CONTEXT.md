@@ -28,6 +28,10 @@ _Avoid_: spend, outflow, purchase
 The fixed taxonomy used to classify Expenses only (Groceries, Dining, Transport, etc.). Income Transactions do not have a Category.
 _Avoid_: type (see `Type`, which is a different field)
 
+**Category Limit**:
+The per-Category ceiling on Expense spending within a Period, set by an approved Monthly Review. Persists across Periods until a later Monthly Review changes it — unlike Net Savings, it does not reset each Period.
+_Avoid_: budget, cap (see `Monthly Review`, `Proposed Limits`)
+
 **Period**:
 The calendar month used to scope all analysis — Income totals, Expense totals, category limits, and the Savings Goal. Replaces the app's former trailing-30-day window.
 _Avoid_: month (ambiguous with calendar-date fields), window, trailing period
@@ -39,6 +43,18 @@ _Avoid_: net, cash flow, surplus
 **Savings Goal**:
 The user's recurring target for Net Savings within a single Period. Checked and reset every Period — not a cumulative, deadline-based goal (e.g. "$2,000 by December" is out of scope; that would be a different concept if ever built).
 _Avoid_: goal, target
+
+**Monthly Review**:
+The recurring, once-per-Period process that compares spending against the current Category Limits and produces Proposed Limits for the user to accept or reject. Approving replaces the Category Limits with the Proposed Limits; rejecting leaves them unchanged.
+_Avoid_: review, budget review
+
+**Proposed Limits**:
+The Category Limit values a Monthly Review computes but that have not yet been approved. Becomes the new Category Limits only if the user approves; discarded if rejected.
+_Avoid_: draft limits, suggested limits (see `Category Limit`, which is a different, approved thing)
+
+**Pending Approval**:
+The state of a Monthly Review that has proposed its Proposed Limits and is waiting on the user's approve/reject decision. At most one Monthly Review may be Pending Approval for a User at a time.
+_Avoid_: in progress, suspended (an implementation detail of how this state is persisted, not the domain state itself)
 
 ## Boundary notes
 

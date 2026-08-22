@@ -10,8 +10,10 @@ export const BudgetStateSchema = z.object({
   // requires every enum key present, which rejects the common case of only
   // a few categories having limits set.
   categoryLimits: z.partialRecord(CategorySchema, z.number()).optional(),
-  lastReviewDate: z.string().optional(),
-  pendingApproval: z.unknown().optional(),
+  // YYYY-MM — only ever compared at Period granularity, never a full date.
+  lastReviewPeriod: z.string().optional(),
+  // Set while a Monthly Review is Pending Approval; cleared once decided.
+  pendingApproval: z.object({ runId: z.string() }).optional(),
 });
 
 export type BudgetState = z.infer<typeof BudgetStateSchema>;

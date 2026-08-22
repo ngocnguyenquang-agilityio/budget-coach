@@ -56,9 +56,19 @@ export const approveBudgetTool = createTool({
     const coachAgent = context.mastra?.getAgent("coach");
     const memory = await coachAgent?.getMemory();
     const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
-    const lastReviewDate = parseWorkingMemory(raw).lastReviewDate as string | undefined;
+    const current = parseWorkingMemory(raw);
+
+    // At most one Monthly Review may be Pending Approval at a time — a second
+    // trigger before the first is decided would overwrite pendingApproval's
+    // runId and orphan the first suspended run.
+    const pendingApproval = current.pendingApproval as { runId?: string } | undefined;
+    if (pendingApproval?.runId) {
+      return { message: "You already have a Monthly Review awaiting your decision." };
+    }
+
+    const lastReviewPeriod = current.lastReviewPeriod as string | undefined;
     const currentMonth = new Date().toISOString().slice(0, 7);
-    if (lastReviewDate?.slice(0, 7) === currentMonth) {
+    if (lastReviewPeriod === currentMonth) {
       return { message: "You've already completed this month's budget review." };
     }
 
