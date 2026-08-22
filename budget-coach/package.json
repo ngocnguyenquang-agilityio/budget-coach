@@ -48,6 +48,7 @@
     "@types/node": "^26.1.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "ai": "6.0.244",
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",

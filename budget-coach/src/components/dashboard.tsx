@@ -134,9 +134,15 @@ export const Dashboard = () => {
     [],
   );
 
-  // Gate 2 — server-side Mastra suspend/resume via approveBudgetTool. The
-  // suspend payload is nested under suspendPayload inside event.value, and
-  // event.value may arrive as a JSON string rather than an object.
+  // Gate 2 — server-side Mastra suspend/resume via approveBudgetTool.
+  // @ag-ui/mastra emits both an interrupt shapes for every tool suspend: a
+  // legacy `on_interrupt` custom event (event.value.suspendPayload directly)
+  // and, since MastraAgent's emitInterruptOutcome defaults to true, a
+  // standard AG-UI interrupt (event.value.metadata.mastra.suspendPayload).
+  // useInterrupt (@copilotkit/react-core v2) prefers the standard shape
+  // whenever both are present, so the legacy top-level field is never what
+  // actually arrives here — read both, standard first, and event.value may
+  // arrive as a JSON string rather than an object.
   useInterrupt({
     agentId: "coach",
     renderInChat: true,
@@ -147,8 +153,16 @@ export const Dashboard = () => {
           proposedLimits?: CategoryLimits;
           analysis?: AnalysisResult;
         };
+        metadata?: {
+          mastra?: {
+            suspendPayload?: {
+              proposedLimits?: CategoryLimits;
+              analysis?: AnalysisResult;
+            };
+          };
+        };
       };
-      const payload = parsed.suspendPayload ?? {};
+      const payload = parsed.metadata?.mastra?.suspendPayload ?? parsed.suspendPayload ?? {};
       return (
         <MonthlyReviewCard
           proposedLimits={payload.proposedLimits ?? {}}

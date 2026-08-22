@@ -27,7 +27,7 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 13. As a user opening the app in a different browser, I want to see my own separate, independently-seeded budget rather than someone else's, so that budgets stay isolated without requiring a login.
 14. As a user, I want the assistant to refuse prompts that try to override its instructions (e.g. "ignore previous instructions"), so that it stays trustworthy.
 15. As a user, I want the assistant to decline to give real investment/financial advice (e.g. "should I buy Nvidia stock?") and redirect me back to budgeting, so that it doesn't overstep into regulated advice it's not qualified to give.
-16. As a developer, I want deterministic scorers (no LLM judge) evaluating categorization accuracy, on-topic scope, and budget-adjustment sanity, so that regressions in agent quality are caught automatically after every run.
+16. As a developer, I want scorers evaluating categorization accuracy, on-topic scope, and budget-adjustment sanity, so that regressions in agent quality are caught automatically after every run. Categorization accuracy and budget-adjustment sanity are deterministic (objective ground truth to check against); on-topic scope uses an LLM judge, since scope drift is a matter of degree a keyword list can't grade (see ADR-0005).
 17. As a developer, I want every agent/tool/workflow call traced to Mastra Studio via `@mastra/observability`, so that I can debug orchestration without extra infrastructure.
 18. As a developer, I want to swap the LLM provider between local Ollama (`llama3.1`) and Google Gemini via an env var, so that I can develop offline and still have a path to a hosted model.
 19. As a user, I want to see the assistant's current spending analysis and any highlighted category reflected in what it says, so that its answers are grounded in what I'm actually looking at on the dashboard.
@@ -90,9 +90,9 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 
 ## Testing Decisions
 
-- All scorers are **deterministic** (`createScorer(...).preprocess().analyze().generateScore().generateReason()`, no LLM judge), following the shape of `my-nextjs-agent/src/mastra/scorers/temperature-unit-scorer.ts`.
+- All scorers follow the `createScorer(...).preprocess().analyze().generateScore().generateReason()` shape, following `my-nextjs-agent/src/mastra/scorers/temperature-unit-scorer.ts`. `categorizerAccuracyScorer` and `adjustmentReasonablenessScorer` are **deterministic** (function steps only, no LLM judge). `coachScopeScorer` uses an **LLM judge** (prompt-object `.analyze()` step) — see ADR-0005 for why it's the exception.
 - `categorizerAccuracyScorer` — compares the assigned category against `seedCategory` ground truth; scores 1/0, returns 1 when there's no ground truth to check against. Attached to the Categorizer.
-- `coachScopeScorer` — flags Coach responses drifting into investment/regulated-advice territory; pairs with `financialAdviceGuardrail` as a scored signal on top of the hard block. Attached to the Coach.
+- `coachScopeScorer` — an LLM judge grades how far a Coach response drifts into investment/regulated-advice territory on a `none/mild/moderate/severe` rubric, mapped to a `1/0.66/0.33/0` score; pairs with `financialAdviceGuardrail` as a scored signal on top of the hard block. Attached to the Coach.
 - `adjustmentReasonablenessScorer` — flags a proposed budget limit more than 50% away from trailing spend. Attached to the workflow's `proposeAdjustments` step.
 - All scorers attached per-agent with `sampling: { type: "ratio", rate: 1 }` and registered bare on the `Mastra` instance so they're visible in Mastra Studio.
 - Reading tool-call results inside a scorer: `toolInvocation.toolName` is the agent's `tools` map key, not the tool's `id` — same footgun as the render-side tool-name matching.
