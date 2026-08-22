@@ -6,7 +6,7 @@ import { parseWorkingMemory } from "@/mastra/parse-working-memory";
 // Writes directly to the Coach's resource-scoped working memory rather than
 // relying on the model to phrase an update through the auto-injected
 // updateWorkingMemory tool — read-merge-write so we never clobber the rest
-// of BudgetState (categoryLimits, lastReviewDate, pendingApproval).
+// of BudgetState (categoryLimits, lastReviewPeriod, pendingApproval).
 export const setSavingsGoalTool = createTool({
   id: "set-savings-goal",
   description: "Set the user's monthly savings goal.",

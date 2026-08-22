@@ -154,7 +154,7 @@ const applyOrDiscard = createStep({
       const next = {
         ...current,
         ...(approved ? { categoryLimits: nextLimits } : {}),
-        lastReviewDate: new Date().toISOString().slice(0, 10),
+        lastReviewPeriod: new Date().toISOString().slice(0, 7),
         pendingApproval: undefined,
       };
       await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(next) });
