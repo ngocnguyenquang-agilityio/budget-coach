@@ -36,12 +36,14 @@ export const AddTransactionForm = ({
     prefill.category ?? "Other",
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMerchant(prefill.merchant ?? "");
     setAmount(prefill.amount !== undefined ? String(prefill.amount) : "");
     setType(prefill.type ?? "expense");
     setCategory(prefill.category ?? "Other");
+    setError(null);
   }, [prefill]);
 
   if (!open) return null;
@@ -49,8 +51,9 @@ export const AddTransactionForm = ({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
+    setError(null);
     try {
-      await fetch("/api/transactions", {
+      const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -60,8 +63,15 @@ export const AddTransactionForm = ({
           ...(type === "expense" ? { category } : {}),
         }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error ?? "Failed to save transaction.");
+        return;
+      }
       onSaved();
       onClose();
+    } catch {
+      setError("Failed to save transaction. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -120,6 +130,9 @@ export const AddTransactionForm = ({
                 </option>
               ))}
             </select>
+          )}
+          {error && (
+            <p className="text-sm text-[var(--destructive)]">{error}</p>
           )}
           <div className="flex gap-2">
             <Button type="submit" className="flex-1" disabled={saving}>
