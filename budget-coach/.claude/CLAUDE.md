@@ -90,8 +90,10 @@ Three Mastra agents, one workflow:
 Only the **Coach** carries `Memory`. Working memory (`scope: "resource"`, survives across threads) holds:
 
 ```ts
-{ savingsGoal, categoryLimits, lastReviewPeriod, pendingApproval }
+{ savingsGoal, categoryLimits, lastReviewPeriod, pendingApproval, coachPreferences }
 ```
+
+`coachPreferences` (`{ verbosity?, nickname?, emphasizedCategories? }`, see ADR-0006) is explicit-only (set via `setCoachPreferenceTool`, never inferred) and can never override a guardrail or suppress required information. It's woven into the Coach's instructions as imperative prose, not dumped as raw JSON — see `buildPreferenceDirectives` in `src/mastra/agents/coach.ts`. Because the `instructions()` callback only receives `{ requestContext, mastra }` (no resourceId/threadId to query working memory directly), the dashboard round-trips `coachPreferences` back through the same `"ag-ui"` frontend-context channel used for UI state, reading it off `agent.state` (already synced from working memory).
 
 Transactions are in LibSQL, not in shared state. `agent.state` on the frontend reads only the working memory object.
 

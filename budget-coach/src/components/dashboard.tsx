@@ -329,16 +329,18 @@ export const Dashboard = () => {
 
   useAgentContext({
     description:
-      "The month currently visible on the dashboard, any category the user has highlighted, and any category the Transactions list is currently filtered to",
+      "The month currently visible on the dashboard, any category the user has highlighted, any category the Transactions list is currently filtered to, and the user's stored Coach Preferences (round-tripped from working memory so the Coach's instructions can weave them in as directives — see coach.ts)",
     value: {
       visibleMonth,
       highlightedCategory: highlightedCategory ?? null,
       selectedCategory: selectedCategory ?? null,
+      coachPreferences: state.coachPreferences ?? null,
     },
   });
 
+  // Onboarding chips for an empty chat — fixed and free, no model call.
   useConfigureSuggestions({
-    available: "always",
+    available: "before-first-message",
     suggestions: [
       { title: "Log a purchase", message: "I spent $40 at Trader Joe's." },
       { title: "Log income", message: "I got paid $3000." },
@@ -352,6 +354,17 @@ export const Dashboard = () => {
         message: "How am I doing across categories this month?",
       },
     ],
+  });
+
+  // Once the conversation has started, replace the fixed chips with ones
+  // grounded in what just happened (generated via providerAgentId: "coach").
+  useConfigureSuggestions({
+    instructions:
+      "Suggest 2-3 short next actions for this budget coach conversation, phrased as first-person messages the user could send next (e.g. 'Set a monthly savings goal of $500.', 'How am I doing on Dining this month?'). Build on what just happened — e.g. after logging a transaction, suggest checking category totals or setting a goal. Never suggest something the user just did (e.g. don't suggest logging income right after they logged income).",
+    minSuggestions: 2,
+    maxSuggestions: 3,
+    available: "after-first-message",
+    providerAgentId: "coach",
   });
 
   const overLimitCount = analysis.categoryTotals.filter(

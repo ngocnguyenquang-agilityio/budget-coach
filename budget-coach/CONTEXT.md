@@ -56,6 +56,10 @@ _Avoid_: draft limits, suggested limits (see `Category Limit`, which is a differ
 The state of a Monthly Review that has proposed its Proposed Limits and is waiting on the user's approve/reject decision. At most one Monthly Review may be Pending Approval for a User at a time.
 _Avoid_: in progress, suspended (an implementation detail of how this state is persisted, not the domain state itself)
 
+**Coach Preferences**:
+The User's explicitly stated, resource-scoped adjustments to how the Coach communicates — verbosity, form of address, and which Categories to emphasize. Persists across threads like Savings Goal and Category Limit. Never overrides a guardrail or suppresses required information (e.g. over-limit flags) — Preferences affect only how the Coach talks, never what it's required to report or refuse.
+_Avoid_: settings, config (implementation-flavored, not domain language)
+
 ## Boundary notes
 
 - **Refunds** reduce the original Expense's Category total; they are never Income. (No refund/reversal feature exists yet — this is a definitional boundary for when one is built, not a mechanism designed now.)
