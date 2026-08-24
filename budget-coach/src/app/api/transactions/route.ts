@@ -2,20 +2,26 @@ import { NextResponse } from "next/server";
 import { getResourceId } from "@/mastra/get-resource-id";
 import { CategorySchema, type Category } from "@/domain/categories";
 import { addTransaction, listTransactions } from "@/db/transactions";
+import { withErrorHandling } from "@/lib/with-error-handling";
 
 export const runtime = "nodejs";
 
-export const GET = async (req: Request) => {
+export const GET = withErrorHandling(async (req) => {
   const resourceId = getResourceId(req);
 
   const transactions = await listTransactions(resourceId);
 
   return NextResponse.json({ transactions });
-};
+});
 
-export const POST = async (req: Request) => {
+export const POST = withErrorHandling(async (req) => {
   const resourceId = getResourceId(req);
-  const body = await req.json();
+  let body: { merchant?: unknown; amount?: unknown; type?: unknown; category?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   const merchant = String(body.merchant ?? "").trim();
   const amount = Number(body.amount);
@@ -51,4 +57,4 @@ export const POST = async (req: Request) => {
   });
 
   return NextResponse.json({ transaction });
-};
+});

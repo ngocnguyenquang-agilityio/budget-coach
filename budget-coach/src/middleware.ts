@@ -5,10 +5,6 @@ const RESOURCE_ID_HEADER = "x-resource-id";
 
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
-// resourceId scoping (working memory, thread listings, transactions) is
-// keyed directly off the authenticated Clerk userId — see ADR-0004. No
-// mapping table: whatever string lands in x-resource-id is what every
-// downstream consumer (getResourceId, resolveResourceId) trusts.
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) {
     return NextResponse.next();
@@ -16,18 +12,19 @@ export default clerkMiddleware(async (auth, req) => {
 
   await auth.protect();
   const { userId } = await auth();
+  if (!userId) {
+    console.error(
+      "[middleware] auth.protect() succeeded but userId is missing",
+    );
+    return NextResponse.redirect(new URL("/sign-in", req.url));
+  }
 
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set(RESOURCE_ID_HEADER, userId!);
+  requestHeaders.set(RESOURCE_ID_HEADER, userId);
 
   return NextResponse.next({ request: { headers: requestHeaders } });
 });
 
-// Page requests are matched too, not just /api/*. A first-time visitor's page
-// load fires several API calls at once (threads, transactions, working memory,
-// the CopilotKit handshake); every one of them needs x-resource-id attached or
-// getResourceId throws. Matching the document means auth runs before any of
-// those requests reach a route handler.
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

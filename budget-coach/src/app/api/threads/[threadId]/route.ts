@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { getResourceId } from "@/mastra/get-resource-id";
 import { removeThread, renameThread } from "@/mastra/threads";
+import { withErrorHandling } from "@/lib/with-error-handling";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ threadId: string }> };
 
-export const PATCH = async (req: Request, { params }: RouteContext) => {
+export const PATCH = withErrorHandling<RouteContext>(async (req, { params }) => {
   const resourceId = getResourceId(req);
   const { threadId } = await params;
-  const body = await req.json();
+  let body: { title?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   const title = String(body.title ?? "").trim();
   if (!title) {
@@ -24,9 +30,9 @@ export const PATCH = async (req: Request, { params }: RouteContext) => {
   }
 
   return NextResponse.json({ thread });
-};
+});
 
-export const DELETE = async (req: Request, { params }: RouteContext) => {
+export const DELETE = withErrorHandling<RouteContext>(async (req, { params }) => {
   const resourceId = getResourceId(req);
   const { threadId } = await params;
 
@@ -36,4 +42,4 @@ export const DELETE = async (req: Request, { params }: RouteContext) => {
   }
 
   return NextResponse.json({ deleted: true });
-};
+});

@@ -148,7 +148,7 @@ export const Dashboard = () => {
     renderInChat: true,
     render: ({ event, resolve }) => {
       const raw = event.value ?? {};
-      const parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+      type SuspendPayload = {
         suspendPayload?: {
           proposedLimits?: CategoryLimits;
           analysis?: AnalysisResult;
@@ -162,6 +162,13 @@ export const Dashboard = () => {
           };
         };
       };
+      let parsed: SuspendPayload = {};
+      try {
+        parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as SuspendPayload;
+      } catch {
+        // Malformed suspend payload — fall through to the empty-state card
+        // below rather than crashing the render.
+      }
       const payload = parsed.metadata?.mastra?.suspendPayload ?? parsed.suspendPayload ?? {};
       return (
         <MonthlyReviewCard
