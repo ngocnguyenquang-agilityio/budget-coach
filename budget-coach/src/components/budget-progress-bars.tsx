@@ -1,7 +1,7 @@
 "use client";
 
 import type { AnalysisResult } from "@/domain/analysis";
-import type { Category, CategoryLimits } from "@/domain/categories";
+import { CATEGORIES, type Category, type CategoryLimits } from "@/domain/categories";
 import { CATEGORY_COLORS } from "@/constants/chart-colors";
 
 export const BudgetProgressBars = ({
@@ -17,7 +17,23 @@ export const BudgetProgressBars = ({
   selectedCategory?: Category;
   onSelectCategory?: (category: Category) => void;
 }) => {
-  const rows = analysis.categoryTotals.filter((entry) => entry.total > 0);
+  // A category with a limit set but no transactions this period has nothing
+  // in analysis.categoryTotals (computeAnalysis only emits entries for
+  // categories that appear in the transaction list) — shown here anyway,
+  // at $0 spent, so a limit set with no spending isn't hidden.
+  const totalsByCategory = new Map(analysis.categoryTotals.map((entry) => [entry.category, entry]));
+  const rows = CATEGORIES.filter(
+    (category) => (totalsByCategory.get(category)?.total ?? 0) > 0 || categoryLimits[category] !== undefined,
+  ).map(
+    (category) =>
+      totalsByCategory.get(category) ?? {
+        category,
+        total: 0,
+        // computeAnalysis's own overLimit formula (limit !== undefined && total
+        // > limit) with total substituted as 0, for the entries synthesized here.
+        overLimit: categoryLimits[category] !== undefined && 0 > categoryLimits[category],
+      },
+  );
 
   if (rows.length === 0) {
     return (

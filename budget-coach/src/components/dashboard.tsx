@@ -27,6 +27,8 @@ import { CategoryBreakdownChart } from "@/components/category-breakdown-chart";
 import { BudgetProgressBars } from "@/components/budget-progress-bars";
 import { TransactionListCard } from "@/components/transaction-list-card";
 import { ConfirmTransactionCard } from "@/components/confirm-transaction-card";
+import { DeclaredIncomeCard } from "@/components/declared-income-card";
+import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import {
   AddTransactionForm,
@@ -134,6 +136,39 @@ export const Dashboard = () => {
     [],
   );
 
+  // Gate 1a — pure frontend tool, no server suspend. Same shape as
+  // provideDeclaredIncome below, for whenever the Coach needs the user's
+  // savings goal (unset, or they want to change it) — replaces asking in
+  // plain chat text so both prerequisites for a Monthly Review collect the
+  // same way.
+  useHumanInTheLoop(
+    {
+      name: "provideSavingsGoal",
+      description: "Ask the user for their monthly savings goal.",
+      parameters: z.object({}),
+      render: ({ status, respond, result }) => (
+        <SavingsGoalCard status={status} respond={respond} result={result} />
+      ),
+    },
+    [],
+  );
+
+  // Gate 1b — pure frontend tool, no server suspend (ADR-0007). The Coach
+  // calls this before starting a Monthly Review, so Declared Income is
+  // collected before the workflow ever runs; Cancel means it never starts,
+  // so there's nothing to discard.
+  useHumanInTheLoop(
+    {
+      name: "provideDeclaredIncome",
+      description: "Ask the user for their income figure before running a Monthly Review.",
+      parameters: z.object({}),
+      render: ({ status, respond, result }) => (
+        <DeclaredIncomeCard status={status} respond={respond} result={result} />
+      ),
+    },
+    [],
+  );
+
   // Gate 2 — server-side Mastra suspend/resume via approveBudgetTool.
   // @ag-ui/mastra emits both an interrupt shapes for every tool suspend: a
   // legacy `on_interrupt` custom event (event.value.suspendPayload directly)
@@ -152,12 +187,14 @@ export const Dashboard = () => {
         suspendPayload?: {
           proposedLimits?: CategoryLimits;
           analysis?: AnalysisResult;
+          cap?: number;
         };
         metadata?: {
           mastra?: {
             suspendPayload?: {
               proposedLimits?: CategoryLimits;
               analysis?: AnalysisResult;
+              cap?: number;
             };
           };
         };
@@ -174,7 +211,8 @@ export const Dashboard = () => {
         <MonthlyReviewCard
           proposedLimits={payload.proposedLimits ?? {}}
           analysis={payload.analysis ?? emptyAnalysis}
-          onApprove={() => resolve({ decision: "approve" })}
+          cap={payload.cap}
+          onApprove={(edits) => resolve({ decision: "approve", edits })}
           onReject={() => resolve({ decision: "reject" })}
         />
       );

@@ -72,6 +72,26 @@ export const approveBudgetTool = createTool({
       return { message: "You've already completed this month's budget review." };
     }
 
+    // Category Limits are capped at Declared Income − Savings Goal (ADR-0007)
+    // — both must be known, and the cap must be positive, before the
+    // workflow's proposeAdjustments step (which throws on a non-positive
+    // cap) is ever reached.
+    const savingsGoal = current.savingsGoal as number | undefined;
+    if (savingsGoal === undefined) {
+      return { message: "You need to set a savings goal before running a Monthly Review — what would you like your monthly savings goal to be?" };
+    }
+
+    const declaredIncome = current.declaredIncome as number | undefined;
+    if (declaredIncome === undefined) {
+      return { message: "I need your income for this Monthly Review — what's your income this month?" };
+    }
+
+    if (declaredIncome - savingsGoal <= 0) {
+      return {
+        message: `Your savings goal ($${savingsGoal}) isn't achievable with a declared income of $${declaredIncome} — lower your savings goal or update your declared income before running a Monthly Review.`,
+      };
+    }
+
     const run = await workflow.createRun();
     const result = await run.start({ inputData: { resourceId, threadId } });
 

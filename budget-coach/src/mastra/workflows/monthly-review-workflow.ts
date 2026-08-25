@@ -1,6 +1,6 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { CategorySchema } from "@/domain/categories";
+import { CategorySchema, type Category } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits } from "@/domain/propose-limits";
 import { listTransactions } from "@/db/transactions";
@@ -21,8 +21,14 @@ export const reviewSchema = z.object({
   resourceId: z.string(),
   threadId: z.string(),
   categoryLimits: CategoryLimitsSchema.optional(),
+  savingsGoal: z.number().optional(),
+  declaredIncome: z.number().optional(),
   analysis: AnalysisResultSchema.optional(),
   proposedLimits: CategoryLimitsSchema.optional(),
+  // Declared Income − Savings Goal (ADR-0007) — threaded through from
+  // proposeAdjustments so the approval gate can hand it to the user, and
+  // applyOrDiscard can re-check edits against it below.
+  cap: z.number().optional(),
   decision: z.enum(["approve", "reject"]).optional(),
   edits: CategoryLimitsSchema.optional(),
 });
@@ -33,6 +39,7 @@ export const reviewSchema = z.object({
 export const MonthlyReviewSuspendSchema = z.object({
   proposedLimits: CategoryLimitsSchema,
   analysis: AnalysisResultSchema,
+  cap: z.number().optional(),
 });
 
 export const MonthlyReviewResumeSchema = z.object({
@@ -69,14 +76,16 @@ const analyzeSpending = createStep({
     const coachAgent = mastra?.getAgent("coach");
     const memory = await coachAgent?.getMemory();
     const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
-    const categoryLimits =
-      (parseWorkingMemory(raw).categoryLimits as z.infer<typeof CategoryLimitsSchema> | undefined) ?? {};
+    const memoryState = parseWorkingMemory(raw);
+    const categoryLimits = (memoryState.categoryLimits as z.infer<typeof CategoryLimitsSchema> | undefined) ?? {};
+    const savingsGoal = memoryState.savingsGoal as number | undefined;
+    const declaredIncome = memoryState.declaredIncome as number | undefined;
 
     const transactions = await listTransactions(resourceId);
     const period = new Date().toISOString().slice(0, 7);
     const analysis = computeAnalysis(transactions, categoryLimits, period);
 
-    return { ...inputData, categoryLimits, analysis };
+    return { ...inputData, categoryLimits, savingsGoal, declaredIncome, analysis };
   },
 });
 
@@ -93,8 +102,12 @@ const proposeAdjustments = createStep({
   },
   execute: async ({ inputData }: { inputData: z.infer<typeof reviewSchema> }) => {
     const analysis = inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
-    const proposedLimits = proposeCategoryLimits(analysis);
-    return { ...inputData, proposedLimits };
+    const cap =
+      inputData.declaredIncome !== undefined && inputData.savingsGoal !== undefined
+        ? inputData.declaredIncome - inputData.savingsGoal
+        : undefined;
+    const proposedLimits = proposeCategoryLimits(analysis, cap);
+    return { ...inputData, proposedLimits, cap };
   },
 });
 
@@ -127,6 +140,7 @@ const approvalGate = createStep({
       return suspend({
         proposedLimits: inputData.proposedLimits ?? {},
         analysis: inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 },
+        cap: inputData.cap,
       });
     }
 
@@ -144,7 +158,23 @@ const applyOrDiscard = createStep({
 
     const approved = decision === "approve";
     const status: "applied" | "discarded" = approved ? "applied" : "discarded";
-    const nextLimits = approved ? { ...(proposedLimits ?? {}), ...(edits ?? {}) } : (categoryLimits ?? {});
+    const mergedLimits = approved ? { ...(proposedLimits ?? {}), ...(edits ?? {}) } : (categoryLimits ?? {});
+
+    // Defense in depth: the review card already disables Approve once the
+    // user's edited total exceeds cap, but this is the point where
+    // categoryLimits is actually persisted — re-enforce ADR-0007's invariant
+    // here too rather than trusting resumeData unconditionally.
+    const cap = inputData.cap;
+    const mergedSum = Object.values(mergedLimits).reduce((total, value) => total + (value ?? 0), 0);
+    const nextLimits =
+      approved && cap !== undefined && mergedSum > cap
+        ? Object.fromEntries(
+            (Object.keys(mergedLimits) as Category[]).map((category) => [
+              category,
+              Math.round(((mergedLimits[category] ?? 0) * cap) / mergedSum * 100) / 100,
+            ]),
+          )
+        : mergedLimits;
 
     const coachAgent = mastra?.getAgent("coach");
     const memory = await coachAgent?.getMemory();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CATEGORIES, type Category } from "@/domain/categories";
 import { parseToolResult } from "@/lib/parse-tool-result";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,19 @@ export const ConfirmTransactionCard = ({
   const [localDecision, setLocalDecision] = useState<
     "confirmed" | "cancelled" | null
   >(null);
+  // args stream in incrementally (see useRenderTool gotcha in CLAUDE.md), so
+  // `type`/`suggested` are often still undefined on first mount — adopt them
+  // once they arrive, but stop the moment the user picks something themselves.
+  const [touchedType, setTouchedType] = useState(false);
+  const [touchedCategory, setTouchedCategory] = useState(false);
+
+  useEffect(() => {
+    if (!touchedType && type !== undefined) setChosenType(type);
+  }, [type, touchedType]);
+
+  useEffect(() => {
+    if (!touchedCategory && suggested !== undefined) setChosenCategory(suggested);
+  }, [suggested, touchedCategory]);
 
   const restored = restoreDecision(result);
   const decision = localDecision ?? restored?.decision ?? null;
@@ -133,7 +146,10 @@ export const ConfirmTransactionCard = ({
             type="button"
             variant={chosenType === "expense" ? "default" : "ghost"}
             className="flex-1"
-            onClick={() => setChosenType("expense")}
+            onClick={() => {
+              setTouchedType(true);
+              setChosenType("expense");
+            }}
           >
             Expense
           </Button>
@@ -141,7 +157,10 @@ export const ConfirmTransactionCard = ({
             type="button"
             variant={chosenType === "income" ? "default" : "ghost"}
             className="flex-1"
-            onClick={() => setChosenType("income")}
+            onClick={() => {
+              setTouchedType(true);
+              setChosenType("income");
+            }}
           >
             Income
           </Button>
@@ -150,7 +169,10 @@ export const ConfirmTransactionCard = ({
           <select
             className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
             value={chosenCategory ?? ""}
-            onChange={(event) => setChosenCategory(event.target.value as Category)}
+            onChange={(event) => {
+              setTouchedCategory(true);
+              setChosenCategory(event.target.value as Category);
+            }}
           >
             <option value="" disabled>
               Choose a category
