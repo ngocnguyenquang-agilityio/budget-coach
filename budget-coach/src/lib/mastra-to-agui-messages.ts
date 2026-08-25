@@ -51,6 +51,34 @@ const TEXT_CONTINUATION_SUFFIX = "-agui-text";
 // keeps a completed approval from replaying as though it were still pending.
 const UNRESOLVED_TOOL_NAME = "unknown";
 
+// useConfigureSuggestions (dynamic, providerAgentId-based) runs a secondary
+// call against this same agent to generate suggestion pills, forcing a
+// copilotkitSuggest tool call. Because it shares our Mastra-backed agent, that
+// exchange gets persisted into the real thread like any other turn — this
+// filters it back out at replay time so reopening a thread doesn't show the
+// internal instruction (which embeds the full tool-schema JSON) as a chat
+// bubble. See @copilotkit/core's generateSuggestions for the exact prompt.
+const SUGGESTION_PROMPT_PREFIX = "Suggest what the user could say next.";
+const SUGGESTION_TOOL_NAME = "copilotkitSuggest";
+
+const isSuggestionExchangeMessage = (message: MastraStoredMessage): boolean => {
+  const parts = message.content?.parts ?? [];
+
+  if (message.role === "user") {
+    return parts.some(
+      (part) => part.type === "text" && (part.text ?? "").startsWith(SUGGESTION_PROMPT_PREFIX),
+    );
+  }
+
+  if (message.role === "assistant") {
+    return parts.some(
+      (part) => part.type === "tool-invocation" && part.toolInvocation?.toolName === SUGGESTION_TOOL_NAME,
+    );
+  }
+
+  return false;
+};
+
 const toMillis = (createdAt: MastraStoredMessage["createdAt"]): number => {
   if (createdAt instanceof Date) return createdAt.getTime();
   if (typeof createdAt === "number") return createdAt;
@@ -190,9 +218,9 @@ const convertAssistantMessage = (
 export const mastraToAGUIMessages = (
   stored: readonly MastraStoredMessage[],
 ): Message[] => {
-  const ordered = [...stored].sort(
-    (a, b) => toMillis(a.createdAt) - toMillis(b.createdAt),
-  );
+  const ordered = [...stored]
+    .filter((message) => !isSuggestionExchangeMessage(message))
+    .sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
 
   const knownToolCallIds = resolveKnownToolCallIds(ordered);
 

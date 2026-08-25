@@ -19,6 +19,12 @@ export type CoachPreferences = z.infer<typeof CoachPreferencesSchema>;
 // memory schema). Transactions themselves live in LibSQL, not here.
 export const BudgetStateSchema = z.object({
   savingsGoal: z.number().optional(),
+  // Explicit, never inferred from summed Income transactions — see
+  // docs/adr/0007-category-limits-capped-by-declared-income-and-savings-goal.md.
+  declaredIncome: z.number().optional(),
+  // YYYY-MM — stamped the moment a >20% drift offer is surfaced, so it fires
+  // at most once per Period regardless of how the user responds.
+  incomeDriftOfferedPeriod: z.string().optional(),
   // partialRecord, not record — Zod v4's z.record with an enum key schema
   // requires every enum key present, which rejects the common case of only
   // a few categories having limits set.

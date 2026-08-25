@@ -29,8 +29,8 @@ The fixed taxonomy used to classify Expenses only (Groceries, Dining, Transport,
 _Avoid_: type (see `Type`, which is a different field)
 
 **Category Limit**:
-The per-Category ceiling on Expense spending within a Period, set by an approved Monthly Review. Persists across Periods until a later Monthly Review changes it — unlike Net Savings, it does not reset each Period.
-_Avoid_: budget, cap (see `Monthly Review`, `Proposed Limits`)
+The per-Category ceiling on Expense spending within a Period, set by an approved Monthly Review. The sum of all Category Limits a Monthly Review proposes must not exceed Declared Income minus Savings Goal. Persists across Periods until a later Monthly Review changes it — unlike Net Savings, it does not reset each Period.
+_Avoid_: budget, cap (see `Monthly Review`, `Proposed Limits`, `Declared Income`)
 
 **Period**:
 The calendar month used to scope all analysis — Income totals, Expense totals, category limits, and the Savings Goal. Replaces the app's former trailing-30-day window.
@@ -39,6 +39,10 @@ _Avoid_: month (ambiguous with calendar-date fields), window, trailing period
 **Net Savings**:
 Income minus Expenses for the current Period. The figure actually compared against the Savings Goal. Resets each Period — not cumulative across Periods.
 _Avoid_: net, cash flow, surplus
+
+**Declared Income**:
+The User's explicitly stated income figure — provided when a Monthly Review runs, or reported later if it changes — persisted across Periods until replaced. Distinct from `Income` (the Transaction type, an actual recorded movement of money): Declared Income is never inferred from summed Income Transactions, and is the basis a Monthly Review uses to cap its Proposed Limits.
+_Avoid_: income, expected income (see `Income`, a different concept)
 
 **Savings Goal**:
 The user's recurring target for Net Savings within a single Period. Checked and reset every Period — not a cumulative, deadline-based goal (e.g. "$2,000 by December" is out of scope; that would be a different concept if ever built).
