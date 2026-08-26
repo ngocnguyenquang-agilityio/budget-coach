@@ -28,6 +28,7 @@ import { BudgetProgressBars } from "@/components/budget-progress-bars";
 import { TransactionListCard } from "@/components/transaction-list-card";
 import { ConfirmTransactionCard } from "@/components/confirm-transaction-card";
 import { DeclaredIncomeCard } from "@/components/declared-income-card";
+import { DeclaredIncomeResultCard } from "@/components/declared-income-result-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import {
@@ -299,6 +300,24 @@ export const Dashboard = () => {
     [refreshTransactions],
   );
 
+  // setDeclaredIncome now records an Income transaction (declared income is
+  // mirrored into "Income this month"); refresh the transaction list on
+  // complete so the dashboard reflects it without a manual reload.
+  useRenderTool(
+    {
+      name: "setDeclaredIncome",
+      parameters: z.object({ declaredIncome: z.number().optional() }),
+      render: ({ status, result }) => (
+        <DeclaredIncomeResultCard
+          status={status}
+          result={result}
+          onComplete={refreshTransactions}
+        />
+      ),
+    },
+    [refreshTransactions],
+  );
+
   useDefaultRenderTool();
 
   // Frontend actions.
@@ -395,14 +414,19 @@ export const Dashboard = () => {
   });
 
   // Once the conversation has started, replace the fixed chips with ones
-  // grounded in what just happened (generated via providerAgentId: "coach").
+  // grounded in what just happened. Generated via providerAgentId: "suggester"
+  // — a memoryless agent — NOT the Coach: the suggestion engine runs the
+  // provider on a throwaway thread id, and any provider that carries Memory
+  // (the Coach does) persists that thread to LibSQL, flooding the conversation
+  // sidebar with phantom threads on every suggestion refresh. The suggester is
+  // seeded with the Coach's messages and state, so it needs no memory of its own.
   useConfigureSuggestions({
     instructions:
       "Suggest 2-3 short next actions for this budget coach conversation, phrased as first-person messages the user could send next (e.g. 'Set a monthly savings goal of $500.', 'How am I doing on Dining this month?'). Build on what just happened — e.g. after logging a transaction, suggest checking category totals or setting a goal. Never suggest something the user just did (e.g. don't suggest logging income right after they logged income).",
     minSuggestions: 2,
     maxSuggestions: 3,
     available: "after-first-message",
-    providerAgentId: "coach",
+    providerAgentId: "suggester",
   });
 
   const overLimitCount = analysis.categoryTotals.filter(

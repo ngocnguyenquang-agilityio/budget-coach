@@ -42,6 +42,10 @@ export const CategoryBreakdownChart = ({
   }
 
   const total = data.reduce((sum, entry) => sum + entry.value, 0);
+  const rows: (typeof data)[number][][] = [];
+  for (let i = 0; i < data.length; i += 2) {
+    rows.push(data.slice(i, i + 2));
+  }
 
   return (
     <div className="space-y-3">
@@ -75,16 +79,20 @@ export const CategoryBreakdownChart = ({
           <span className="text-lg font-semibold">${total.toFixed(0)}</span>
         </div>
       </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
-        {data.map((entry) => (
-          <li key={entry.name} className="flex items-center gap-1.5">
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: CATEGORY_COLORS[entry.name] }}
-            />
-            <span className="text-[var(--muted-foreground)]">
-              {entry.name}
-            </span>
+      <ul className="space-y-4 text-xs ml-18">
+        {rows.map((row, index) => (
+          <li key={index} className="grid grid-cols-2 items-center gap-24">
+            {row.map((entry) => (
+              <span key={entry.name} className="flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: CATEGORY_COLORS[entry.name] }}
+                />
+                <span className="text-[var(--muted-foreground)]">
+                  {entry.name}
+                </span>
+              </span>
+            ))}
           </li>
         ))}
       </ul>

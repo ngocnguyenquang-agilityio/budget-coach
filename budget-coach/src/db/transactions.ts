@@ -53,6 +53,23 @@ export async function listTransactions(resourceId: string): Promise<Transaction[
   }));
 }
 
+// Removes every transaction for this resource whose merchant matches and whose
+// `date` falls in the given month (YYYY-MM). Used to upsert the single
+// Declared-Income marker transaction so re-declaring income in the same month
+// replaces it rather than stacking another income row.
+export async function deleteTransactionsByMerchantForMonth(
+  resourceId: string,
+  merchant: string,
+  period: string
+): Promise<void> {
+  await createTable();
+
+  await dbClient.execute({
+    sql: "DELETE FROM transactions WHERE resourceId = ? AND merchant = ? AND substr(date, 1, 7) = ?",
+    args: [resourceId, merchant, period],
+  });
+}
+
 export async function addTransaction(
   transaction: Omit<Transaction, "id" | "createdAt"> & { id?: string; createdAt?: string }
 ): Promise<Transaction> {

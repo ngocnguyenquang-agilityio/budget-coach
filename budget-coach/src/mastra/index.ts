@@ -1,5 +1,5 @@
 import { Mastra } from "@mastra/core/mastra";
-import { weatherAgent, categorizerAgent, analystAgent, coachAgent } from "./agents";
+import { weatherAgent, categorizerAgent, analystAgent, coachAgent, suggesterAgent } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { storage } from "./storage";
 import { observability } from "./observability";
@@ -16,6 +16,7 @@ export const mastra = new Mastra({
     categorizer: categorizerAgent,
     analyst: analystAgent,
     coach: coachAgent,
+    suggester: suggesterAgent,
   },
   workflows: {
     monthlyReviewWorkflow,

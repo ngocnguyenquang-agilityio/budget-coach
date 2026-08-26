@@ -2,6 +2,8 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { resolveResourceId } from "@/mastra/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { addTransaction, deleteTransactionsByMerchantForMonth } from "@/db/transactions";
+import { DECLARED_INCOME_MERCHANT } from "@/constants/declared-income";
 
 // Writes directly to the Coach's resource-scoped working memory rather than
 // relying on the model to phrase an update through the auto-injected
@@ -32,6 +34,23 @@ export const setDeclaredIncomeTool = createTool({
     const next = { ...current, declaredIncome };
 
     await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(next) });
+
+    // Mirror the declared figure into this month's Income so the dashboard's
+    // "Income this month" reflects it. Upsert-by-month (delete-then-insert the
+    // marker merchant) keeps re-declaring in the same Period from stacking
+    // duplicate income rows.
+    const date = new Date().toISOString().slice(0, 10);
+    const period = date.slice(0, 7);
+    await deleteTransactionsByMerchantForMonth(resourceId, DECLARED_INCOME_MERCHANT, period);
+    await addTransaction({
+      resourceId,
+      merchant: DECLARED_INCOME_MERCHANT,
+      amount: declaredIncome,
+      type: "income",
+      category: null,
+      date,
+      seedCategory: null,
+    });
 
     return { declaredIncome };
   },
