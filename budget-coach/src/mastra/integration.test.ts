@@ -18,6 +18,7 @@ process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 const { mastra } = await import("./index");
 const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-workflow");
 const { listTransactions, addTransaction } = await import("@/db/transactions");
+const { addTransactionsTool } = await import("./tools/transactions");
 const { parseWorkingMemory } = await import("./parse-working-memory");
 const { dbClient } = await import("@/db/client");
 
@@ -203,6 +204,51 @@ describe("monthlyReviewWorkflow", () => {
 
     const afterReject = await getWorkingMemoryState(threadId, resourceId);
     expect(afterReject.categoryLimits).toEqual(baseline.categoryLimits);
+  });
+});
+
+describe("addTransactionsTool income-drift (batch)", () => {
+  it("evaluates drift once against the post-batch income total and re-offers at most once per period", async () => {
+    const resourceId = "batch-drift";
+    const threadId = "thread-batch-drift";
+
+    const coachAgent = mastra.getAgent("coach");
+    const memory = await coachAgent.getMemory();
+    if (!memory) throw new Error("coach memory missing");
+    await memory.updateWorkingMemory({
+      threadId,
+      resourceId,
+      workingMemory: JSON.stringify({ declaredIncome: 1000 }),
+    });
+
+    if (!addTransactionsTool.execute) throw new Error("addTransactionsTool.execute is undefined");
+    const context = { agent: { resourceId, threadId }, mastra };
+
+    const result = (await addTransactionsTool.execute(
+      {
+        transactions: [
+          { merchant: "Employer", amount: 3000, type: "income" as const },
+          { merchant: "Freelance", amount: 3000, type: "income" as const },
+        ],
+      },
+      context as never
+    )) as { transactions: unknown[]; incomeDrift?: { declaredIncome: number; currentIncomeTotal: number } };
+
+    expect(result.transactions).toHaveLength(2);
+    // Both income rows counted (6000), not just the first (3000): the drift
+    // check runs once, after the whole batch is inserted.
+    expect(result.incomeDrift).toEqual({ declaredIncome: 1000, currentIncomeTotal: 6000 });
+
+    const period = new Date().toISOString().slice(0, 7);
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.incomeDriftOfferedPeriod).toBe(period);
+
+    // Already offered this period — a second batch must not re-offer.
+    const second = (await addTransactionsTool.execute(
+      { transactions: [{ merchant: "Bonus", amount: 5000, type: "income" as const }] },
+      context as never
+    )) as { incomeDrift?: unknown };
+    expect(second.incomeDrift).toBeUndefined();
   });
 });
 

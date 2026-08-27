@@ -45,7 +45,7 @@ const restoreDecision = (
 // Mirrors DeclaredIncomeCard (ADR-0007): purely client-side, no server
 // suspend — Cancel means no savings goal is set, so there's nothing to
 // discard. `respond` feeds the model an explicit instruction rather than a
-// bare number, matching ConfirmTransactionCard's pattern (local llama3.1
+// bare number, matching ConfirmTransactionsCard's pattern (local llama3.1
 // reliably follows an explicit "call X with ..." instruction but not a bare
 // value).
 export const SavingsGoalCard = ({ status, respond, result }: SavingsGoalCardProps) => {

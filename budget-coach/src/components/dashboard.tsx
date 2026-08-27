@@ -7,6 +7,7 @@ import {
   useAgent,
   useAgentContext,
   useConfigureSuggestions,
+  useCopilotChatConfiguration,
   useDefaultRenderTool,
   useFrontendTool,
   useHumanInTheLoop,
@@ -26,7 +27,11 @@ import { parseToolResult } from "@/lib/parse-tool-result";
 import { CategoryBreakdownChart } from "@/components/category-breakdown-chart";
 import { BudgetProgressBars } from "@/components/budget-progress-bars";
 import { TransactionListCard } from "@/components/transaction-list-card";
-import { ConfirmTransactionCard } from "@/components/confirm-transaction-card";
+import {
+  ConfirmTransactionsCard,
+  type ConfirmedTransaction,
+  type RecordTransactionsResult,
+} from "@/components/confirm-transactions-card";
 import { DeclaredIncomeCard } from "@/components/declared-income-card";
 import { DeclaredIncomeResultCard } from "@/components/declared-income-result-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
@@ -35,7 +40,6 @@ import {
   AddTransactionForm,
   type AddTransactionFormPrefill,
 } from "@/components/add-transaction-form";
-import { AddTransactionResultCard } from "@/components/add-transaction-result-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -48,6 +52,9 @@ export const Dashboard = () => {
     updates: [UseAgentUpdate.OnStateChanged],
   });
   const state = (agent.state as BudgetState | undefined) ?? {};
+  // Read-only access to the active thread id (uncontrolled provider convention
+  // is preserved — we never pass a threadId prop, only read the current one).
+  const configuration = useCopilotChatConfiguration();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [highlightedCategory, setHighlightedCategory] = useState<
@@ -94,6 +101,25 @@ export const Dashboard = () => {
     setTransactions(data.transactions ?? []);
   }, []);
 
+  // Deterministic write path for the confirm-transactions card: persist the
+  // exact rows the user confirmed (categories included) server-side, bypassing
+  // the model so it can't substitute its own earlier categorizeBatch guess.
+  // threadId lets the reused addTransactionsTool run its income-drift check.
+  const recordTransactions = useCallback(
+    async (transactions: ConfirmedTransaction[]): Promise<RecordTransactionsResult> => {
+      const res = await fetch("/api/transactions/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions, threadId: configuration?.threadId }),
+      });
+      if (!res.ok) throw new Error(`Failed to record transactions (${res.status})`);
+      const result = (await res.json()) as RecordTransactionsResult;
+      await refreshTransactions();
+      return result;
+    },
+    [configuration?.threadId, refreshTransactions],
+  );
+
   useEffect(() => {
     refreshTransactions();
   }, [refreshTransactions]);
@@ -107,34 +133,42 @@ export const Dashboard = () => {
   );
 
   // Gate 1 — pure frontend tool, no server suspend. The Coach calls this
-  // (per its instructions) after categorizing a described purchase; on
-  // confirm it's told to call addTransaction itself.
+  // (per its instructions) after categorizing the described purchase(s) as a
+  // batch; on confirm the card writes them itself via recordTransactions, then
+  // tells the model they're already saved (deterministic — the model never
+  // re-emits the categories).
   useHumanInTheLoop(
     {
-      name: "confirmTransaction",
+      name: "confirmTransactions",
       description:
-        "Ask the user to confirm the suggested type (income/expense) and category for a transaction before recording it.",
+        "Ask the user to confirm one or more transactions — the suggested type (income/expense) and category for each — before recording them.",
       parameters: z.object({
-        merchant: z.string().optional(),
-        amount: z.number().optional(),
-        type: z.enum(["income", "expense"]).optional(),
-        suggested: CategorySchema.optional(),
-        date: z.string().optional(),
+        // Every field is optional because args stream in incrementally (see
+        // the useRenderTool gotcha in CLAUDE.md) — the whole items array, and
+        // each field within an item, may still be undefined on first render.
+        items: z
+          .array(
+            z.object({
+              merchant: z.string().optional(),
+              amount: z.number().optional(),
+              type: z.enum(["income", "expense"]).optional(),
+              suggested: CategorySchema.optional(),
+              date: z.string().optional(),
+            }),
+          )
+          .optional(),
       }),
       render: ({ args, status, respond, result }) => (
-        <ConfirmTransactionCard
-          merchant={args.merchant}
-          amount={args.amount}
-          type={args.type}
-          suggested={args.suggested}
-          date={args.date}
+        <ConfirmTransactionsCard
+          items={args.items}
           status={status}
           respond={respond}
           result={result}
+          recordTransactions={recordTransactions}
         />
       ),
     },
-    [],
+    [recordTransactions],
   );
 
   // Gate 1a — pure frontend tool, no server suspend. Same shape as
@@ -277,27 +311,6 @@ export const Dashboard = () => {
       },
     },
     [],
-  );
-
-  useRenderTool(
-    {
-      name: "addTransaction",
-      parameters: z.object({
-        merchant: z.string().optional(),
-        amount: z.number().optional(),
-        type: z.enum(["income", "expense"]).optional(),
-        category: CategorySchema.optional(),
-        date: z.string().optional(),
-      }),
-      render: ({ status, result }) => (
-        <AddTransactionResultCard
-          status={status}
-          result={result}
-          onComplete={refreshTransactions}
-        />
-      ),
-    },
-    [refreshTransactions],
   );
 
   // setDeclaredIncome now records an Income transaction (declared income is
