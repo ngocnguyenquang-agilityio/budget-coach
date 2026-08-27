@@ -120,8 +120,8 @@ Only the **Coach** carries `Memory` (matching `my-nextjs-agent`, where only `wea
 | Tool | Used by | Purpose |
 |---|---|---|
 | `listTransactionsTool` | Analyst, Coach | Read transactions for the current `resourceId` (from `context.agent.resourceId`), with optional category/date filters |
-| `addTransactionTool` | Coach | Persist a confirmed transaction |
-| `categorizeTool` | Coach | Agent-as-tool wrapper delegating to Categorizer (pattern: `my-nextjs-agent/src/mastra/tools/ask-weather-agent-tool.ts`) |
+| `addTransactionsTool` | Coach | Persist one or more confirmed transactions in a single batch; income-drift check runs once against post-batch totals |
+| `categorizeBatchTool` | Coach | Agent-as-tool wrapper delegating to Categorizer, classifying one or more items in a single call, results in input order (pattern: `my-nextjs-agent/src/mastra/tools/ask-weather-agent-tool.ts`) |
 | `analyzeSpendingTool` | Coach | Agent-as-tool wrapper delegating to Analyst |
 | `setSavingsGoalTool` | Coach | Writes the goal into working memory via `memory.updateWorkingMemory` |
 | `approveBudgetTool` | Coach | **Suspends** (see Step 4) |

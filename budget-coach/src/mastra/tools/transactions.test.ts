@@ -10,9 +10,9 @@ const previousDbUrl = process.env.TURSO_DATABASE_URL;
 const tmpDir = mkdtempSync(path.join(tmpdir(), "budget-coach-test-"));
 process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
-const { addTransaction } = await import("@/db/transactions");
+const { addTransaction, listTransactions } = await import("@/db/transactions");
 const { dbClient } = await import("@/db/client");
-const { listTransactionsTool } = await import("./transactions");
+const { listTransactionsTool, addTransactionsTool, AddTransactionItemSchema } = await import("./transactions");
 type Category = import("@/domain/categories").Category;
 
 const context = { agent: { resourceId: "resource-filter-test" } };
@@ -24,19 +24,19 @@ const runList = async (input: { category?: Category; month?: string }): Promise<
   return (await listTransactionsTool.execute(input, context as never)) as ListResult;
 };
 
-describe("listTransactionsTool", () => {
-  afterAll(() => {
-    dbClient.close();
-    if (previousDbUrl === undefined) {
-      delete process.env.TURSO_DATABASE_URL;
-    } else {
-      process.env.TURSO_DATABASE_URL = previousDbUrl;
-    }
-    try {
-      rmSync(tmpDir, { recursive: true, force: true });
-    } catch {}
-  });
+afterAll(() => {
+  dbClient.close();
+  if (previousDbUrl === undefined) {
+    delete process.env.TURSO_DATABASE_URL;
+  } else {
+    process.env.TURSO_DATABASE_URL = previousDbUrl;
+  }
+  try {
+    rmSync(tmpDir, { recursive: true, force: true });
+  } catch {}
+});
 
+describe("listTransactionsTool", () => {
   it("filters to a single category when given one", async () => {
     await addTransaction({
       resourceId: "resource-filter-test",
@@ -83,5 +83,59 @@ describe("listTransactionsTool", () => {
   it("returns everything when no filters are given", async () => {
     const result = await runList({});
     expect(result.transactions.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+const addBatchContext = { agent: { resourceId: "resource-batch-test" } };
+
+type AddBatchResult = {
+  transactions: Array<{ merchant: string; category: Category | null }>;
+  incomeDrift?: { declaredIncome: number; currentIncomeTotal: number };
+};
+
+const runAddBatch = async (
+  transactions: Array<{
+    merchant: string;
+    amount: number;
+    type: "income" | "expense";
+    category?: Category;
+    date?: string;
+  }>
+): Promise<AddBatchResult> => {
+  if (!addTransactionsTool.execute) throw new Error("addTransactionsTool.execute is undefined");
+  return (await addTransactionsTool.execute({ transactions }, addBatchContext as never)) as AddBatchResult;
+};
+
+describe("addTransactionsTool", () => {
+  it("inserts every transaction in the batch, preserving each item's category", async () => {
+    const result = await runAddBatch([
+      { merchant: "taxi", amount: 12, type: "expense", category: "Transport" },
+      { merchant: "shopping", amount: 20, type: "expense", category: "Shopping" },
+    ]);
+
+    expect(result.transactions).toHaveLength(2);
+
+    const stored = await listTransactions("resource-batch-test");
+    expect(stored).toHaveLength(2);
+    expect(stored.map((t) => t.merchant).sort()).toEqual(["shopping", "taxi"]);
+    expect(stored.find((t) => t.merchant === "taxi")?.category).toBe("Transport");
+    expect(stored.find((t) => t.merchant === "shopping")?.category).toBe("Shopping");
+  });
+
+  it("does not attach incomeDrift when there is no working memory to read (no threadId/mastra)", async () => {
+    const result = await runAddBatch([{ merchant: "Employer", amount: 3000, type: "income" }]);
+    expect(result.incomeDrift).toBeUndefined();
+  });
+
+  it("requires a category for expenses and forbids one for income (per-item schema)", () => {
+    expect(
+      AddTransactionItemSchema.safeParse({ merchant: "taxi", amount: 12, type: "expense", category: "Transport" }).success
+    ).toBe(true);
+    expect(AddTransactionItemSchema.safeParse({ merchant: "Employer", amount: 3000, type: "income" }).success).toBe(true);
+
+    expect(AddTransactionItemSchema.safeParse({ merchant: "taxi", amount: 12, type: "expense" }).success).toBe(false);
+    expect(
+      AddTransactionItemSchema.safeParse({ merchant: "Employer", amount: 3000, type: "income", category: "Other" }).success
+    ).toBe(false);
   });
 });

@@ -59,7 +59,7 @@ These were mechanical, low-risk fixes with no real design ambiguity:
 
 ### 1. Tool-level DB/runtime error handling (highest priority)
 
-`listTransactionsTool`, `addTransactionTool`, the analyze-* tools
+`listTransactionsTool`, `addTransactionsTool`, the analyze-* tools
 (`analyze-transactions.ts`, `analyze-spending.ts`), `approveBudgetTool`,
 `setSavingsGoalTool`, and `src/db/transactions.ts` itself have no try/catch
 around DB or working-memory calls. A LibSQL failure propagates raw into
@@ -76,9 +76,10 @@ fallback differs by tool:
 - `listTransactionsTool` failing could reasonably return an empty list +
   an error note, so the Coach can say "I couldn't load your transactions
   right now."
-- `addTransactionTool` failing should **not** pretend to succeed — the tool
+- `addTransactionsTool` failing should **not** pretend to succeed — the tool
   result needs to make the failure legible to the Coach so it doesn't tell
-  the user a transaction was recorded when it wasn't.
+  the user transactions were recorded when they weren't (and, for a partial
+  batch failure, which of them did land).
 - `approveBudgetTool` / `setSavingsGoalTool` already deliberately throw for
   bad *preconditions* (missing `threadId`, workflow not registered) — those
   throws should stay as-is; only genuine runtime failures (a DB timeout
@@ -103,17 +104,17 @@ run.
 ```ts
 try {
   const result = await categorizerAgent.generate(...);
-  ...
+  return { results: reconcileBatchCategories(items, result.object?.results) };
 } catch {
-  return { type: "expense" as const, category: "Other" as const };
+  return { results: reconcileBatchCategories(items, undefined) };
 }
 ```
 
 This is meant to catch the documented "weak local model returns
 non-structured output" case, but as written it also catches a genuine
-Cerebras outage or rate-limit exhaustion and silently degrades to category
-"Other" either way — masking a real failure as if it were the benign,
-expected case. Recommend narrowing the catch (or checking the error shape)
+Cerebras outage or rate-limit exhaustion and silently degrades every item to
+category "Other" either way — masking a real failure as if it were the
+benign, expected case. Recommend narrowing the catch (or checking the error shape)
 so only the structured-output-parse failure degrades silently; a genuine
 API failure should propagate (or retry) rather than mis-categorize
 silently.
