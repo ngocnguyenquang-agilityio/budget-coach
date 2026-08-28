@@ -35,7 +35,7 @@ export class FinancialAdviceGuardrail implements Processor {
     recordGuardrailViolation({ ...violation, userMessage: this.userMessage });
   };
 
-  processInput({ messages, abort }: ProcessInputArgs): ProcessInputResult {
+  processInput({ messages, abort, tracingContext }: ProcessInputArgs): ProcessInputResult {
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     const text = latestUserMessage ? getMessageText(latestUserMessage).toLowerCase() : "";
 
@@ -52,6 +52,7 @@ export class FinancialAdviceGuardrail implements Processor {
         message: "blocked",
         detail: { matchedInstrument, matchedDecision },
         userMessage: this.userMessage,
+        span: tracingContext?.currentSpan,
       });
 
       abort("Message blocked: financial-advice request", {

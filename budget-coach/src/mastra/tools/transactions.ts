@@ -5,6 +5,8 @@ import { computeAnalysis } from "@/domain/analysis";
 import { addTransaction, listTransactions, type Transaction } from "@/db/transactions";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
+import { SpanType } from "@mastra/core/observability";
+import { OBSERVABILITY_EVENTS } from "@/constants/observability";
 
 const TransactionSchema = z.object({
   id: z.string(),
@@ -38,7 +40,12 @@ export const listTransactionsTool = createTool({
       );
       return { transactions: filtered };
     } catch (err) {
-      console.error("[tool] list-transactions failed", err);
+      context.observe.log("error", "list-transactions failed", { error: String(err) });
+      // Whole tool failed; the empty-list return would otherwise look successful.
+      context.tracingContext?.currentSpan?.error({
+        error: err instanceof Error ? err : new Error(String(err)),
+        metadata: { event: OBSERVABILITY_EVENTS.toolFailure, tool: "listTransactions" },
+      });
       return { transactions: [], error: "Couldn't load your transactions right now." };
     }
   },
@@ -105,7 +112,17 @@ export const addTransactionsTool = createTool({
           })
         );
       } catch (err) {
-        console.error("[tool] add-transactions item failed", err);
+        context.observe.log("error", "add-transactions item failed", {
+          merchant: item.merchant,
+          error: String(err),
+        });
+        // Event span, not span.error() — the batch can still partly succeed.
+        context.tracingContext?.currentSpan?.createEventSpan({
+          name: "add-transactions item failed",
+          type: SpanType.GENERIC,
+          metadata: { event: OBSERVABILITY_EVENTS.toolFailure, tool: "addTransactions" },
+          output: { merchant: item.merchant, error: String(err) },
+        });
         failed.push({
           merchant: item.merchant,
           amount: item.amount,

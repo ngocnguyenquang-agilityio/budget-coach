@@ -1,4 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { SpanType } from "@mastra/core/observability";
+import type { AnySpan } from "@mastra/core/observability";
+import { OBSERVABILITY_EVENTS } from "@/constants/observability";
+
+// Only the one method is needed; narrowing keeps callers free to pass any span.
+export type GuardrailSpan = Pick<AnySpan, "createEventSpan">;
 
 // Leaf module (no imports from "@/mastra") so guardrail processors can use
 // it without creating a circular import back through the Mastra instance
@@ -23,12 +29,22 @@ export const logGuardrailViolation = ({
   processorId,
   message,
   detail,
+  span,
 }: {
   processorId?: string;
   message: string;
   detail?: unknown;
+  span?: GuardrailSpan;
 }): void => {
   console.warn("[guardrail]", processorId, message, detail);
+  // Event span (no endTime) — a block is an instant, not an interval. Spans are
+  // the only signal LibSQL persists, so this is what makes blocks countable.
+  span?.createEventSpan({
+    name: `guardrail block: ${processorId ?? "unknown"}`,
+    type: SpanType.GENERIC,
+    metadata: { event: OBSERVABILITY_EVENTS.guardrailBlock, processorId },
+    output: detail,
+  });
 };
 
 // Shared by every guardrail's onViolation callback and its processInput
@@ -39,12 +55,14 @@ export const recordGuardrailViolation = ({
   message,
   detail,
   userMessage,
+  span,
 }: {
   processorId?: string;
   message: string;
   detail?: unknown;
   userMessage?: string;
+  span?: GuardrailSpan;
 }): void => {
-  logGuardrailViolation({ processorId, message, detail });
+  logGuardrailViolation({ processorId, message, detail, span });
   if (userMessage) recordGuardrailBlock(userMessage);
 };

@@ -8,6 +8,9 @@ export const observability = new Observability({
       serviceName: "budget-coach",
       exporters: [new MastraStorageExporter()],
       spanOutputProcessors: [new SensitiveDataFilter()],
+      // LibSQL's observability domain stores spans only — no log table — so this
+      // dual-write is dropped by the exporter and Studio's Logs tab stays empty.
+      // Kept so logs appear if the store ever gains an OLAP backend (see ADR-0008).
       logging: {
         enabled: true,
         level: "info",
