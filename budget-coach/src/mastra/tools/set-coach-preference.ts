@@ -4,6 +4,7 @@ import { resolveResourceId } from "@/mastra/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
 import { CategorySchema } from "@/domain/categories";
 import { CoachPreferencesSchema } from "@/domain/budget-state";
+import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 const sanitizeNickname = (nickname: string): string =>
   nickname
@@ -26,12 +27,12 @@ export const setCoachPreferenceTool = createTool({
     emphasizedCategories: z.array(CategorySchema).optional(),
   }),
   outputSchema: CoachPreferencesSchema,
-  execute: async ({ verbosity, nickname, emphasizedCategories }, context) => {
+  execute: withToolErrorHandling(async ({ verbosity, nickname, emphasizedCategories }, context) => {
     const resourceId = resolveResourceId(context);
     const threadId = context.agent?.threadId;
 
     if (!threadId) {
-      throw new Error(
+      throw new ToolPreconditionError(
         "Missing threadId — set-coach-preference must be called within an agent thread",
       );
     }
@@ -40,7 +41,7 @@ export const setCoachPreferenceTool = createTool({
     const memory = await coachAgent?.getMemory();
 
     if (!memory) {
-      throw new Error("Coach memory is not configured");
+      throw new ToolPreconditionError("Coach memory is not configured");
     }
 
     const raw = await memory.getWorkingMemory({ threadId, resourceId });
@@ -65,5 +66,5 @@ export const setCoachPreferenceTool = createTool({
     });
 
     return nextPreferences;
-  },
+  }),
 });

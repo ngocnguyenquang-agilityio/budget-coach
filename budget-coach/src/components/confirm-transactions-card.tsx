@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CATEGORIES, type Category } from "@/domain/categories";
 import { parseToolResult } from "@/lib/parse-tool-result";
+import { useHitlTimeout } from "@/lib/use-hitl-timeout";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +33,7 @@ export interface ConfirmedTransaction {
 
 export interface RecordTransactionsResult {
   transactions: unknown[];
+  failed?: { merchant: string; amount: number; error: string }[];
   incomeDrift?: { declaredIncome: number; currentIncomeTotal: number };
 }
 
@@ -54,7 +56,7 @@ export interface ConfirmTransactionsCardProps {
 // than an inert editable form.
 const restoreDecision = (
   result: string | undefined,
-): { decision: "confirmed" | "cancelled"; count?: number } | null => {
+): { decision: "confirmed" | "cancelled"; count?: number; failedCount?: number } | null => {
   if (!result) return null;
 
   const parsed = parseToolResult<unknown>(result, result);
@@ -62,8 +64,14 @@ const restoreDecision = (
 
   if (text.startsWith("User cancelled")) return { decision: "cancelled" };
 
+  const failedCount = Number(text.match(/(\d+) could not be saved/)?.[1]);
+  const failedField = Number.isFinite(failedCount) ? { failedCount } : {};
+
   const count = Number(text.match(/^Recorded (\d+)/)?.[1]);
-  if (Number.isFinite(count)) return { decision: "confirmed", count };
+  if (Number.isFinite(count)) return { decision: "confirmed", count, ...failedField };
+  if (text.startsWith("None of the transactions could be saved")) {
+    return { decision: "confirmed", count: 0, ...failedField };
+  }
   return null;
 };
 
@@ -99,6 +107,10 @@ export const ConfirmTransactionsCard = ({
   const [localDecision, setLocalDecision] = useState<"confirmed" | "cancelled" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [landedCount, setLandedCount] = useState<number | null>(null);
+  const [failedCount, setFailedCount] = useState(0);
+
+  useHitlTimeout(status, respond, setLocalDecision);
 
   const rows = items ?? [];
   const effectiveType = (index: number): "income" | "expense" => rows[index]?.type ?? "expense";
@@ -109,11 +121,17 @@ export const ConfirmTransactionsCard = ({
   const decision = localDecision ?? restored?.decision ?? null;
 
   if (decision === "confirmed") {
-    const count = restored?.count ?? rows.filter((_, index) => !removed[index]).length;
+    const count = landedCount ?? restored?.count ?? rows.filter((_, index) => !removed[index]).length;
+    const failed = failedCount || restored?.failedCount || 0;
     return (
       <Card className="mx-auto my-2 w-full max-w-md">
         <CardContent className="pt-6 text-sm text-[var(--muted-foreground)]">
           Recorded {count} transaction{count === 1 ? "" : "s"}.
+          {failed > 0 && (
+            <p className="mt-1 text-[var(--destructive)]">
+              {failed} could not be saved — please re-enter{failed === 1 ? " it" : " them"}.
+            </p>
+          )}
         </CardContent>
       </Card>
     );
@@ -158,13 +176,41 @@ export const ConfirmTransactionsCard = ({
     setError(null);
     try {
       const writeResult = await recordTransactions?.(confirmed);
+      const failed = writeResult?.failed ?? [];
+
+      // Match confirmed rows back to the tool's failed list by merchant+amount
+      // (best-effort — duplicates resolve first-match-first-serve) so the
+      // message only claims the ones that actually landed were saved.
+      const remainingFailed = [...failed];
+      const landedItems: ConfirmedTransaction[] = [];
+      const failedItems: ConfirmedTransaction[] = [];
+      for (const item of confirmed) {
+        const idx = remainingFailed.findIndex(
+          (f) => f.merchant === item.merchant && f.amount === item.amount,
+        );
+        if (idx >= 0) {
+          remainingFailed.splice(idx, 1);
+          failedItems.push(item);
+        } else {
+          landedItems.push(item);
+        }
+      }
+
       setLocalDecision("confirmed");
+      setLandedCount(landedItems.length);
+      setFailedCount(failedItems.length);
 
       const drift = writeResult?.incomeDrift;
       respond?.(
-        `Recorded ${confirmed.length} transaction${confirmed.length === 1 ? "" : "s"}: ` +
-          `${confirmed.map(summarize).join(", ")}. They are already saved — do not add them again; ` +
-          `just briefly confirm to the user.` +
+        (landedItems.length > 0
+          ? `Recorded ${landedItems.length} transaction${landedItems.length === 1 ? "" : "s"}: ` +
+            `${landedItems.map(summarize).join(", ")}. They are already saved — do not add them again.`
+          : "None of the transactions could be saved.") +
+          (failedItems.length > 0
+            ? ` ${failedItems.length} could not be saved (${failedItems.map(summarize).join(", ")}) — ` +
+              `tell the user these specific ones were NOT recorded and offer to retry them; do not claim ` +
+              `they were saved.`
+            : " Just briefly confirm to the user.") +
           (drift
             ? ` Also, the user's actual income this period ($${drift.currentIncomeTotal}) now differs from ` +
               `their declared income ($${drift.declaredIncome}) by more than 20% — tell them and ask if ` +

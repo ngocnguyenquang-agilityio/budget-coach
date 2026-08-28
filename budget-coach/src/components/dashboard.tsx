@@ -268,10 +268,18 @@ export const Dashboard = () => {
             </p>
           );
         }
-        const parsedAnalysis = parseToolResult<AnalysisResult>(
+        const parsed = parseToolResult<AnalysisResult | { success: false }>(
           result,
           emptyAnalysis,
         );
+        if ("success" in parsed) {
+          return (
+            <p className="text-sm text-[var(--destructive)]">
+              Analysis failed — ask me to analyze your spending again.
+            </p>
+          );
+        }
+        const parsedAnalysis = parsed;
         return (
           <div className="space-y-4 mx-auto my-2 w-full max-w-md">
             <CategoryBreakdownChart analysis={parsedAnalysis} />
@@ -453,7 +461,7 @@ export const Dashboard = () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Budget Coach</h1>
             <p className="text-sm text-[var(--muted-foreground)]">
-              {new Date(`${visibleMonth}-01`).toLocaleDateString(undefined, {
+              {new Date(`${visibleMonth}-01`).toLocaleDateString("en-US", {
                 month: "long",
                 year: "numeric",
               })}

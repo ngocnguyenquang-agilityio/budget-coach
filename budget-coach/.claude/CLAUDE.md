@@ -16,6 +16,7 @@ Adapted from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpa
 - Always use arrow functions (`const foo = () => {}`), not `function` declarations.
 - Constants (e.g. color palettes, fixed lookup tables) belong in `src/constants/`, not inline in the file that uses them.
 - `src/app/**/page.tsx` files must stay thin shells (layout/providers only) — extract any real component (e.g. a `Dashboard`) into `src/components/` and import it.
+- All new Mastra tools **must** wrap their `execute` with `withToolErrorHandling` from `src/mastra/tools/with-tool-error-handling.ts`. This converts unhandled throws to `{ success: false, error, code: "TOOL_ERROR" }`, which the Coach prompt is instructed to handle. Existing tools that only return structured business-logic errors (and never throw) are exempt.
 
 ## Planning requests
 
