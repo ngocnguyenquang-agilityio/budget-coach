@@ -3,8 +3,8 @@ import { z } from "zod";
 import { RequestContext } from "@mastra/core/request-context";
 import { AnalysisResultSchema } from "@/domain/analysis";
 import { analystAgent } from "@/mastra/agents/analyst";
-import { resolveResourceId } from "@/mastra/get-resource-id";
-import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { resolveResourceId } from "@/mastra/lib/get-resource-id";
+import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // Agent-as-tool: wraps the Analyst agent. The Analyst has no memory of its

@@ -78,7 +78,7 @@ Seeding is per-`resourceId` and runs lazily on first read, so each browser gets 
 
 Mirror `my-nextjs-agent`'s proven patterns, minus DuckDB (it adds Windows file-lock complexity). Observability instead uses `@mastra/observability`'s `MastraStorageExporter`, writing traces to the same file-backed LibSQL store already required for suspend/resume — no extra infra, no file-lock risk.
 
-- **`src/mastra/model.ts`** — env-swappable provider:
+- **`src/mastra/config/model.ts`** — env-swappable provider:
   ```ts
   const ollama = createOpenAICompatible({ name: "ollama",
     baseURL: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1" });
@@ -87,11 +87,11 @@ Mirror `my-nextjs-agent`'s proven patterns, minus DuckDB (it adds Windows file-l
     ? "google/gemini-3.6-flash"          // Mastra model-router string
     : ollama(process.env.OLLAMA_MODEL ?? "llama3.1");
   ```
-- **`src/mastra/storage.ts`** — `new LibSQLStore({ id: "budget-coach-storage", url: "file:./budget-coach.db" })`. Must be file-backed; an in-memory DB breaks suspend/resume because pooled connections each see an empty DB.
-- **`src/mastra/observability.ts`** — `new Observability({ configs: { default: { serviceName: "budget-coach", exporters: [new MastraStorageExporter()] } } })` from `@mastra/observability`, passed as `observability` on the `Mastra` instance. `MastraStorageExporter` writes spans to the same LibSQL store above, so traces for every agent/tool/workflow call show up in Mastra Studio with zero extra infra.
-- **`src/middleware.ts`** + **`src/mastra/get-resource-id.ts`** — copy `my-nextjs-agent`'s per-browser `resource_id` httpOnly cookie → `x-resource-id` header pattern verbatim. Widen the matcher to cover `/api/copilotkit/:path*` as well as `/api/:path*`.
+- **`src/mastra/config/storage.ts`** — `new LibSQLStore({ id: "budget-coach-storage", url: "file:./budget-coach.db" })`. Must be file-backed; an in-memory DB breaks suspend/resume because pooled connections each see an empty DB.
+- **`src/mastra/config/observability.ts`** — `new Observability({ configs: { default: { serviceName: "budget-coach", exporters: [new MastraStorageExporter()] } } })` from `@mastra/observability`, passed as `observability` on the `Mastra` instance. `MastraStorageExporter` writes spans to the same LibSQL store above, so traces for every agent/tool/workflow call show up in Mastra Studio with zero extra infra.
+- **`src/middleware.ts`** + **`src/mastra/lib/get-resource-id.ts`** — copy `my-nextjs-agent`'s per-browser `resource_id` httpOnly cookie → `x-resource-id` header pattern verbatim. Widen the matcher to cover `/api/copilotkit/:path*` as well as `/api/:path*`.
 - **`src/mastra/processors/blocked-phrase-guardrail.ts`** — port `my-nextjs-agent`'s `Processor` implementation as-is (`readonly id`, sync `processInput({messages, abort})`, checks only the latest user message, calls `abort(...)` rather than throwing).
-- **`src/mastra/guardrails.ts`** — two instances:
+- **`src/mastra/guardrails/index.ts`** — two instances:
   - `promptInjectionGuardrail` — the same generic phrase list.
   - `financialAdviceGuardrail` — domain rule: blocks "should I invest", "which stocks", "is crypto a good", etc., so the Coach stays a budgeting assistant.
 

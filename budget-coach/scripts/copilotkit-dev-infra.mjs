@@ -8,13 +8,13 @@ import { existsSync, readFileSync } from 'node:fs';
 
 /**
  * Vendor API keys this scaffold needs before chat and generations will work.
- * The model provider is Cerebras (see src/mastra/model.ts), which requires
+ * The model provider is Cerebras (see src/mastra/config/model.ts), which requires
  * CEREBRAS_API_KEY.
  */
 const REQUIRED_ENV_KEYS = [
   {
     key: "CEREBRAS_API_KEY",
-    note: "Used by the Mastra agents (see src/mastra/model.ts) to call gpt-oss-120b on Cerebras.",
+    note: "Used by the Mastra agents (see src/mastra/config/model.ts) to call gpt-oss-120b on Cerebras.",
     url: "https://cloud.cerebras.ai",
     example: "csk-...",
   },
@@ -42,7 +42,7 @@ const MOCK_PROVIDER_BASE_URLS = {
 // runner keeps a WebSocket open past the end of the HTTP response, which a
 // serverless function freezes, so every deployed run failed with
 // RUNNER_CONNECTION_DROPPED. Durable threads now come from Mastra memory in
-// LibSQL (src/mastra/threads.ts). Warning about unset INTELLIGENCE_* vars would
+// LibSQL (src/mastra/threads/store.ts). Warning about unset INTELLIGENCE_* vars would
 // point at a feature the app deliberately does not have.
 const REQUIRED_INTELLIGENCE_KEYS = [];
 

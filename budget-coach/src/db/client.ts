@@ -1,6 +1,6 @@
 import { createClient } from "@libsql/client";
 
-// Points at the same URL as src/mastra/storage.ts's LibSQLStore — a separate
+// Points at the same URL as src/mastra/config/storage.ts's LibSQLStore — a separate
 // client, not a separate database. Locally that's file:./budget-coach.db; in
 // production it's a remote Turso database via TURSO_DATABASE_URL/
 // TURSO_AUTH_TOKEN. Must stay persistent (not ":memory:") either way, since

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getResourceId } from "@/mastra/get-resource-id";
-import { storage } from "@/mastra/storage";
+import { getResourceId } from "@/mastra/lib/get-resource-id";
+import { storage } from "@/mastra/config/storage";
 import { BudgetStateSchema, type BudgetState } from "@/domain/budget-state";
 import { withErrorHandling } from "@/lib/with-error-handling";
 

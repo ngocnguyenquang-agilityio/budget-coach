@@ -19,7 +19,7 @@ const { mastra } = await import("./index");
 const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-workflow");
 const { listTransactions, addTransaction } = await import("@/db/transactions");
 const { addTransactionsTool } = await import("./tools/transactions");
-const { parseWorkingMemory } = await import("./parse-working-memory");
+const { parseWorkingMemory } = await import("./lib/parse-working-memory");
 const { dbClient } = await import("@/db/client");
 
 afterAll(() => {

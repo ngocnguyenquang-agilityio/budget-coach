@@ -1,8 +1,8 @@
 import { Agent } from "@mastra/core/agent";
 import { StreamErrorRetryProcessor, UnicodeNormalizer } from "@mastra/core/processors";
 import { Memory } from "@mastra/memory";
-import { model } from "@/mastra/model";
-import { storage } from "@/mastra/storage";
+import { model } from "@/mastra/config/model";
+import { storage } from "@/mastra/config/storage";
 import {
   promptInjectionGuardrail,
   financialAdviceGuardrail,

@@ -5,7 +5,7 @@ import { EventType } from "@ag-ui/core";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/core";
 import { Observable } from "rxjs";
 import { mastra } from "@/mastra";
-import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardrail-block-channel";
+import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardrails/block-channel";
 
 // Mastra's tripwire chunk (emitted when a guardrail calls abort()) is
 // silently dropped by @ag-ui/mastra's chunk handler — there's no public
@@ -13,7 +13,7 @@ import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardr
 // RUN_FINISHED with no assistant text. This wraps MastraAgent.run() to
 // inject a synthetic assistant text message carrying the guardrail's
 // friendly userMessage whenever a guardrail fired (via onViolation, see
-// src/mastra/guardrail-block-channel.ts) but no real text was produced.
+// src/mastra/guardrails/block-channel.ts) but no real text was produced.
 const ASSISTANT_TEXT_EVENT_TYPES: EventType[] = [
   EventType.TEXT_MESSAGE_START,
   EventType.TEXT_MESSAGE_CONTENT,

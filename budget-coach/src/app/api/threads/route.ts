@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getResourceId } from "@/mastra/get-resource-id";
-import { listThreadsForResource } from "@/mastra/threads";
+import { getResourceId } from "@/mastra/lib/get-resource-id";
+import { listThreadsForResource } from "@/mastra/threads/store";
 import { withErrorHandling } from "@/lib/with-error-handling";
 
 export const runtime = "nodejs";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getResourceId } from "@/mastra/get-resource-id";
+import { getResourceId } from "@/mastra/lib/get-resource-id";
 import { CategorySchema, type Category } from "@/domain/categories";
 import { addTransaction, listTransactions } from "@/db/transactions";
 import { withErrorHandling } from "@/lib/with-error-handling";

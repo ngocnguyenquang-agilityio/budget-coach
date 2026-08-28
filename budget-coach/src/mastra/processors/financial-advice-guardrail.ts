@@ -1,5 +1,5 @@
 import type { Processor, ProcessInputArgs, ProcessInputResult, ProcessorViolation } from "@mastra/core/processors";
-import { recordGuardrailViolation } from "../guardrail-block-channel";
+import { recordGuardrailViolation } from "../guardrails/block-channel";
 import { getMessageText } from "../scorers/message-text";
 
 // Blocks only when the latest user message contains BOTH a financial

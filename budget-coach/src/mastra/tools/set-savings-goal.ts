@@ -1,7 +1,7 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { resolveResourceId } from "@/mastra/get-resource-id";
-import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { resolveResourceId } from "@/mastra/lib/get-resource-id";
+import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 // Writes directly to the Coach's resource-scoped working memory rather than
