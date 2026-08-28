@@ -44,7 +44,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const emptyAnalysis: AnalysisResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
-const HIGHLIGHTED_CATEGORY_STORAGE_KEY = "budget-coach:highlightedCategory";
 
 export const Dashboard = () => {
   const { agent, isReady } = useAgent({
@@ -57,15 +56,6 @@ export const Dashboard = () => {
   const configuration = useCopilotChatConfiguration();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [highlightedCategory, setHighlightedCategory] = useState<
-    Category | undefined
-  >(() => {
-    if (typeof window === "undefined") return undefined;
-    const stored = window.localStorage.getItem(HIGHLIGHTED_CATEGORY_STORAGE_KEY);
-    return CategorySchema.safeParse(stored).success
-      ? (stored as Category)
-      : undefined;
-  });
   const [selectedCategory, setSelectedCategory] = useState<
     Category | undefined
   >(undefined);
@@ -364,25 +354,9 @@ export const Dashboard = () => {
 
   useFrontendTool(
     {
-      name: "highlightCategory",
-      description:
-        "Visually point at a budget category in the dashboard. Does NOT filter or change any data. Only call this when the user explicitly asks to highlight, show, or point out a category (e.g. \"highlight Dining\") — never automatically just because a category came up while answering a question.",
-      parameters: z.object({ category: CategorySchema.optional() }),
-      handler: async ({ category }) => {
-        setHighlightedCategory(category);
-        return category
-          ? `Highlighted ${category} in the dashboard.`
-          : "Cleared the highlighted category.";
-      },
-    },
-    [],
-  );
-
-  useFrontendTool(
-    {
       name: "selectCategory",
       description:
-        "Filter the Transactions list on the dashboard down to one category, exactly as if the user clicked that category's row. Omit category to clear the filter and show all transactions again.",
+        "Filter the Transactions list on the dashboard down to one category, exactly as if the user clicked that category's row. Omit category to clear the filter and show all transactions again. Only call this when the user explicitly asks to filter, highlight, show, or point out a category (e.g. \"show me Dining\") — never automatically just because a category came up while answering a question. Supports exactly one category: if the user names two or more categories at once, do not call this and do not pick one yourself — ask them which single one they want.",
       parameters: z.object({ category: CategorySchema.optional() }),
       handler: async ({ category }) => {
         setSelectedCategory(category);
@@ -394,23 +368,11 @@ export const Dashboard = () => {
     [],
   );
 
-  useEffect(() => {
-    if (highlightedCategory) {
-      window.localStorage.setItem(
-        HIGHLIGHTED_CATEGORY_STORAGE_KEY,
-        highlightedCategory,
-      );
-    } else {
-      window.localStorage.removeItem(HIGHLIGHTED_CATEGORY_STORAGE_KEY);
-    }
-  }, [highlightedCategory]);
-
   useAgentContext({
     description:
-      "The month currently visible on the dashboard, any category the user has highlighted, any category the Transactions list is currently filtered to, and the user's stored Coach Preferences (round-tripped from working memory so the Coach's instructions can weave them in as directives — see coach.ts)",
+      "The month currently visible on the dashboard, any category the Transactions list is currently filtered to, and the user's stored Coach Preferences (round-tripped from working memory so the Coach's instructions can weave them in as directives — see coach.ts)",
     value: {
       visibleMonth,
-      highlightedCategory: highlightedCategory ?? null,
       selectedCategory: selectedCategory ?? null,
       coachPreferences: state.coachPreferences ?? null,
     },
@@ -555,7 +517,6 @@ export const Dashboard = () => {
               <BudgetProgressBars
                 analysis={analysis}
                 categoryLimits={state.categoryLimits ?? {}}
-                highlightedCategory={highlightedCategory}
                 selectedCategory={selectedCategory}
                 onSelectCategory={handleSelectCategory}
               />
