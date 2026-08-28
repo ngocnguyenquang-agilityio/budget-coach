@@ -255,7 +255,7 @@ describe("addTransactionsTool income-drift (batch)", () => {
 describe("Coach dynamic instructions (ag-ui requestContext regression)", () => {
   it("includes ag-ui frontend context in the resolved instructions when present", async () => {
     const coachAgent = mastra.getAgent("coach");
-    const frontendContext = { highlightedCategory: "Dining" };
+    const frontendContext = { selectedCategory: "Dining" };
 
     const withContext = await coachAgent.getInstructions({
       requestContext: new RequestContext([["ag-ui", frontendContext]]),

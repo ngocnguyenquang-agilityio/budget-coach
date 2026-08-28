@@ -7,13 +7,11 @@ import { CATEGORY_COLORS } from "@/constants/chart-colors";
 export const BudgetProgressBars = ({
   analysis,
   categoryLimits,
-  highlightedCategory,
   selectedCategory,
   onSelectCategory,
 }: {
   analysis: AnalysisResult;
   categoryLimits: CategoryLimits;
-  highlightedCategory?: Category;
   selectedCategory?: Category;
   onSelectCategory?: (category: Category) => void;
 }) => {
@@ -50,7 +48,6 @@ export const BudgetProgressBars = ({
         const pct = limit
           ? Math.min(100, Math.round((total / limit) * 100))
           : 0;
-        const highlighted = highlightedCategory === category;
         const selected = selectedCategory === category;
 
         return (
@@ -67,12 +64,10 @@ export const BudgetProgressBars = ({
               }
             }}
             className={`rounded-[var(--radius)] p-1.5 cursor-pointer transition-colors ${
-              selected
-                ? "ring-2 ring-[var(--ring)] ring-offset-2 ring-offset-[var(--card)]"
-                : "hover:ring-1 hover:ring-[var(--border)]"
+              selected ? "" : "hover:ring-1 hover:ring-[var(--border)]"
             }`}
             style={
-              highlighted
+              selected
                 ? {
                     backgroundColor: `color-mix(in srgb, ${CATEGORY_COLORS[category]} 16%, transparent)`,
                   }

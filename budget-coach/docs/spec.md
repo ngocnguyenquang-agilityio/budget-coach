@@ -30,7 +30,7 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 16. As a developer, I want scorers evaluating categorization accuracy, on-topic scope, and budget-adjustment sanity, so that regressions in agent quality are caught automatically after every run. Categorization accuracy and budget-adjustment sanity are deterministic (objective ground truth to check against); on-topic scope uses an LLM judge, since scope drift is a matter of degree a keyword list can't grade (see ADR-0005).
 17. As a developer, I want every agent/tool/workflow call traced to Mastra Studio via `@mastra/observability`, so that I can debug orchestration without extra infrastructure.
 18. As a developer, I want to swap the LLM provider between local Ollama (`llama3.1`) and Google Gemini via an env var, so that I can develop offline and still have a path to a hosted model.
-19. As a user, I want to see the assistant's current spending analysis and any highlighted category reflected in what it says, so that its answers are grounded in what I'm actually looking at on the dashboard.
+19. As a user, I want to see the assistant's current spending analysis and any category the Transactions list is filtered to reflected in what it says, so that its answers are grounded in what I'm actually looking at on the dashboard.
 
 ## Implementation Decisions
 
@@ -66,10 +66,10 @@ Build `budget-coach`, a chat-first personal budget coach: a Next.js app where a 
 - API surface: `@copilotkit/react-core/v2` — `useAgent`, `useRenderTool`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useAgentContext`, `useConfigureSuggestions`.
 - Shared state via `useAgent({ agentId: "coach", updates: [UseAgentUpdate.OnStateChanged] })`; dashboard reads `agent.state`, writes `agent.setState(...)` for direct limit edits.
 - Generative UI (`useRenderTool` per tool + one `useDefaultRenderTool` catch-all): `CategoryBreakdownChart` (recharts donut, from `analyzeSpendingTool`), `BudgetProgressBars` (from `analyzeSpendingTool`), `TransactionListCard` (from `listTransactionsTool`), `MonthlyReviewCard` (from the `useInterrupt` render).
-- Frontend actions via `useFrontendTool`: `openAddTransactionForm` (pre-fills from chat), `highlightCategory` (UI-only, non-mutating, included deliberately for contrast with mutating actions).
+- Frontend actions via `useFrontendTool`: `openAddTransactionForm` (pre-fills from chat), `selectCategory` (filters the Transactions list to one category, exactly as if the user clicked that category's row).
 - Three confirmed render-side gotchas: every `useRenderTool` `parameters` field must be `.optional()` because params stream in incrementally even when the tool requires them; tool `result` arrives as a JSON string and must be parsed defensively; the `name` passed to `useRenderTool`/`useFrontendTool` must match the agent's `tools` map key, not the tool's `id`.
 - `CopilotChatConfigurationProvider` must stay uncontrolled (no `threadId` prop): `setActiveThreadId` and `startNewThread` — how the custom `ThreadsDrawer` switches and creates conversations — are documented no-ops when the threadId is prop-controlled.
-- `useAgentContext` feeds the currently-visible month and any highlighted category into `requestContext`; only reaches the model because of the dynamic-instructions wiring on the Coach.
+- `useAgentContext` feeds the currently-visible month and any category the Transactions list is filtered to into `requestContext`; only reaches the model because of the dynamic-instructions wiring on the Coach.
 
 ### CopilotKit runtime route
 

@@ -219,7 +219,7 @@ Three render-side gotchas, all confirmed in `ui-dojo`:
 2. `result` arrives as a **JSON string** — parse defensively.
 3. The `name` must match the agent's `tools` **map key**, not the tool's `id`.
 
-**Frontend actions** — `useFrontendTool` with handlers: `openAddTransactionForm` (pre-fills from what the user described in chat) and `highlightCategory` (UI-only scroll/flash — deliberately included as a non-mutating action for contrast).
+**Frontend actions** — `useFrontendTool` with handlers: `openAddTransactionForm` (pre-fills from what the user described in chat) and `selectCategory` (filters the Transactions list to one category, exactly as if the user clicked that category's row).
 
 **HITL, two mechanisms:**
 
@@ -250,7 +250,7 @@ useInterrupt({
 
 The interrupt payload is nested under `suspendPayload` inside `event.value`, and `event.value` may be a string. Approval cards should guard against double-resolve with local state (`ui-dojo/src/components/ck/time-picker-card.tsx`).
 
-**Context** — `useAgentContext` for the currently-visible month and any highlighted category. Only works because of the dynamic instructions in Step 3.
+**Context** — `useAgentContext` for the currently-visible month and any category the Transactions list is filtered to. Only works because of the dynamic instructions in Step 3.
 
 ---
 
