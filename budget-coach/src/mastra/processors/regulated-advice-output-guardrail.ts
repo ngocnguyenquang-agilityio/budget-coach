@@ -19,7 +19,7 @@ export class RegulatedAdviceOutputGuardrail implements Processor {
     this.redirectMessage = redirectMessage;
   }
 
-  processOutputResult({ messages, result }: ProcessOutputResultArgs): ProcessorMessageResult {
+  processOutputResult({ messages, result, tracingContext }: ProcessOutputResultArgs): ProcessorMessageResult {
     const text = result.text.toLowerCase();
     const matchedKeyword = this.blockedKeywords.find((keyword) => text.includes(keyword.toLowerCase()));
 
@@ -29,6 +29,7 @@ export class RegulatedAdviceOutputGuardrail implements Processor {
       processorId: this.id,
       message: "Response blocked: drifted into regulated-advice territory",
       detail: { matchedKeyword },
+      span: tracingContext?.currentSpan,
     });
 
     return this.replaceLastAssistantText(messages, this.redirectMessage);

@@ -20,7 +20,7 @@ export class BlockedPhraseGuardrail implements Processor {
     recordGuardrailViolation({ ...violation, userMessage: this.userMessage });
   };
 
-  processInput({ messages, abort }: ProcessInputArgs): ProcessInputResult {
+  processInput({ messages, abort, tracingContext }: ProcessInputArgs): ProcessInputResult {
     // `messages` can include earlier turns from this thread (the chat
     // transport resends full history on every call). Only the latest user
     // message is this turn's actual input - checking older ones would keep
@@ -40,6 +40,7 @@ export class BlockedPhraseGuardrail implements Processor {
           message: "blocked",
           detail: { phrase },
           userMessage: this.userMessage,
+          span: tracingContext?.currentSpan,
         });
 
         abort("Message blocked: contains disallowed content", {

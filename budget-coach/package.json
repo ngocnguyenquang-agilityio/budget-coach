@@ -12,6 +12,7 @@
     "start": "next start",
     "dev:infra": "node scripts/copilotkit-dev-infra.mjs",
     "backfill:titles": "tsx scripts/backfill-thread-titles.ts",
+    "report:observability": "tsx scripts/observability-report.ts",
     "test": "vitest run"
   },
   "dependencies": {
