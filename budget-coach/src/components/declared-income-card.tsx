@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { parseToolResult } from "@/lib/parse-tool-result";
+import { useHitlTimeout } from "@/lib/use-hitl-timeout";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,6 +52,8 @@ const restoreDecision = (
 export const DeclaredIncomeCard = ({ status, respond, result }: DeclaredIncomeCardProps) => {
   const [value, setValue] = useState("");
   const [localDecision, setLocalDecision] = useState<"submitted" | "cancelled" | null>(null);
+
+  useHitlTimeout(status, respond, setLocalDecision);
 
   const restored = restoreDecision(result);
   const decision = localDecision ?? restored?.decision ?? null;

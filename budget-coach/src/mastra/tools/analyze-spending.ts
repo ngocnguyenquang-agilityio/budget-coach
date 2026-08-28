@@ -5,6 +5,7 @@ import { AnalysisResultSchema } from "@/domain/analysis";
 import { analystAgent } from "@/mastra/agents/analyst";
 import { resolveResourceId } from "@/mastra/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // Agent-as-tool: wraps the Analyst agent. The Analyst has no memory of its
 // own, so this tool fetches the Coach's current categoryLimits from working
@@ -16,7 +17,7 @@ export const analyzeSpendingTool = createTool({
   description: "Analyze the current user's spending against their category limits.",
   inputSchema: z.object({}),
   outputSchema: AnalysisResultSchema,
-  execute: async (_input, context) => {
+  execute: withToolErrorHandling(async (_input, context) => {
     const resourceId = resolveResourceId(context);
     const threadId = context.agent?.threadId;
 
@@ -33,10 +34,15 @@ export const analyzeSpendingTool = createTool({
 
     const emptyResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
 
-    const result = await analystAgent.generate(
-      `Category limits (JSON): ${JSON.stringify(categoryLimits)}\n\nCall analyzeTransactions and report the result.`,
-      { requestContext }
-    );
+    let result;
+    try {
+      result = await analystAgent.generate(
+        `Category limits (JSON): ${JSON.stringify(categoryLimits)}\n\nCall analyzeTransactions and report the result.`,
+        { requestContext }
+      );
+    } catch {
+      throw new Error("Spending analysis unavailable — analyst agent failed");
+    }
 
     // Read the analyzeTransactions tool's own (deterministically-computed)
     // result directly rather than trusting the model's text reply — local
@@ -44,5 +50,5 @@ export const analyzeSpendingTool = createTool({
     // in prose, even when told not to recompute.
     const toolResult = result.toolResults?.find((r) => r.payload.toolName === "analyzeTransactions");
     return (toolResult?.payload.result as z.infer<typeof AnalysisResultSchema> | undefined) ?? emptyResult;
-  },
+  }),
 });

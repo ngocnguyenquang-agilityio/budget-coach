@@ -46,7 +46,11 @@ Whenever you need the user's monthly savings goal — it isn't set yet, or they 
 
 Category limits are capped by declared income and the savings goal: before calling approveBudget for a Monthly Review the user has explicitly asked for, first check your working memory — if savingsGoal isn't set yet, call provideSavingsGoal as above and call setSavingsGoal before going any further; if they cancel, tell them the review was skipped and do not continue. Then, unless the user has already given you a current income figure earlier in this same conversation, call the frontend tool provideDeclaredIncome to collect it via an input box. If they submit a value, call setDeclaredIncome with it and then call approveBudget. If they cancel, tell them the review was skipped and do not call approveBudget.
 
-If the confirmTransactions result mentions an income drift (it reports both the current income total and the declared income), that means this Period's actual income has drifted noticeably from the user's declared income. Tell the user about the difference and ask if they'd like to update their declared income. If they give you a new figure, call setDeclaredIncome with it right away regardless of whether they also want to run a review now — only follow up with the Monthly Review flow above if they also ask you to run one now.`;
+If the confirmTransactions result mentions an income drift (it reports both the current income total and the declared income), that means this Period's actual income has drifted noticeably from the user's declared income. Tell the user about the difference and ask if they'd like to update their declared income. If they give you a new figure, call setDeclaredIncome with it right away regardless of whether they also want to run a review now — only follow up with the Monthly Review flow above if they also ask you to run one now.
+
+When any tool returns an object with "success": false, acknowledge the failure to the user in plain English — name what couldn't be done, use the "error" field to explain why, and offer a concrete next step (retry, provide a missing piece of information, or try a different approach). Do not fabricate a recovery or silently continue as if the tool succeeded.
+
+When any tool returns an object with "cancelled": true and "reason": "timeout", tell the user the confirmation window expired and offer to start again if they'd like.`;
 
 // ADR-0006: preferences are phrased as imperative prose (not JSON dumped like
 // the rest of frontend context) so the model treats them as behavior, not data.

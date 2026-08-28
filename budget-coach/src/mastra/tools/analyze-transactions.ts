@@ -4,6 +4,7 @@ import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { listTransactions } from "@/db/transactions";
 import { resolveResourceId } from "@/mastra/get-resource-id";
+import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // partialRecord, not record — Zod v4's z.record with an enum key schema
 // requires every enum key present, which rejects the common case of only a
@@ -34,10 +35,10 @@ export const analyzeTransactionsTool = createTool({
     categoryLimits: CategoryLimitsInputSchema,
   }),
   outputSchema: AnalysisResultSchema,
-  execute: async ({ categoryLimits }, context) => {
+  execute: withToolErrorHandling(async ({ categoryLimits }, context) => {
     const resourceId = resolveResourceId(context);
     const transactions = await listTransactions(resourceId);
     const period = new Date().toISOString().slice(0, 7);
     return computeAnalysis(transactions, categoryLimits ?? {}, period);
-  },
+  }),
 });

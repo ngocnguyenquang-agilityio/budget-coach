@@ -26,16 +26,21 @@ export const listTransactionsTool = createTool({
     category: CategorySchema.optional(),
     month: z.string().optional().describe("ISO month (YYYY-MM) to filter transactions to; omit for all months"),
   }),
-  outputSchema: z.object({ transactions: z.array(TransactionSchema) }),
+  outputSchema: z.object({ transactions: z.array(TransactionSchema), error: z.string().optional() }),
   execute: async ({ category, month }, context) => {
     const resourceId = resolveResourceId(context);
-    const transactions = await listTransactions(resourceId);
-    const filtered = transactions.filter(
-      (transaction) =>
-        (category === undefined || transaction.category === category) &&
-        (month === undefined || transaction.date.startsWith(month))
-    );
-    return { transactions: filtered };
+    try {
+      const transactions = await listTransactions(resourceId);
+      const filtered = transactions.filter(
+        (transaction) =>
+          (category === undefined || transaction.category === category) &&
+          (month === undefined || transaction.date.startsWith(month))
+      );
+      return { transactions: filtered };
+    } catch (err) {
+      console.error("[tool] list-transactions failed", err);
+      return { transactions: [], error: "Couldn't load your transactions right now." };
+    }
   },
 });
 
@@ -63,6 +68,12 @@ export const addTransactionsTool = createTool({
   inputSchema: z.object({ transactions: z.array(AddTransactionItemSchema) }),
   outputSchema: z.object({
     transactions: z.array(TransactionSchema),
+    // Items that failed to insert (e.g. a DB error partway through the batch)
+    // — surfaced so the Coach never tells the user something was recorded
+    // when it wasn't, and can say exactly which rows landed.
+    failed: z
+      .array(z.object({ merchant: z.string(), amount: z.number(), error: z.string() }))
+      .optional(),
     // At most one incomeDrift for the whole batch (not one per income row):
     // present only when the batch pushed the Period's actual income >20% away
     // from the stored Declared Income, and only the first time that happens in
@@ -79,29 +90,40 @@ export const addTransactionsTool = createTool({
     const today = new Date().toISOString().slice(0, 10);
 
     const inserted: Transaction[] = [];
+    const failed: { merchant: string; amount: number; error: string }[] = [];
     for (const item of items) {
-      inserted.push(
-        await addTransaction({
-          resourceId,
+      try {
+        inserted.push(
+          await addTransaction({
+            resourceId,
+            merchant: item.merchant,
+            amount: item.amount,
+            type: item.type,
+            category: item.category ?? null,
+            date: item.date ?? today,
+            seedCategory: null,
+          })
+        );
+      } catch (err) {
+        console.error("[tool] add-transactions item failed", err);
+        failed.push({
           merchant: item.merchant,
           amount: item.amount,
-          type: item.type,
-          category: item.category ?? null,
-          date: item.date ?? today,
-          seedCategory: null,
-        })
-      );
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
+    const failedField = failed.length > 0 ? { failed } : {};
 
     // Drift is evaluated once, after the whole batch is inserted, against the
     // resulting Period totals — so several income rows in one message count
     // together and the offer still fires at most once per Period.
-    if (!items.some((item) => item.type === "income")) return { transactions: inserted };
+    if (!items.some((item) => item.type === "income")) return { transactions: inserted, ...failedField };
 
     const threadId = context.agent?.threadId;
     const coachAgent = context.mastra?.getAgent("coach");
     const memory = coachAgent ? await coachAgent.getMemory() : undefined;
-    if (!threadId || !memory) return { transactions: inserted };
+    if (!threadId || !memory) return { transactions: inserted, ...failedField };
 
     const raw = await memory.getWorkingMemory({ threadId, resourceId });
     const current = parseWorkingMemory(raw);
@@ -109,13 +131,15 @@ export const addTransactionsTool = createTool({
     const period = new Date().toISOString().slice(0, 7);
     const offeredPeriod = current.incomeDriftOfferedPeriod as string | undefined;
 
-    if (declaredIncome === undefined || offeredPeriod === period) return { transactions: inserted };
+    if (declaredIncome === undefined || offeredPeriod === period) {
+      return { transactions: inserted, ...failedField };
+    }
 
     const transactions = await listTransactions(resourceId);
     const analysis = computeAnalysis(transactions, {}, period);
     const drift = Math.abs(analysis.incomeTotal - declaredIncome) / declaredIncome;
 
-    if (drift <= INCOME_DRIFT_THRESHOLD) return { transactions: inserted };
+    if (drift <= INCOME_DRIFT_THRESHOLD) return { transactions: inserted, ...failedField };
 
     await memory.updateWorkingMemory({
       threadId,
@@ -123,6 +147,10 @@ export const addTransactionsTool = createTool({
       workingMemory: JSON.stringify({ ...current, incomeDriftOfferedPeriod: period }),
     });
 
-    return { transactions: inserted, incomeDrift: { declaredIncome, currentIncomeTotal: analysis.incomeTotal } };
+    return {
+      transactions: inserted,
+      ...failedField,
+      incomeDrift: { declaredIncome, currentIncomeTotal: analysis.incomeTotal },
+    };
   },
 });

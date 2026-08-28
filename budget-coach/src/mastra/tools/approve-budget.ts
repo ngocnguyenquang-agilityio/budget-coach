@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveResourceId } from "@/mastra/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/parse-working-memory";
 import { MonthlyReviewSuspendSchema, MonthlyReviewResumeSchema } from "@/mastra/workflows/monthly-review-workflow";
+import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 // The Coach's entry point into monthlyReviewWorkflow. Suspends server-side
 // (tool-level suspend, distinct from the workflow's own approvalGate suspend)
@@ -15,21 +16,21 @@ export const approveBudgetTool = createTool({
   suspendSchema: MonthlyReviewSuspendSchema,
   resumeSchema: MonthlyReviewResumeSchema,
   outputSchema: z.object({ message: z.string() }),
-  execute: async (_input, context) => {
+  execute: withToolErrorHandling(async (_input, context) => {
     const resourceId = resolveResourceId(context);
     const threadId = context.agent?.threadId;
     if (!threadId) {
-      throw new Error("Missing threadId — approveBudget must be called within an agent thread");
+      throw new ToolPreconditionError("Missing threadId — approveBudget must be called within an agent thread");
     }
 
     const { resumeData, suspend } = context.agent ?? {};
     if (!suspend) {
-      throw new Error("Missing suspend — approveBudget must be called within an agent thread");
+      throw new ToolPreconditionError("Missing suspend — approveBudget must be called within an agent thread");
     }
 
     const workflow = context.mastra?.getWorkflow("monthlyReviewWorkflow");
     if (!workflow) {
-      throw new Error("monthlyReviewWorkflow is not registered");
+      throw new ToolPreconditionError("monthlyReviewWorkflow is not registered");
     }
 
     if (resumeData) {
@@ -102,5 +103,5 @@ export const approveBudgetTool = createTool({
     }
 
     return { message: "No budget changes were needed this month." };
-  },
+  }),
 });
