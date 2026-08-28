@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { listTransactions } from "@/db/transactions";
-import { resolveResourceId } from "@/mastra/get-resource-id";
+import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // partialRecord, not record — Zod v4's z.record with an enum key schema
@@ -14,7 +14,7 @@ const CategoryLimitsSchema = z.partialRecord(CategorySchema, z.number());
 // Open-weight models (e.g. this app's gpt-oss-120b via Cerebras) sometimes pass this as a JSON
 // string instead of an object, despite the schema — parse defensively,
 // mirroring how tool *outputs* are already parsed defensively elsewhere
-// (src/mastra/parse-working-memory.ts).
+// (src/mastra/lib/parse-working-memory.ts).
 const CategoryLimitsInputSchema = z
   .union([CategoryLimitsSchema, z.string()])
   .optional()

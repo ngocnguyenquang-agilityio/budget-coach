@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { StreamErrorRetryProcessor } from "@mastra/core/processors";
-import { model } from "@/mastra/model";
+import { model } from "@/mastra/config/model";
 import { CATEGORIES } from "@/domain/categories";
 import { categorizerAccuracyScorer } from "@/mastra/scorers/categorizer-accuracy";
 

@@ -122,7 +122,7 @@ silently.
 ### 4. No external error-reporting/alerting service
 
 Logging today is console-only: Mastra's `ConsoleLogger`, one
-`console.warn` for guardrail violations (`guardrail-block-channel.ts`), and
+`console.warn` for guardrail violations (`guardrails/block-channel.ts`), and
 vendor `console.error` inside `@copilotkit/runtime`. There's no Sentry/
 equivalent, so a failure in production is only visible if someone is
 tailing server logs at the time. Not urgent for a local/demo project, but

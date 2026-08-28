@@ -1,5 +1,5 @@
 import { mastra } from "@/mastra";
-import { getCoachMemory, isOwnedBy } from "@/mastra/threads";
+import { getCoachMemory, isOwnedBy } from "@/mastra/threads/store";
 
 // Generates the short conversation titles the drawer shows.
 //

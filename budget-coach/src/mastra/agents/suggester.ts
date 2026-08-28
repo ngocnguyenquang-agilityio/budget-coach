@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { StreamErrorRetryProcessor } from "@mastra/core/processors";
-import { model } from "@/mastra/model";
+import { model } from "@/mastra/config/model";
 
 // Backs the dashboard's dynamic "after-first-message" suggestion chips
 // (useConfigureSuggestions with providerAgentId: "suggester"). Deliberately has

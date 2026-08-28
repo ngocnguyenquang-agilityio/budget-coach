@@ -1,6 +1,6 @@
 import type { Processor, ProcessOutputResultArgs, ProcessorMessageResult } from "@mastra/core/processors";
 import type { MastraDBMessage } from "@mastra/core/memory";
-import { logGuardrailViolation } from "../guardrail-block-channel";
+import { logGuardrailViolation } from "../guardrails/block-channel";
 
 // Output-side counterpart to the input guardrails: the Coach's own response
 // can drift into regulated-advice territory even when the user's question

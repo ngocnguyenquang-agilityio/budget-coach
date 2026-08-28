@@ -1,8 +1,8 @@
 import { Mastra } from "@mastra/core/mastra";
 import { weatherAgent, categorizerAgent, analystAgent, coachAgent, suggesterAgent } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
-import { storage } from "./storage";
-import { observability } from "./observability";
+import { storage } from "./config/storage";
+import { observability } from "./config/observability";
 import { monthlyReviewWorkflow } from "./workflows/monthly-review-workflow";
 import { categorizerAccuracyScorer } from "./scorers/categorizer-accuracy";
 import { coachScopeScorer } from "./scorers/coach-scope";

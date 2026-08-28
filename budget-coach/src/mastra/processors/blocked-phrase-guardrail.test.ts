@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MastraDBMessage } from "@mastra/core/memory";
 import { BlockedPhraseGuardrail } from "./blocked-phrase-guardrail";
-import { guardrailBlockChannel } from "../guardrail-block-channel";
+import { guardrailBlockChannel } from "../guardrails/block-channel";
 
 const userMessage = (text: string): MastraDBMessage => {
   return {

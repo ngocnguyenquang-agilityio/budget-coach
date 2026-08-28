@@ -3,8 +3,8 @@ import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { computeAnalysis } from "@/domain/analysis";
 import { addTransaction, listTransactions, type Transaction } from "@/db/transactions";
-import { resolveResourceId } from "@/mastra/get-resource-id";
-import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { resolveResourceId } from "@/mastra/lib/get-resource-id";
+import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 
 const TransactionSchema = z.object({
   id: z.string(),

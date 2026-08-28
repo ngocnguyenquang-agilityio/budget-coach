@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getResourceId } from "@/mastra/get-resource-id";
+import { getResourceId } from "@/mastra/lib/get-resource-id";
 import { mastra } from "@/mastra";
 import { addTransactionsTool, AddTransactionItemSchema } from "@/mastra/tools/transactions";
 import { withErrorHandling } from "@/lib/with-error-handling";

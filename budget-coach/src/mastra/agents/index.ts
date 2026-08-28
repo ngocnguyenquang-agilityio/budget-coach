@@ -2,8 +2,8 @@ import { Agent } from "@mastra/core/agent";
 import { weatherTool } from "@/mastra/tools";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
-import { model } from "@/mastra/model";
-import { storage } from "@/mastra/storage";
+import { model } from "@/mastra/config/model";
+import { storage } from "@/mastra/config/storage";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),

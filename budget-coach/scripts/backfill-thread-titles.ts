@@ -2,8 +2,8 @@
 // storage layer falls back to the local file DB (file:./budget-coach.db) and
 // would "backfill" stale dev threads instead of the real ones in Turso.
 import "dotenv/config";
-import { getCoachMemory } from "../src/mastra/threads";
-import { generateThreadTitle } from "../src/mastra/thread-naming";
+import { getCoachMemory } from "../src/mastra/threads/store";
+import { generateThreadTitle } from "../src/mastra/threads/naming";
 import { THREAD_LIST_PAGE_SIZE } from "../src/constants/threads";
 
 // Threads created before titles were stored in Mastra have title = "" — naming

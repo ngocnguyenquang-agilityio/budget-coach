@@ -3,7 +3,7 @@ import { StreamErrorRetryProcessor } from "@mastra/core/processors";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import { z } from "zod";
 import { getAssistantText } from "./message-text";
-import { model } from "@/mastra/model";
+import { model } from "@/mastra/config/model";
 import {
   COACH_SCOPE_JUDGE_INSTRUCTIONS,
   COACH_SCOPE_SEVERITY_SCORES,

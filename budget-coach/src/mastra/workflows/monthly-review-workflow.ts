@@ -4,7 +4,7 @@ import { CategorySchema, type Category } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits } from "@/domain/propose-limits";
 import { listTransactions } from "@/db/transactions";
-import { parseWorkingMemory } from "@/mastra/parse-working-memory";
+import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reasonableness";
 
 // partialRecord, not record — see src/mastra/tools/analyze-transactions.ts for

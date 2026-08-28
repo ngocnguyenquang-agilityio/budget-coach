@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { StreamErrorRetryProcessor } from "@mastra/core/processors";
-import { model } from "@/mastra/model";
+import { model } from "@/mastra/config/model";
 import { analyzeTransactionsTool } from "@/mastra/tools/analyze-transactions";
 
 // Read-only spending analyzer: calls analyzeTransactions and relays its result verbatim.

@@ -131,7 +131,7 @@ infrastructure. Every conversation is stored by Mastra memory in LibSQL
 
 - `src/components/threads-drawer.tsx` renders the conversation list, backed by
   `/api/threads` (list, rename, delete) and `/api/threads/:id/title`.
-- `src/mastra/agui-replay-runner.ts` rebuilds a thread's transcript — messages,
+- `src/mastra/threads/replay-runner.ts` rebuilds a thread's transcript — messages,
   tool calls and their results — when the chat reconnects to it, so history
   survives cold starts, redeploys and instance churn.
 - `pnpm backfill:titles --dry-run` names any thread created before titles were

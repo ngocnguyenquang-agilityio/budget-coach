@@ -1,6 +1,6 @@
-import { BlockedPhraseGuardrail } from "./processors/blocked-phrase-guardrail";
-import { FinancialAdviceGuardrail } from "./processors/financial-advice-guardrail";
-import { RegulatedAdviceOutputGuardrail } from "./processors/regulated-advice-output-guardrail";
+import { BlockedPhraseGuardrail } from "../processors/blocked-phrase-guardrail";
+import { FinancialAdviceGuardrail } from "../processors/financial-advice-guardrail";
+import { RegulatedAdviceOutputGuardrail } from "../processors/regulated-advice-output-guardrail";
 import {
   PROMPT_INJECTION_PHRASES,
   FINANCIAL_INSTRUMENT_KEYWORDS,
