@@ -17,6 +17,7 @@ process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
 const { mastra } = await import("./index");
 const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-workflow");
+const { FundingPlanSuspendSchema } = await import("./workflows/goal-funding-workflow");
 const { listTransactions, addTransaction } = await import("@/db/transactions");
 const { addTransactionsTool } = await import("./tools/transactions");
 const { parseWorkingMemory } = await import("./lib/parse-working-memory");
@@ -204,6 +205,72 @@ describe("monthlyReviewWorkflow", () => {
 
     const afterReject = await getWorkingMemoryState(threadId, resourceId);
     expect(afterReject.categoryLimits).toEqual(baseline.categoryLimits);
+  });
+});
+
+describe("goalFundingWorkflow", () => {
+  const seedMemory = async (
+    threadId: string,
+    resourceId: string,
+    state: Record<string, unknown>,
+  ) => {
+    const coachAgent = mastra.getAgent("coach");
+    const memory = await coachAgent.getMemory();
+    if (!memory) throw new Error("coach memory missing");
+    await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(state) });
+  };
+
+  it("suspends with a funding-plan payload and, when approved, cuts limits and sets the savings goal", async () => {
+    const resourceId = "wf-funding-cuts";
+    const threadId = "thread-funding-cuts";
+    // capacity = 4000 − 3900 = 100 < 500 required → cuts; cap = 3500.
+    await seedMemory(threadId, resourceId, {
+      declaredIncome: 4000,
+      categoryLimits: { Dining: 1950, Shopping: 1950 },
+    });
+
+    const workflow = mastra.getWorkflow("goalFundingWorkflow");
+    const run = await workflow.createRun();
+    const result = await run.start({
+      inputData: { resourceId, threadId, target: { amount: 500, kind: "savings" } },
+    });
+
+    expect(result.status).toBe("suspended");
+    if (result.status !== "suspended") throw new Error("expected suspended");
+    // Same footgun as the Monthly Review: parse through the schema for a typed,
+    // shape-asserted payload, and confirm the `kind` discriminator is present.
+    const payload = FundingPlanSuspendSchema.parse(result.steps["approval-gate"].suspendPayload);
+    expect(payload.kind).toBe("funding-plan");
+    expect(payload.requiredPerMonth).toBe(500);
+    // apply-or-discard must not have run yet (return suspend, not await suspend).
+    expect(result.steps["apply-or-discard"]).toBeUndefined();
+
+    const resumeResult = await run.resume({ resumeData: { decision: "approve" as const } });
+    expect(resumeResult.status).toBe("success");
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    const limits = state.categoryLimits as Record<string, number>;
+    const total = Object.values(limits).reduce((sum, value) => sum + value, 0);
+    expect(total).toBeCloseTo(3500, 1);
+    expect(limits.Dining).toBeCloseTo(1750, 1);
+    // A savings Target's required/month becomes the recurring Savings Goal.
+    expect(state.savingsGoal).toBe(500);
+  });
+
+  it("completes without suspending when the target is infeasible (required ≥ declared income)", async () => {
+    const resourceId = "wf-funding-infeasible";
+    const threadId = "thread-funding-infeasible";
+    await seedMemory(threadId, resourceId, { declaredIncome: 4000, categoryLimits: {} });
+
+    const workflow = mastra.getWorkflow("goalFundingWorkflow");
+    const run = await workflow.createRun();
+    const result = await run.start({
+      inputData: { resourceId, threadId, target: { amount: 5000, kind: "savings" } },
+    });
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("expected success");
+    expect(result.result.status).toBe("infeasible");
   });
 });
 

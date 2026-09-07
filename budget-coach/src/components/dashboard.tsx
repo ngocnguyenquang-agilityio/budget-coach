@@ -36,6 +36,8 @@ import { DeclaredIncomeCard } from "@/components/declared-income-card";
 import { DeclaredIncomeResultCard } from "@/components/declared-income-result-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
+import { FundingPlanCard } from "@/components/funding-plan-card";
+import type { Target } from "@/domain/funding-plan";
 import {
   AddTransactionForm,
   type AddTransactionFormPrefill,
@@ -208,21 +210,20 @@ export const Dashboard = () => {
     renderInChat: true,
     render: ({ event, resolve }) => {
       const raw = event.value ?? {};
+      // Both approveBudget and planFunding suspend on the "coach" agent, so a
+      // single useInterrupt handles both — `kind` on the payload picks the card
+      // (defaults to monthly-review for runs suspended before it existed).
+      type Payload = {
+        proposedLimits?: CategoryLimits;
+        analysis?: AnalysisResult;
+        cap?: number;
+        kind?: "monthly-review" | "funding-plan";
+        target?: Target;
+        requiredPerMonth?: number;
+      };
       type SuspendPayload = {
-        suspendPayload?: {
-          proposedLimits?: CategoryLimits;
-          analysis?: AnalysisResult;
-          cap?: number;
-        };
-        metadata?: {
-          mastra?: {
-            suspendPayload?: {
-              proposedLimits?: CategoryLimits;
-              analysis?: AnalysisResult;
-              cap?: number;
-            };
-          };
-        };
+        suspendPayload?: Payload;
+        metadata?: { mastra?: { suspendPayload?: Payload } };
       };
       let parsed: SuspendPayload = {};
       try {
@@ -231,7 +232,22 @@ export const Dashboard = () => {
         // Malformed suspend payload — fall through to the empty-state card
         // below rather than crashing the render.
       }
-      const payload = parsed.metadata?.mastra?.suspendPayload ?? parsed.suspendPayload ?? {};
+      const payload: Payload = parsed.metadata?.mastra?.suspendPayload ?? parsed.suspendPayload ?? {};
+
+      if (payload.kind === "funding-plan" && payload.target) {
+        return (
+          <FundingPlanCard
+            proposedLimits={payload.proposedLimits ?? {}}
+            analysis={payload.analysis ?? emptyAnalysis}
+            cap={payload.cap}
+            target={payload.target}
+            requiredPerMonth={payload.requiredPerMonth ?? 0}
+            onApprove={(edits) => resolve({ decision: "approve", edits })}
+            onReject={() => resolve({ decision: "reject" })}
+          />
+        );
+      }
+
       return (
         <MonthlyReviewCard
           proposedLimits={payload.proposedLimits ?? {}}

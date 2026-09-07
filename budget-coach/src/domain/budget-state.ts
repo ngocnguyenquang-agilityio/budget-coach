@@ -31,8 +31,17 @@ export const BudgetStateSchema = z.object({
   categoryLimits: z.partialRecord(CategorySchema, z.number()).optional(),
   // YYYY-MM — only ever compared at Period granularity, never a full date.
   lastReviewPeriod: z.string().optional(),
-  // Set while a Monthly Review is Pending Approval; cleared once decided.
-  pendingApproval: z.object({ runId: z.string() }).optional(),
+  // Set while an approval is Pending Approval; cleared once decided. `workflow`
+  // records which workflow owns the suspended run so the two tools' resume
+  // paths don't collide (ADR-0008) — optional so runs suspended before this
+  // field existed default to the Monthly Review. At most one may be pending
+  // across both workflows at a time.
+  pendingApproval: z
+    .object({
+      runId: z.string(),
+      workflow: z.enum(["monthly-review", "funding-plan"]).optional(),
+    })
+    .optional(),
   coachPreferences: CoachPreferencesSchema.optional(),
 });
 
