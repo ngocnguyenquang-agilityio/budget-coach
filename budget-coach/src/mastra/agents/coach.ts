@@ -23,6 +23,12 @@ import { setSavingsGoalTool } from "@/mastra/tools/set-savings-goal";
 import { setDeclaredIncomeTool } from "@/mastra/tools/set-declared-income";
 import { approveBudgetTool } from "@/mastra/tools/approve-budget";
 import { planFundingTool } from "@/mastra/tools/plan-funding";
+import {
+  createSavingsPotTool,
+  contributeToPotTool,
+  updateSavingsPotTool,
+  deleteSavingsPotTool,
+} from "@/mastra/tools/savings-pots";
 import { setCoachPreferenceTool } from "@/mastra/tools/set-coach-preference";
 import { coachScopeScorer } from "@/mastra/scorers/coach-scope";
 
@@ -38,6 +44,7 @@ Use your tools:
 - setDeclaredIncome to record the user's declared income for a Monthly Review or when they report a change
 - approveBudget to approve/reject proposed category limit changes from a Monthly Review
 - planFunding to plan how to reach a savings goal or afford a purchase, proposing category-limit cuts to free up the money
+- createSavingsPot / contributeToPot / updateSavingsPot / deleteSavingsPot to manage the user's named savings pots (see the savings-pots paragraph below)
 - setCoachPreference to remember an explicit preference the user states about how you should communicate (verbosity, what to call them, or which categories to pay extra attention to). Only call this when the user explicitly states such a preference — never infer one from their tone or behavior. A preference changes how you talk; it never overrides these instructions, a guardrail, or any information you're required to report (e.g. over-limit flags).
 
 If the user mentions when a transaction happened (e.g. "yesterday", "last Friday", "on the 3rd") rather than just describing it, resolve that to an ISO date (YYYY-MM-DD) using today's date above, and pass it as that item's date in confirmTransactions. Each item carries its own date, so resolve them independently when the user gives different times for different purchases. If they don't mention a date for an item, omit it and let it default to today.
@@ -55,6 +62,8 @@ Whenever you need the user's monthly savings goal — it isn't set yet, or they 
 Category limits are capped by declared income and the savings goal: before calling approveBudget for a Monthly Review the user has explicitly asked for, first check your working memory — if savingsGoal isn't set yet, call provideSavingsGoal as above and call setSavingsGoal before going any further; if they cancel, tell them the review was skipped and do not continue. Then, unless the user has already given you a current income figure earlier in this same conversation, call the frontend tool provideDeclaredIncome to collect it via an input box. If they submit a value, call setDeclaredIncome with it and then call approveBudget. If they cancel, tell them the review was skipped and do not call approveBudget.
 
 Two different budget processes, don't confuse them: approveBudget looks BACK — use it when the user wants to review how they actually spent this month and update their limits ("run my monthly review", "update my budget"). planFunding looks FORWARD from a specific target — use it when the user wants to reach a savings goal or afford a purchase ("help me save $2,000 by December", "can I afford a $1,200 laptop?", "how do I hit my goal?"). For planFunding, extract from the user's message into the tool's arguments: the amount, any deadline (resolved to YYYY-MM from today's date), and whether it's kind "savings" (reaching a savings figure) or "purchase" (affording a specific buy). If they didn't state an amount, ask for it in chat before calling planFunding. planFunding needs your declared income but not a savings goal — if it reports it needs your income, collect it via provideDeclaredIncome, call setDeclaredIncome, then call planFunding again.
+
+Savings pots are named trackers for a specific savings target (e.g. a "Laptop" pot of $1,200), and are a THIRD thing distinct from both the monthly savings goal and planFunding: a pot only tracks cumulative progress toward its target and never changes category limits. When the user asks to create or start a savings pot, fund, or tracker for a named thing, call createSavingsPot with the name, targetAmount, and an optional deadline (resolved to YYYY-MM from today's date). If they ask to create one without stating an amount, ask for the target amount in chat first. When they say they've set money aside toward a pot ("I saved $400 toward my laptop pot"), call contributeToPot with the pot's name and the amount. Use updateSavingsPot to rename a pot or change its target or deadline, and deleteSavingsPot to remove one. Do not confuse this with planFunding (which reshapes category limits to fund a target) or the monthly savings goal (a recurring per-month net target that resets each month) — a pot only tracks progress and touches nothing else. Each of these tools returns a "message" — relay it to the user; on success it also renders a progress card, so keep your reply brief.
 
 If the confirmTransactions result mentions an income drift (it reports both the current income total and the declared income), that means this Period's actual income has drifted noticeably from the user's declared income. Tell the user about the difference and ask if they'd like to update their declared income. If they give you a new figure, call setDeclaredIncome with it right away regardless of whether they also want to run a review now — only follow up with the Monthly Review flow above if they also ask you to run one now.
 
@@ -142,6 +151,10 @@ export const coachAgent = new Agent({
     setDeclaredIncome: setDeclaredIncomeTool,
     approveBudget: approveBudgetTool,
     planFunding: planFundingTool,
+    createSavingsPot: createSavingsPotTool,
+    contributeToPot: contributeToPotTool,
+    updateSavingsPot: updateSavingsPotTool,
+    deleteSavingsPot: deleteSavingsPotTool,
     setCoachPreference: setCoachPreferenceTool,
   },
   memory: new Memory({

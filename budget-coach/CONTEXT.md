@@ -48,6 +48,10 @@ _Avoid_: income, expected income (see `Income`, a different concept)
 The user's recurring target for Net Savings within a single Period. Checked and reset every Period — itself never cumulative or deadline-based. A dated savings Target (e.g. "$2,000 by December") is not stored as such; it resolves into an updated Savings Goal of `amount ÷ months remaining` (see `Target`, `Funding Plan`).
 _Avoid_: goal, target (see `Target`, a distinct concept)
 
+**Savings Pot**:
+A named projection tracking cumulative progress toward a fixed target amount across Periods (e.g. "Laptop pot, $1,200"), with an optional deadline and a self-reported running balance. Purely a tracker — it holds no real money, is never derived from Transactions, and never constrains Category Limits. Distinct from `Savings Goal` (a recurring per-Period net target that resets) and from a `Funding Plan` (a workflow that reshapes limits).
+_Avoid_: fund (collides with `Funding Plan`), goal (reserved for `Savings Goal`), bucket, envelope (implies real money set aside)
+
 **Target**:
 A one-off funding objective the User states in chat, shaped `{ amount, deadline?, kind }` where `kind` is `savings` (reach a savings figure) or `purchase` (afford a specific buy). Input to a Funding Plan, never persisted as-is: a savings Target becomes a Savings Goal; a purchase Target leaves only the re-fitted Category Limits behind.
 _Avoid_: goal (reserved for `Savings Goal`), objective
