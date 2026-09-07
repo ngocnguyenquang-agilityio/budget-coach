@@ -11,6 +11,10 @@ export const PROMPT_INJECTION_PHRASES = [
 // a message contains both a financial-instrument word and a
 // decision-seeking word, so paraphrases like "Should I buy Nvidia stock?"
 // are caught without needing an exact fixed phrase for every ticker/wording.
+// "fund" is deliberately NOT a bare keyword: it substring-matches budgeting
+// vocabulary ("emergency fund", "fund my trip") and even "refund"/"funding",
+// which the Goal Funding Plan makes natural user utterances (ADR-0008). Only
+// the unambiguous investment forms are matched.
 export const FINANCIAL_INSTRUMENT_KEYWORDS = [
   "stock",
   "stocks",
@@ -18,7 +22,9 @@ export const FINANCIAL_INSTRUMENT_KEYWORDS = [
   "cryptocurrency",
   "bitcoin",
   "etf",
-  "fund",
+  "mutual fund",
+  "index fund",
+  "hedge fund",
   "bond",
   "shares",
 ];

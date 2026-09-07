@@ -54,6 +54,34 @@ describe("FinancialAdviceGuardrail", () => {
     expect(abort).not.toHaveBeenCalled();
   });
 
+  // ADR-0008: "fund" was narrowed to its investment-only phrases so budgeting
+  // vocabulary ("emergency fund", "fund my trip") and the substring "refund"
+  // no longer false-trip alongside a decision word.
+  it("does not block budgeting uses of 'fund' or the substring 'refund'", () => {
+    const abort = vi.fn();
+    const g = new FinancialAdviceGuardrail({
+      instrumentKeywords: ["stock", "mutual fund", "index fund", "hedge fund"],
+      decisionKeywords: ["should", "buy", "recommend"],
+    });
+
+    g.processInput({ messages: [userMessage("Should I get a refund on that?")], abort } as any);
+    g.processInput({ messages: [userMessage("Help me fund my emergency savings")], abort } as any);
+
+    expect(abort).not.toHaveBeenCalled();
+  });
+
+  it("still blocks an investment fund phrase with a decision word", () => {
+    const abort = vi.fn();
+    const g = new FinancialAdviceGuardrail({
+      instrumentKeywords: ["stock", "mutual fund", "index fund", "hedge fund"],
+      decisionKeywords: ["should", "buy", "recommend"],
+    });
+
+    g.processInput({ messages: [userMessage("Should I buy an index fund?")], abort } as any);
+
+    expect(abort).toHaveBeenCalledTimes(1);
+  });
+
   it("only checks the latest user message, not earlier resent history", () => {
     const abort = vi.fn();
 

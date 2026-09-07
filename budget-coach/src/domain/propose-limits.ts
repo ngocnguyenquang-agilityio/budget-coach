@@ -1,6 +1,26 @@
 import type { AnalysisResult } from "./analysis";
 import type { Category } from "./categories";
 
+// Scales a set of Category Limits down proportionally so their sum fits within
+// `cap`, leaving them untouched when already under it. Shared by both the
+// Monthly Review (proposeCategoryLimits below) and the Goal Funding Plan
+// (computeFundingPlan) — the one scaling primitive per ADR-0008; the two
+// workflows' steps stay separate.
+export const scaleLimitsToCap = (
+  limits: Partial<Record<Category, number>>,
+  cap: number
+): Partial<Record<Category, number>> => {
+  const sum = Object.values(limits).reduce((total, value) => total + (value ?? 0), 0);
+  if (sum <= cap || sum === 0) return { ...limits };
+
+  const scale = cap / sum;
+  const scaled: Partial<Record<Category, number>> = {};
+  for (const category of Object.keys(limits) as Category[]) {
+    scaled[category] = Math.round(limits[category]! * scale * 100) / 100;
+  }
+  return scaled;
+};
+
 // One formula for both the first-ever Monthly Review (no prior
 // categoryLimits) and every later adjustment — the Monthly Review workflow's
 // proposeAdjustments step calls this unconditionally rather than branching on
@@ -29,13 +49,5 @@ export const proposeCategoryLimits = (
     throw new Error("Category limits cannot be proposed: cap (Declared Income − Savings Goal) is not positive.");
   }
 
-  const sum = Object.values(proposed).reduce((total, value) => total + (value ?? 0), 0);
-  if (sum <= cap || sum === 0) return proposed;
-
-  const scale = cap / sum;
-  for (const category of Object.keys(proposed) as Category[]) {
-    proposed[category] = Math.round(proposed[category]! * scale * 100) / 100;
-  }
-
-  return proposed;
+  return scaleLimitsToCap(proposed, cap);
 };

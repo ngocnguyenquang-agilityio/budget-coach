@@ -37,9 +37,13 @@ export const approveBudgetTool = createTool({
       const coachAgent = context.mastra?.getAgent("coach");
       const memory = await coachAgent?.getMemory();
       const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
-      const pending = parseWorkingMemory(raw).pendingApproval as { runId?: string } | undefined;
+      const pending = parseWorkingMemory(raw).pendingApproval as
+        | { runId?: string; workflow?: string }
+        | undefined;
 
-      if (!pending?.runId) {
+      // workflow may be absent on runs suspended before the discriminator
+      // existed — treat absent as "monthly-review" (its original owner).
+      if (!pending?.runId || pending.workflow === "funding-plan") {
         return { message: "There's no pending Monthly Review to respond to." };
       }
 

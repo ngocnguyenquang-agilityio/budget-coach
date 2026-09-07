@@ -40,6 +40,9 @@ export const MonthlyReviewSuspendSchema = z.object({
   proposedLimits: CategoryLimitsSchema,
   analysis: AnalysisResultSchema,
   cap: z.number().optional(),
+  // Discriminator so the frontend's single coach useInterrupt picks the right
+  // approval card (mirrors FundingPlanSuspendSchema's "funding-plan").
+  kind: z.literal("monthly-review").default("monthly-review"),
 });
 
 export const MonthlyReviewResumeSchema = z.object({
@@ -131,7 +134,7 @@ const approvalGate = createStep({
         await memory.updateWorkingMemory({
           threadId: inputData.threadId,
           resourceId: inputData.resourceId,
-          workingMemory: JSON.stringify({ ...current, pendingApproval: { runId } }),
+          workingMemory: JSON.stringify({ ...current, pendingApproval: { runId, workflow: "monthly-review" } }),
         });
       }
 
@@ -141,6 +144,7 @@ const approvalGate = createStep({
         proposedLimits: inputData.proposedLimits ?? {},
         analysis: inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 },
         cap: inputData.cap,
+        kind: "monthly-review",
       });
     }
 

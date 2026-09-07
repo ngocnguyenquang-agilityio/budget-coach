@@ -45,8 +45,20 @@ The User's explicitly stated income figure — provided when a Monthly Review ru
 _Avoid_: income, expected income (see `Income`, a different concept)
 
 **Savings Goal**:
-The user's recurring target for Net Savings within a single Period. Checked and reset every Period — not a cumulative, deadline-based goal (e.g. "$2,000 by December" is out of scope; that would be a different concept if ever built).
-_Avoid_: goal, target
+The user's recurring target for Net Savings within a single Period. Checked and reset every Period — itself never cumulative or deadline-based. A dated savings Target (e.g. "$2,000 by December") is not stored as such; it resolves into an updated Savings Goal of `amount ÷ months remaining` (see `Target`, `Funding Plan`).
+_Avoid_: goal, target (see `Target`, a distinct concept)
+
+**Target**:
+A one-off funding objective the User states in chat, shaped `{ amount, deadline?, kind }` where `kind` is `savings` (reach a savings figure) or `purchase` (afford a specific buy). Input to a Funding Plan, never persisted as-is: a savings Target becomes a Savings Goal; a purchase Target leaves only the re-fitted Category Limits behind.
+_Avoid_: goal (reserved for `Savings Goal`), objective
+
+**Capacity**:
+The User's current committed free cash, `Declared Income − sum(Category Limits)` — the figure a Funding Plan measures a Target against to decide whether cuts are needed. Distinct from Net Savings, which is realized (actual Income − Expenses), where Capacity is committed (against limits, not actuals).
+_Avoid_: headroom, slack, free cash
+
+**Funding Plan**:
+The forward-looking, on-demand process that takes a Target, checks it against Capacity, and — when Capacity falls short — produces Proposed Limits that shrink Category Limits proportionally to fund the Target. The counterpart to a Monthly Review: a Monthly Review looks back at spending; a Funding Plan looks forward from a Target. If the Target is unreachable (`required ≥ Declared Income`) it declines rather than proposing limits.
+_Avoid_: savings planner, affordability check (these are the two Target kinds, not separate processes)
 
 **Monthly Review**:
 The recurring, once-per-Period process that compares spending against the current Category Limits and produces Proposed Limits for the user to accept or reject. Approving replaces the Category Limits with the Proposed Limits; rejecting leaves them unchanged.
