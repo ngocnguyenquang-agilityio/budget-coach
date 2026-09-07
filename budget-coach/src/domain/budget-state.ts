@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CategorySchema } from "./categories";
+import { SavingsPotSchema } from "./savings-pot";
 
 // Explicit, resource-scoped adjustments to how the Coach communicates —
 // never overrides a guardrail or suppresses required information (ADR-0006).
@@ -43,6 +44,9 @@ export const BudgetStateSchema = z.object({
     })
     .optional(),
   coachPreferences: CoachPreferencesSchema.optional(),
+  // Named cumulative savings trackers (ADR-0010). Pure projection — a Pot
+  // never touches Category Limits or the cap. Keyed by name, case-insensitive.
+  savingsPots: z.array(SavingsPotSchema).optional(),
 });
 
 export type BudgetState = z.infer<typeof BudgetStateSchema>;

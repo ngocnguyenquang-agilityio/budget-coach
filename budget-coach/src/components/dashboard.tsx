@@ -37,6 +37,8 @@ import { DeclaredIncomeResultCard } from "@/components/declared-income-result-ca
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import { FundingPlanCard } from "@/components/funding-plan-card";
+import { SavingsPotsCard } from "@/components/savings-pots-card";
+import { SavingsPotResultCard } from "@/components/savings-pot-result-card";
 import type { Target } from "@/domain/funding-plan";
 import {
   AddTransactionForm,
@@ -345,6 +347,44 @@ export const Dashboard = () => {
     [refreshTransactions],
   );
 
+  // Savings pot actions — each renders a progress card in chat from the tool
+  // `result` (parsed defensively as a JSON string). Params schema is empty
+  // since we render from the result, not the streamed args. deleteSavingsPot
+  // has no card — the Coach relays its message and the dashboard section
+  // updates from state.savingsPots.
+  useRenderTool(
+    {
+      name: "createSavingsPot",
+      parameters: z.object({}),
+      render: ({ status, result }) => (
+        <SavingsPotResultCard status={status} result={result} />
+      ),
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "contributeToPot",
+      parameters: z.object({}),
+      render: ({ status, result }) => (
+        <SavingsPotResultCard status={status} result={result} />
+      ),
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "updateSavingsPot",
+      parameters: z.object({}),
+      render: ({ status, result }) => (
+        <SavingsPotResultCard status={status} result={result} />
+      ),
+    },
+    [],
+  );
+
   useDefaultRenderTool();
 
   // Frontend actions.
@@ -539,6 +579,8 @@ export const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        <SavingsPotsCard pots={state.savingsPots ?? []} />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
