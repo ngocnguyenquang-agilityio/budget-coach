@@ -72,11 +72,12 @@ Browser → Next.js App Router → /api/copilotkit (Hono/CopilotRuntime)
 - **CopilotKit v2 API** — import from `@copilotkit/react-core/v2`, not `@copilotkit/react-core`. Hooks: `useAgent`, `useFrontendTool`, `useHumanInTheLoop`, `useInterrupt`, `useAgentContext`, `useConfigureSuggestions`.
 - **`CopilotChatConfigurationProvider`** — must be **uncontrolled** (no `threadId` prop) when using `CopilotThreadsDrawer`, so that "+ New" thread works.
 - **Storage** — must be file-backed LibSQL (`file:./budget-coach.db`), not in-memory. In-memory breaks suspend/resume because pooled connections each see an empty DB.
+- **`transactions` is migrated in code**, not by a migration tool: `createTable` in `src/db/transactions.ts` probes `PRAGMA table_info` and `ALTER TABLE`s in any missing column. Add new columns there, and give them a default that is correct for existing rows.
 - **AG-UI `@ag-ui/*` packages** — all pinned to the same version via `package.json` `overrides`. Mismatched AG-UI protocol versions break the event stream.
 
-### Agent architecture (planned per spec)
+### Agent architecture
 
-Three Mastra agents, one workflow:
+Three Mastra agents, two workflows:
 
 | Agent | Registration key | Purpose |
 |---|---|---|
@@ -84,15 +85,32 @@ Three Mastra agents, one workflow:
 | `analystAgent` | `"analyst"` | Reads transactions, returns per-category totals and over-limit flags. |
 | `coachAgent` | `"coach"` | User-facing front door. Carries memory, guardrails, and all tools. Orchestrates the other two. |
 
-**Monthly Review workflow** — `categorizeUncategorized → analyzeSpending → proposeAdjustments → approvalGate (suspends) → applyOrDiscard`. Uses `return suspend(...)` (never `await suspend()`).
+**Monthly Review workflow** (`monthlyReviewWorkflow`) — `closePeriods → analyzeSpending → proposeAdjustments → approvalGate (suspends) → applyOrDiscard`. Backward-looking.
+
+**Refit workflow** (`refitWorkflow`) — `readLedger → proposeRefit → approvalGate (suspends) → applyOrDiscard`. Forward-looking; runs when the Commitment ledger changes, not on request.
+
+Both use `return suspend(...)` (never `await suspend()`), and both read the **same Cap** — neither derives one of its own.
+
+### The domain model (read `CONTEXT.md` first)
+
+The money model was rebuilt in ADRs 0011–0014, which supersede 0003, 0007, 0009 and 0010. Four rules carry most of the weight:
+
+1. **Every Transaction is `expected` or `received`.** Only `received` rows feed Received Income, Net Savings, the Savings Balance, and a Category's over-limit flag. `computeAnalysis` (`src/domain/analysis.ts`) is the *single* place this filter lives — a missed status filter is silent, so read pre-split figures from it rather than filtering yourself.
+2. **Savings Pots are the only savings concept.** No stored `savingsGoal`, no `Target`, no `Declared Income` — all deleted. `setSavingsGoal` is a shorthand that maintains the rate-driven *General Savings* pot; the displayed goal is `sumCommitments(pots, period)`.
+3. **One Commitment ledger, one Cap.** `Cap = Forecast Income − sum(pot rates)` via `computeCap` (`src/domain/commitment.ts`). A pot's rate comes only from `potRate`; a target pot re-derives it each Period, so **a Period boundary is itself a Commitment change**.
+4. **A tool that changes the ledger returns `refitNeeded: true`** when limits no longer fit; the Coach then calls `refitBudget`. Never trigger a refit without that flag.
+
+Two easily-missed consequences: a pot-funded Expense is excluded from Net Savings but still counts against its Category Limit, and the Cap is only enforced once income is on record (no Income Transactions → accept the Commitment unchecked).
 
 ### Working memory schema
 
 Only the **Coach** carries `Memory`. Working memory (`scope: "resource"`, survives across threads) holds:
 
 ```ts
-{ savingsGoal, categoryLimits, lastReviewPeriod, pendingApproval, coachPreferences }
+{ categoryLimits, lastReviewPeriod, lastClosedPeriod, unallocated, pendingApproval, coachPreferences, savingsPots }
 ```
+
+`savingsBalance` is **derived** (pot balances + `unallocated`), never stored — storing both invites them to disagree. Read pots with `parsePots` (`src/domain/savings-pot.ts`), never by parsing the array directly: resources written before ADR-0013 hold the old `savedSoFar` shape, and a raw `BudgetStateSchema.safeParse` on them fails the discriminated union and takes the *entire* state down with it.
 
 `coachPreferences` (`{ verbosity?, nickname?, emphasizedCategories? }`, see ADR-0006) is explicit-only (set via `setCoachPreferenceTool`, never inferred) and can never override a guardrail or suppress required information. It's woven into the Coach's instructions as imperative prose, not dumped as raw JSON — see `buildPreferenceDirectives` in `src/mastra/agents/coach.ts`. Because the `instructions()` callback only receives `{ requestContext, mastra }` (no resourceId/threadId to query working memory directly), the dashboard round-trips `coachPreferences` back through the same `"ag-ui"` frontend-context channel used for UI state, reading it off `agent.state` (already synced from working memory).
 
@@ -100,8 +118,10 @@ Transactions are in LibSQL, not in shared state. `agent.state` on the frontend r
 
 ### HITL: two mechanisms
 
-1. **`useHumanInTheLoop`** — category confirmation. Pure frontend tool, no server suspend. Tool name must match the agent's tools **map key**.
-2. **`useInterrupt`** — budget approval from the Monthly Review workflow. Server-side `suspend()` in Mastra, persisted to LibSQL. Interrupt payload is nested under `suspendPayload` inside `event.value`, and `event.value` may be a JSON string.
+1. **`useHumanInTheLoop`** — category confirmation and the savings-amount box. Pure frontend tool, no server suspend. Tool name must match the agent's tools **map key**.
+2. **`useInterrupt`** — budget approval from *both* workflows. Server-side `suspend()` in Mastra, persisted to LibSQL. Interrupt payload is nested under `suspendPayload` inside `event.value`, and `event.value` may be a JSON string. A single `useInterrupt` handles both; the payload's `kind` (`"monthly-review"` | `"refit"`) picks the card.
+
+`pendingApproval.workflow` discriminates which workflow owns a suspended run. Guard it **positively** (`workflow && workflow !== "monthly-review"` → not ours), never as a denylist — the retired `"funding-plan"` value still sits in some users' working memory.
 
 ### Frontend rendering gotchas
 

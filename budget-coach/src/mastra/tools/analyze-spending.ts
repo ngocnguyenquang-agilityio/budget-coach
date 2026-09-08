@@ -32,7 +32,14 @@ export const analyzeSpendingTool = createTool({
     const requestContext = new RequestContext();
     requestContext.set("resourceId", resourceId);
 
-    const emptyResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
+    const emptyResult = {
+      categoryTotals: [],
+      expenseTotal: 0,
+      committedExpenseTotal: 0,
+      receivedIncome: 0,
+      forecastIncome: 0,
+      netSavings: 0,
+    };
 
     let result;
     try {

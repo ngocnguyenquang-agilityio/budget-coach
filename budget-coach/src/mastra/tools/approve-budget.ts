@@ -1,7 +1,9 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { currentPeriod } from "@/domain/period";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
+import { loadBudgetContext } from "@/mastra/lib/budget-context";
 import { MonthlyReviewSuspendSchema, MonthlyReviewResumeSchema } from "@/mastra/workflows/monthly-review-workflow";
 import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
@@ -11,7 +13,8 @@ import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/wit
 // user's decision back via resumeData.
 export const approveBudgetTool = createTool({
   id: "approve-budget",
-  description: "Run the Monthly Review and approve or reject the proposed category limit adjustments.",
+  description:
+    "Run the Monthly Review: close out any finished months (rolling their net savings into the user's savings), then approve or reject proposed category limit adjustments.",
   inputSchema: z.object({}),
   suspendSchema: MonthlyReviewSuspendSchema,
   resumeSchema: MonthlyReviewResumeSchema,
@@ -41,9 +44,12 @@ export const approveBudgetTool = createTool({
         | { runId?: string; workflow?: string }
         | undefined;
 
-      // workflow may be absent on runs suspended before the discriminator
-      // existed — treat absent as "monthly-review" (its original owner).
-      if (!pending?.runId || pending.workflow === "funding-plan") {
+      // Positive check, not a denylist: anything that isn't ours is rejected,
+      // including the retired "funding-plan" value still sitting in working
+      // memory for users who had one pending when it was renamed. `workflow`
+      // may be absent on runs suspended before the discriminator existed —
+      // treat absent as "monthly-review" (its original owner).
+      if (!pending?.runId || (pending.workflow && pending.workflow !== "monthly-review")) {
         return { message: "There's no pending Monthly Review to respond to." };
       }
 
@@ -53,47 +59,42 @@ export const approveBudgetTool = createTool({
       return {
         message:
           resumeData.decision === "approve"
-            ? "Approved — your new category limits are saved."
+            ? "Approved — your new category limits are saved and your savings are up to date."
             : "Rejected — your budget is unchanged.",
       };
     }
 
-    const coachAgent = context.mastra?.getAgent("coach");
-    const memory = await coachAgent?.getMemory();
-    const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
-    const current = parseWorkingMemory(raw);
+    const { current, cap, forecastIncome, commitments } = await loadBudgetContext(context);
 
     // At most one Monthly Review may be Pending Approval at a time — a second
     // trigger before the first is decided would overwrite pendingApproval's
     // runId and orphan the first suspended run.
     const pendingApproval = current.pendingApproval as { runId?: string } | undefined;
     if (pendingApproval?.runId) {
-      return { message: "You already have a Monthly Review awaiting your decision." };
+      return { message: "You already have an approval awaiting your decision." };
     }
 
     const lastReviewPeriod = current.lastReviewPeriod as string | undefined;
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    if (lastReviewPeriod === currentMonth) {
+    if (lastReviewPeriod === currentPeriod()) {
       return { message: "You've already completed this month's budget review." };
     }
 
-    // Category Limits are capped at Declared Income − Savings Goal (ADR-0007)
-    // — both must be known, and the cap must be positive, before the
-    // workflow's proposeAdjustments step (which throws on a non-positive
-    // cap) is ever reached.
-    const savingsGoal = current.savingsGoal as number | undefined;
-    if (savingsGoal === undefined) {
-      return { message: "You need to set a savings goal before running a Monthly Review — what would you like your monthly savings goal to be?" };
-    }
-
-    const declaredIncome = current.declaredIncome as number | undefined;
-    if (declaredIncome === undefined) {
-      return { message: "I need your income for this Monthly Review — what's your income this month?" };
-    }
-
-    if (declaredIncome - savingsGoal <= 0) {
+    // Category Limits are capped at Forecast Income − Commitments (ADR-0014).
+    // Income now comes from the Transaction ledger rather than a declared
+    // figure, so "no income yet" is the thing to ask about — there's nothing
+    // to budget against until something is recorded.
+    if (forecastIncome <= 0) {
       return {
-        message: `Your savings goal ($${savingsGoal}) isn't achievable with a declared income of $${declaredIncome} — lower your savings goal or update your declared income before running a Monthly Review.`,
+        message:
+          "I don't have any income recorded for this month yet, so there's nothing to budget against. Tell me what you've been paid, or set up your salary as a recurring payment.",
+      };
+    }
+
+    // Refuse before the workflow's proposeAdjustments step (which throws on a
+    // non-positive cap) is ever reached.
+    if (cap <= 0) {
+      return {
+        message: `Your savings pots claim $${commitments.toFixed(2)}/mo out of $${forecastIncome.toFixed(2)} income, which leaves nothing for category limits. Lower a target or push a deadline out, then run the review again.`,
       };
     }
 

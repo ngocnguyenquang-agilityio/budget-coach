@@ -32,14 +32,15 @@ import {
   type ConfirmedTransaction,
   type RecordTransactionsResult,
 } from "@/components/confirm-transactions-card";
-import { DeclaredIncomeCard } from "@/components/declared-income-card";
-import { DeclaredIncomeResultCard } from "@/components/declared-income-result-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
-import { FundingPlanCard } from "@/components/funding-plan-card";
+import { RefitCard } from "@/components/refit-card";
 import { SavingsPotsCard } from "@/components/savings-pots-card";
 import { SavingsPotResultCard } from "@/components/savings-pot-result-card";
-import type { Target } from "@/domain/funding-plan";
+import { RefreshOnComplete } from "@/components/refresh-on-complete";
+import type { PeriodClose, PotAllocation } from "@/domain/period-close";
+import { savingsBalance } from "@/domain/budget-state";
+import { computeCap, savingsGoal as deriveSavingsGoal } from "@/domain/commitment";
 import {
   AddTransactionForm,
   type AddTransactionFormPrefill,
@@ -47,7 +48,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const emptyAnalysis: AnalysisResult = { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
+const emptyAnalysis: AnalysisResult = {
+  categoryTotals: [],
+  expenseTotal: 0,
+  committedExpenseTotal: 0,
+  receivedIncome: 0,
+  forecastIncome: 0,
+  netSavings: 0,
+};
 
 export const Dashboard = () => {
   const { agent, isReady } = useAgent({
@@ -165,11 +173,10 @@ export const Dashboard = () => {
     [recordTransactions],
   );
 
-  // Gate 1a — pure frontend tool, no server suspend. Same shape as
-  // provideDeclaredIncome below, for whenever the Coach needs the user's
-  // savings goal (unset, or they want to change it) — replaces asking in
-  // plain chat text so both prerequisites for a Monthly Review collect the
-  // same way.
+  // Gate 1a — pure frontend tool, no server suspend. Collects a monthly
+  // savings amount whenever the Coach needs one, instead of asking in plain
+  // chat text. setSavingsGoal turns it into the General Savings pot
+  // (ADR-0013); the user never has to hear the word "pot".
   useHumanInTheLoop(
     {
       name: "provideSavingsGoal",
@@ -177,22 +184,6 @@ export const Dashboard = () => {
       parameters: z.object({}),
       render: ({ status, respond, result }) => (
         <SavingsGoalCard status={status} respond={respond} result={result} />
-      ),
-    },
-    [],
-  );
-
-  // Gate 1b — pure frontend tool, no server suspend (ADR-0007). The Coach
-  // calls this before starting a Monthly Review, so Declared Income is
-  // collected before the workflow ever runs; Cancel means it never starts,
-  // so there's nothing to discard.
-  useHumanInTheLoop(
-    {
-      name: "provideDeclaredIncome",
-      description: "Ask the user for their income figure before running a Monthly Review.",
-      parameters: z.object({}),
-      render: ({ status, respond, result }) => (
-        <DeclaredIncomeCard status={status} respond={respond} result={result} />
       ),
     },
     [],
@@ -212,16 +203,17 @@ export const Dashboard = () => {
     renderInChat: true,
     render: ({ event, resolve }) => {
       const raw = event.value ?? {};
-      // Both approveBudget and planFunding suspend on the "coach" agent, so a
+      // Both approveBudget and refitBudget suspend on the "coach" agent, so a
       // single useInterrupt handles both — `kind` on the payload picks the card
       // (defaults to monthly-review for runs suspended before it existed).
       type Payload = {
         proposedLimits?: CategoryLimits;
+        currentLimits?: CategoryLimits;
         analysis?: AnalysisResult;
         cap?: number;
-        kind?: "monthly-review" | "funding-plan";
-        target?: Target;
-        requiredPerMonth?: number;
+        commitments?: number;
+        periodCloses?: PeriodClose[];
+        kind?: "monthly-review" | "refit";
       };
       type SuspendPayload = {
         suspendPayload?: Payload;
@@ -236,14 +228,14 @@ export const Dashboard = () => {
       }
       const payload: Payload = parsed.metadata?.mastra?.suspendPayload ?? parsed.suspendPayload ?? {};
 
-      if (payload.kind === "funding-plan" && payload.target) {
+      if (payload.kind === "refit") {
         return (
-          <FundingPlanCard
+          <RefitCard
             proposedLimits={payload.proposedLimits ?? {}}
+            currentLimits={payload.currentLimits ?? {}}
             analysis={payload.analysis ?? emptyAnalysis}
-            cap={payload.cap}
-            target={payload.target}
-            requiredPerMonth={payload.requiredPerMonth ?? 0}
+            cap={payload.cap ?? 0}
+            commitments={payload.commitments ?? 0}
             onApprove={(edits) => resolve({ decision: "approve", edits })}
             onReject={() => resolve({ decision: "reject" })}
           />
@@ -255,7 +247,11 @@ export const Dashboard = () => {
           proposedLimits={payload.proposedLimits ?? {}}
           analysis={payload.analysis ?? emptyAnalysis}
           cap={payload.cap}
-          onApprove={(edits) => resolve({ decision: "approve", edits })}
+          commitments={payload.commitments}
+          periodCloses={payload.periodCloses ?? []}
+          onApprove={(edits: CategoryLimits, allocationEdits?: PotAllocation[]) =>
+            resolve({ decision: "approve", edits, allocationEdits })
+          }
           onReject={() => resolve({ decision: "reject" })}
         />
       );
@@ -329,19 +325,27 @@ export const Dashboard = () => {
     [],
   );
 
-  // setDeclaredIncome now records an Income transaction (declared income is
-  // mirrored into "Income this month"); refresh the transaction list on
-  // complete so the dashboard reflects it without a manual reload.
+  // Confirming an expected transaction, adding a recurring schedule, or
+  // recording a pot-funded expense all change what the Transactions list
+  // shows — refresh it on completion so the dashboard reflects them without a
+  // manual reload.
   useRenderTool(
     {
-      name: "setDeclaredIncome",
-      parameters: z.object({ declaredIncome: z.number().optional() }),
-      render: ({ status, result }) => (
-        <DeclaredIncomeResultCard
-          status={status}
-          result={result}
-          onComplete={refreshTransactions}
-        />
+      name: "confirmTransaction",
+      parameters: z.object({}),
+      render: ({ status }) => (
+        <RefreshOnComplete status={status} onComplete={refreshTransactions} />
+      ),
+    },
+    [refreshTransactions],
+  );
+
+  useRenderTool(
+    {
+      name: "addRecurringSchedule",
+      parameters: z.object({}),
+      render: ({ status }) => (
+        <RefreshOnComplete status={status} onComplete={refreshTransactions} />
       ),
     },
     [refreshTransactions],
@@ -365,7 +369,7 @@ export const Dashboard = () => {
 
   useRenderTool(
     {
-      name: "contributeToPot",
+      name: "allocateToPot",
       parameters: z.object({}),
       render: ({ status, result }) => (
         <SavingsPotResultCard status={status} result={result} />
@@ -441,8 +445,12 @@ export const Dashboard = () => {
       { title: "Log a purchase", message: "I spent $40 at Trader Joe's." },
       { title: "Log income", message: "I got paid $3000." },
       {
-        title: "Set a savings goal",
-        message: "Set a monthly savings goal of $500.",
+        title: "Add my salary",
+        message: "My salary is $3000 a month, paid on the 25th.",
+      },
+      {
+        title: "Save for something",
+        message: "I want to save $1,200 for a laptop by next March.",
       },
       { title: "Review my budget", message: "Run my monthly budget review." },
       {
@@ -471,6 +479,24 @@ export const Dashboard = () => {
   const overLimitCount = analysis.categoryTotals.filter(
     (entry) => entry.overLimit,
   ).length;
+
+  // Savings Goal is derived from pot rates, never stored (ADR-0013), and the
+  // Savings Balance is pot balances plus whatever is unallocated (ADR-0012).
+  const pots = state.savingsPots ?? [];
+  const monthlyGoal = deriveSavingsGoal(pots, visibleMonth);
+  const balance = savingsBalance(state);
+  const unallocated = state.unallocated ?? 0;
+
+  // A target pot re-derives its rate every Period, so the Cap moves on its own
+  // as deadlines approach — limits can drift above it with no user action and
+  // nothing to trigger a refit (ADR-0014). Surface it here so the drift is
+  // visible rather than silent; the user asks the Coach to re-fit.
+  const cap = computeCap({ forecastIncome: analysis.forecastIncome, pots, period: visibleMonth });
+  const committedLimits = Object.values(state.categoryLimits ?? {}).reduce(
+    (sum, value) => sum + (value ?? 0),
+    0,
+  );
+  const limitsExceedCap = analysis.forecastIncome > 0 && cap > 0 && committedLimits > cap;
 
   return (
     <div className="flex-1 min-w-0 overflow-y-auto bg-[var(--background)] p-6 md:p-8">
@@ -502,15 +528,27 @@ export const Dashboard = () => {
           onSaved={refreshTransactions}
         />
 
+        {limitsExceedCap && (
+          <div className="rounded-[var(--radius)] border border-[var(--destructive)] bg-[color-mix(in_srgb,var(--destructive)_8%,transparent)] p-3 text-sm">
+            Your category limits add up to ${committedLimits.toFixed(2)}, but your savings pots leave only
+            ${cap.toFixed(2)} to spend. Ask the coach to re-fit your budget.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
-                Income this month
+                Income received
               </p>
               <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: "var(--chart-positive)" }}>
-                ${analysis.incomeTotal.toFixed(2)}
+                ${analysis.receivedIncome.toFixed(2)}
               </p>
+              {analysis.forecastIncome > analysis.receivedIncome && (
+                <p className="mt-0.5 text-xs text-[var(--muted-foreground)] tabular-nums">
+                  ${analysis.forecastIncome.toFixed(2)} expected
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -527,11 +565,11 @@ export const Dashboard = () => {
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
                 Net savings
-                {state.savingsGoal !== undefined ? ` / $${state.savingsGoal.toFixed(2)} goal` : ""}
+                {monthlyGoal > 0 ? ` / $${monthlyGoal.toFixed(2)} goal` : ""}
               </p>
               <p
                 className={`mt-1 text-xl font-semibold tabular-nums ${
-                  state.savingsGoal !== undefined && analysis.netSavings < state.savingsGoal
+                  monthlyGoal > 0 && analysis.netSavings < monthlyGoal
                     ? "text-[var(--destructive)]"
                     : ""
                 }`}
@@ -540,7 +578,20 @@ export const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          <Card className="col-span-2 md:col-span-3">
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Savings balance
+              </p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">
+                ${balance.toFixed(2)}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--muted-foreground)] tabular-nums">
+                ${unallocated.toFixed(2)} unallocated
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="col-span-2 md:col-span-2">
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
                 Over budget
@@ -580,7 +631,7 @@ export const Dashboard = () => {
           </Card>
         </div>
 
-        <SavingsPotsCard pots={state.savingsPots ?? []} />
+        <SavingsPotsCard pots={pots} />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">

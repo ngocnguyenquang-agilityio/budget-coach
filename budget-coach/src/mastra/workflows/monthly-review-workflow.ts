@@ -1,9 +1,14 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { CategorySchema, type Category } from "@/domain/categories";
+import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
-import { proposeCategoryLimits } from "@/domain/propose-limits";
-import { listTransactions } from "@/db/transactions";
+import { proposeCategoryLimits, scaleLimitsToCap } from "@/domain/propose-limits";
+import { computeCap } from "@/domain/commitment";
+import { computePeriodClose, applyPeriodClose } from "@/domain/period-close";
+import { SavingsPotSchema } from "@/domain/savings-pot";
+import { currentPeriod, unclosedPeriods } from "@/domain/period";
+import { expireExpectedTransactions, listTransactions } from "@/db/transactions";
+import { parsePots } from "@/mastra/lib/budget-context";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reasonableness";
 
@@ -11,26 +16,43 @@ import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reas
 // why Zod v4's z.record with an enum key schema doesn't fit here.
 const CategoryLimitsSchema = z.partialRecord(CategorySchema, z.number());
 
+const PotAllocationSchema = z.object({
+  potId: z.string(),
+  potName: z.string(),
+  amount: z.number(),
+});
+
+// One finished Period's roll-up: its signed Net Savings landing in Unallocated
+// and being drawn down by each pot's rate (ADR-0012).
+export const PeriodCloseSchema = z.object({
+  period: z.string(),
+  netSavings: z.number(),
+  availableToAllocate: z.number(),
+  allocations: z.array(PotAllocationSchema),
+  remainingUnallocated: z.number(),
+});
+
 // Shared by every step as both inputSchema and outputSchema, so resourceId
 // (and the bookkeeping threadId used for Coach working-memory reads/writes)
 // flows through the whole pipeline unchanged.
-// Exported so adjustmentReasonablenessScorer (src/mastra/scorers/adjustment-reasonableness.ts)
-// can type its run.input/run.output against the same shape the
-// proposeAdjustments step actually reads and returns.
+// Exported so adjustmentReasonablenessScorer can type its run.input/run.output
+// against the same shape the proposeAdjustments step actually reads.
 export const reviewSchema = z.object({
   resourceId: z.string(),
   threadId: z.string(),
   categoryLimits: CategoryLimitsSchema.optional(),
-  savingsGoal: z.number().optional(),
-  declaredIncome: z.number().optional(),
   analysis: AnalysisResultSchema.optional(),
   proposedLimits: CategoryLimitsSchema.optional(),
-  // Declared Income − Savings Goal (ADR-0007) — threaded through from
-  // proposeAdjustments so the approval gate can hand it to the user, and
-  // applyOrDiscard can re-check edits against it below.
+  pots: z.array(SavingsPotSchema).optional(),
+  unallocated: z.number().optional(),
+  periodCloses: z.array(PeriodCloseSchema).optional(),
+  // Forecast Income − Commitments (ADR-0014) — threaded through so the
+  // approval gate can show it and applyOrDiscard can re-check edits.
   cap: z.number().optional(),
+  commitments: z.number().optional(),
   decision: z.enum(["approve", "reject"]).optional(),
   edits: CategoryLimitsSchema.optional(),
+  allocationEdits: z.array(PotAllocationSchema).optional(),
 });
 
 // The proposals shown to the user at the approval gate — shared between the
@@ -40,37 +62,41 @@ export const MonthlyReviewSuspendSchema = z.object({
   proposedLimits: CategoryLimitsSchema,
   analysis: AnalysisResultSchema,
   cap: z.number().optional(),
+  commitments: z.number().optional(),
+  periodCloses: z.array(PeriodCloseSchema).default([]),
   // Discriminator so the frontend's single coach useInterrupt picks the right
-  // approval card (mirrors FundingPlanSuspendSchema's "funding-plan").
+  // approval card (mirrors RefitSuspendSchema's "refit").
   kind: z.literal("monthly-review").default("monthly-review"),
 });
 
 export const MonthlyReviewResumeSchema = z.object({
   decision: z.enum(["approve", "reject"]),
   edits: CategoryLimitsSchema.optional(),
+  // User-adjusted Period Close allocations; absent means "as proposed".
+  allocationEdits: z.array(PotAllocationSchema).optional(),
 });
 
 const outputSchema = z.object({
   status: z.enum(["applied", "discarded"]),
   categoryLimits: CategoryLimitsSchema,
+  closedPeriods: z.array(z.string()).default([]),
 });
 
-// Every transaction gets a category at insert time (src/db/transactions.ts),
-// so there is currently nothing for this step to do — it exists to hold this
-// pipeline position per the spec.
-const categorizeUncategorized = createStep({
-  id: "categorize-uncategorized",
-  description: "Categorizes any transactions missing a category before analysis runs.",
-  inputSchema: reviewSchema,
-  outputSchema: reviewSchema,
-  execute: async ({ inputData }) => {
-    return inputData;
-  },
-});
+const emptyAnalysis = {
+  categoryTotals: [],
+  expenseTotal: 0,
+  committedExpenseTotal: 0,
+  receivedIncome: 0,
+  forecastIncome: 0,
+  netSavings: 0,
+};
 
-const analyzeSpending = createStep({
-  id: "analyze-spending",
-  description: "Computes per-category totals and trailing spend against the current category limits.",
+// Period Close (ADR-0012): every Period finished since the last close, in
+// order. A skipped month defers its close rather than losing it, so this can
+// legitimately produce several at once — the approval card renders them all.
+const closePeriods = createStep({
+  id: "close-periods",
+  description: "Proposes the roll-up of each unclosed Period's Net Savings into the Savings Balance.",
   inputSchema: reviewSchema,
   outputSchema: reviewSchema,
   execute: async ({ inputData, mastra }) => {
@@ -80,21 +106,78 @@ const analyzeSpending = createStep({
     const memory = await coachAgent?.getMemory();
     const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
     const memoryState = parseWorkingMemory(raw);
+
+    const pots = parsePots(memoryState.savingsPots);
     const categoryLimits = (memoryState.categoryLimits as z.infer<typeof CategoryLimitsSchema> | undefined) ?? {};
-    const savingsGoal = memoryState.savingsGoal as number | undefined;
-    const declaredIncome = memoryState.declaredIncome as number | undefined;
+    const lastClosed = memoryState.lastClosedPeriod as string | undefined;
+    let unallocated = typeof memoryState.unallocated === "number" ? memoryState.unallocated : 0;
 
     const transactions = await listTransactions(resourceId);
-    const period = new Date().toISOString().slice(0, 7);
-    const analysis = computeAnalysis(transactions, categoryLimits, period);
+    const periods = unclosedPeriods(lastClosed, currentPeriod());
 
-    return { ...inputData, categoryLimits, savingsGoal, declaredIncome, analysis };
+    // Each close feeds the next: a pot filled in March has less room in April,
+    // so they're computed in sequence against a running pot/unallocated state.
+    let runningPots = pots;
+    const periodCloses = [];
+
+    for (const period of periods) {
+      const analysis = computeAnalysis(transactions, categoryLimits, period);
+      const close = computePeriodClose({
+        period,
+        netSavings: analysis.netSavings,
+        unallocated,
+        pots: runningPots,
+      });
+      const applied = applyPeriodClose(runningPots, close.allocations, close.availableToAllocate);
+      runningPots = applied.pots;
+      unallocated = applied.unallocated;
+      periodCloses.push(close);
+    }
+
+    // Return the POST-close pots, not the ones read from memory: a target pot
+    // these closes would fill has its rate drop to zero, which raises the Cap.
+    // Proposing limits against pre-close balances would show the user a Cap
+    // that contradicts the roll-up shown on the very same approval card.
+    return { ...inputData, categoryLimits, pots: runningPots, periodCloses, unallocated };
+  },
+});
+
+const analyzeSpending = createStep({
+  id: "analyze-spending",
+  description: "Computes per-category totals and trailing received spend against the current category limits.",
+  inputSchema: reviewSchema,
+  outputSchema: reviewSchema,
+  execute: async ({ inputData }) => {
+    const { resourceId, categoryLimits } = inputData;
+
+    const transactions = await listTransactions(resourceId);
+    const period = currentPeriod();
+    const analysis = computeAnalysis(transactions, categoryLimits ?? {}, period);
+
+    // No income on record means there is nothing to take a share of, so the
+    // proposal runs uncapped rather than against a cap of zero (which
+    // proposeCategoryLimits rightly refuses). approveBudgetTool blocks this
+    // case before the workflow starts; this keeps a direct run — Mastra
+    // Studio, a test — from failing instead of degrading.
+    const cap =
+      analysis.forecastIncome > 0
+        ? computeCap({ forecastIncome: analysis.forecastIncome, pots: inputData.pots ?? [], period })
+        : undefined;
+
+    return {
+      ...inputData,
+      analysis,
+      cap,
+      ...(cap !== undefined
+        ? { commitments: Math.round((analysis.forecastIncome - cap) * 100) / 100 }
+        : {}),
+    };
   },
 });
 
 const proposeAdjustments = createStep({
   id: "propose-adjustments",
-  description: "Proposes new category limits at ~110% of trailing spend — same formula for a first run or a later adjustment.",
+  description: "Proposes new category limits at ~110% of trailing received spend, scaled to fit the Cap.",
   inputSchema: reviewSchema,
   outputSchema: reviewSchema,
   scorers: {
@@ -104,19 +187,15 @@ const proposeAdjustments = createStep({
     },
   },
   execute: async ({ inputData }: { inputData: z.infer<typeof reviewSchema> }) => {
-    const analysis = inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 };
-    const cap =
-      inputData.declaredIncome !== undefined && inputData.savingsGoal !== undefined
-        ? inputData.declaredIncome - inputData.savingsGoal
-        : undefined;
-    const proposedLimits = proposeCategoryLimits(analysis, cap);
-    return { ...inputData, proposedLimits, cap };
+    const analysis = inputData.analysis ?? emptyAnalysis;
+    const proposedLimits = proposeCategoryLimits(analysis, inputData.cap);
+    return { ...inputData, proposedLimits };
   },
 });
 
 const approvalGate = createStep({
   id: "approval-gate",
-  description: "Suspends until the user approves or rejects the proposed category limits.",
+  description: "Suspends until the user approves or rejects the proposed limits and Period Close.",
   inputSchema: reviewSchema,
   outputSchema: reviewSchema,
   suspendSchema: MonthlyReviewSuspendSchema,
@@ -142,59 +221,89 @@ const approvalGate = createStep({
       // run continue past this point without actually waiting for resume.
       return suspend({
         proposedLimits: inputData.proposedLimits ?? {},
-        analysis: inputData.analysis ?? { categoryTotals: [], expenseTotal: 0, incomeTotal: 0, netSavings: 0 },
+        analysis: inputData.analysis ?? emptyAnalysis,
         cap: inputData.cap,
+        commitments: inputData.commitments,
+        periodCloses: inputData.periodCloses ?? [],
         kind: "monthly-review",
       });
     }
 
-    return { ...inputData, decision: resumeData.decision, edits: resumeData.edits };
+    return {
+      ...inputData,
+      decision: resumeData.decision,
+      edits: resumeData.edits,
+      allocationEdits: resumeData.allocationEdits,
+    };
   },
 });
 
 const applyOrDiscard = createStep({
   id: "apply-or-discard",
-  description: "Persists the approved limits (or discards the proposal) into Coach working memory.",
+  description: "Persists the approved limits and Period Close (or discards the proposal) into Coach working memory.",
   inputSchema: reviewSchema,
   outputSchema,
   execute: async ({ inputData, mastra }) => {
-    const { resourceId, threadId, decision, proposedLimits, edits, categoryLimits } = inputData;
+    const { resourceId, threadId, decision, proposedLimits, edits, categoryLimits, periodCloses } = inputData;
 
     const approved = decision === "approve";
     const status: "applied" | "discarded" = approved ? "applied" : "discarded";
     const mergedLimits = approved ? { ...(proposedLimits ?? {}), ...(edits ?? {}) } : (categoryLimits ?? {});
 
     // Defense in depth: the review card already disables Approve once the
-    // user's edited total exceeds cap, but this is the point where
-    // categoryLimits is actually persisted — re-enforce ADR-0007's invariant
+    // user's edited total exceeds the Cap, but this is the point where
+    // categoryLimits is actually persisted — re-enforce ADR-0014's invariant
     // here too rather than trusting resumeData unconditionally.
     const cap = inputData.cap;
     const mergedSum = Object.values(mergedLimits).reduce((total, value) => total + (value ?? 0), 0);
-    const nextLimits =
-      approved && cap !== undefined && mergedSum > cap
-        ? Object.fromEntries(
-            (Object.keys(mergedLimits) as Category[]).map((category) => [
-              category,
-              Math.round(((mergedLimits[category] ?? 0) * cap) / mergedSum * 100) / 100,
-            ]),
-          )
-        : mergedLimits;
+    const nextLimits = approved && cap !== undefined && mergedSum > cap ? scaleLimitsToCap(mergedLimits, cap) : mergedLimits;
+
+    const closes = periodCloses ?? [];
+    const closedPeriods = approved ? closes.map((close) => close.period) : [];
 
     const coachAgent = mastra?.getAgent("coach");
     const memory = await coachAgent?.getMemory();
     if (memory) {
       const raw = await memory.getWorkingMemory({ threadId, resourceId });
       const current = parseWorkingMemory(raw);
-      const next = {
-        ...current,
-        ...(approved ? { categoryLimits: nextLimits } : {}),
-        lastReviewPeriod: new Date().toISOString().slice(0, 7),
-        pendingApproval: undefined,
-      };
-      await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(next) });
+
+      let pots = parsePots(current.savingsPots);
+      let unallocated = typeof current.unallocated === "number" ? current.unallocated : 0;
+
+      if (approved) {
+        for (const close of closes) {
+          // User edits replace that Period's proposal wholesale; absent means
+          // "as proposed" (ADR-0013's confirm-or-edit at Period Close).
+          const allocations =
+            inputData.allocationEdits && close === closes[closes.length - 1]
+              ? inputData.allocationEdits
+              : close.allocations;
+          const available = Math.round((unallocated + close.netSavings) * 100) / 100;
+          const applied = applyPeriodClose(pots, allocations, available);
+          pots = applied.pots;
+          unallocated = applied.unallocated;
+
+          // An unconfirmed forecast doesn't survive its Period (ADR-0011).
+          await expireExpectedTransactions(resourceId, close.period);
+        }
+      }
+
+      await memory.updateWorkingMemory({
+        threadId,
+        resourceId,
+        workingMemory: JSON.stringify({
+          ...current,
+          ...(approved ? { categoryLimits: nextLimits, savingsPots: pots, unallocated } : {}),
+          ...(approved && closedPeriods.length > 0
+            ? { lastClosedPeriod: closedPeriods[closedPeriods.length - 1] }
+            : {}),
+          lastReviewPeriod: currentPeriod(),
+          pendingApproval: null,
+        }),
+      });
     }
 
-    return { status, categoryLimits: nextLimits };
+    return { status, categoryLimits: nextLimits, closedPeriods };
   },
 });
 
@@ -203,7 +312,7 @@ export const monthlyReviewWorkflow = createWorkflow({
   inputSchema: reviewSchema,
   outputSchema,
 })
-  .then(categorizeUncategorized)
+  .then(closePeriods)
   .then(analyzeSpending)
   .then(proposeAdjustments)
   .then(approvalGate)

@@ -9,9 +9,9 @@ export const runtime = "nodejs";
 
 const BatchBodySchema = z.object({
   transactions: z.array(AddTransactionItemSchema),
-  // The active chat thread, so the reused tool can read/stamp resource working
-  // memory for the income-drift offer. Optional: without it the tool simply
-  // skips the drift check (the write still happens).
+  // The active chat thread, so the reused tool can read and write resource
+  // working memory to debit a Savings Pot for a pot-funded expense. Optional:
+  // without it the tool skips the pot draw (the write still happens).
   threadId: z.string().optional(),
 });
 
@@ -20,8 +20,8 @@ const BatchBodySchema = z.object({
 // asking the Coach to emit an addTransactions tool call, which could (and did)
 // substitute its own earlier categorizeBatch guess for a user's edit. Reuses
 // the Coach's addTransactionsTool verbatim by handing it the same context shape
-// its agent caller provides, so batch insert + once-per-batch income drift stay
-// identical with zero logic duplication.
+// its agent caller provides, so batch insert and pot draws stay identical with
+// zero logic duplication.
 export const POST = withErrorHandling(async (req) => {
   const resourceId = getResourceId(req);
 

@@ -30,10 +30,15 @@ export const TransactionListCard = ({
       {visible.slice(0, 30).map((transaction) => {
         const isIncome = transaction.type === "income";
         const dotColor = isIncome ? INCOME_COLOR : CATEGORY_COLORS[transaction.category!];
+        // An expected row is a forecast, not money that moved (ADR-0011) —
+        // dimmed and labelled so it never reads as a real transaction.
+        const isExpected = transaction.status === "expected";
         return (
           <div
             key={transaction.id}
-            className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-2 py-2 text-sm hover:bg-[var(--secondary)]"
+            className={`flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-2 py-2 text-sm hover:bg-[var(--secondary)] ${
+              isExpected ? "opacity-60" : ""
+            }`}
           >
             <div className="flex min-w-0 items-center gap-2.5">
               <span
@@ -41,15 +46,23 @@ export const TransactionListCard = ({
                 style={{ backgroundColor: dotColor }}
               />
               <div className="min-w-0">
-                <p className="truncate font-medium">{transaction.merchant}</p>
+                <p className="truncate font-medium">
+                  {transaction.merchant}
+                  {isExpected && (
+                    <span className="ml-1.5 rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                      Expected
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {transaction.date} · {isIncome ? "Income" : transaction.category}
+                  {transaction.fundedByPotId ? " · from savings" : ""}
                 </p>
               </div>
             </div>
             <span
               className="shrink-0 font-medium tabular-nums"
-              style={isIncome ? { color: INCOME_COLOR } : undefined}
+              style={isIncome && !isExpected ? { color: INCOME_COLOR } : undefined}
             >
               {isIncome ? "+" : ""}${transaction.amount.toFixed(2)}
             </span>

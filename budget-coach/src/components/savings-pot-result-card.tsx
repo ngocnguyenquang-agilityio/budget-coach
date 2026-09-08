@@ -12,7 +12,7 @@ interface PotToolResult {
   error?: string;
 }
 
-// Chat render card for createSavingsPot / contributeToPot / updateSavingsPot —
+// Chat render card for createSavingsPot / allocateToPot / updateSavingsPot —
 // gives each pot action a visible result (the fix for the original
 // "agent responds but nothing renders" bug). On a soft failure (duplicate /
 // not found) there's no `pot`, so nothing renders here and the Coach relays

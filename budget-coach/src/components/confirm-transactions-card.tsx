@@ -34,7 +34,9 @@ export interface ConfirmedTransaction {
 export interface RecordTransactionsResult {
   transactions: unknown[];
   failed?: { merchant: string; amount: number; error: string }[];
-  incomeDrift?: { declaredIncome: number; currentIncomeTotal: number };
+  // Pots debited by this batch (ADR-0012) — a purchase paid for out of
+  // savings draws its pot down instead of hitting the month's net savings.
+  potDraws?: { potName: string; amount: number; balance: number }[];
 }
 
 export interface ConfirmTransactionsCardProps {
@@ -200,7 +202,7 @@ export const ConfirmTransactionsCard = ({
       setLandedCount(landedItems.length);
       setFailedCount(failedItems.length);
 
-      const drift = writeResult?.incomeDrift;
+      const potDraws = writeResult?.potDraws ?? [];
       respond?.(
         (landedItems.length > 0
           ? `Recorded ${landedItems.length} transaction${landedItems.length === 1 ? "" : "s"}: ` +
@@ -211,10 +213,15 @@ export const ConfirmTransactionsCard = ({
               `tell the user these specific ones were NOT recorded and offer to retry them; do not claim ` +
               `they were saved.`
             : " Just briefly confirm to the user.") +
-          (drift
-            ? ` Also, the user's actual income this period ($${drift.currentIncomeTotal}) now differs from ` +
-              `their declared income ($${drift.declaredIncome}) by more than 20% — tell them and ask if ` +
-              `they'd like to update their declared income.`
+          (potDraws.length > 0
+            ? ` ${potDraws
+                .map(
+                  (draw) =>
+                    `$${draw.amount.toFixed(2)} came out of the "${draw.potName}" pot, which now holds ` +
+                    `$${draw.balance.toFixed(2)}`,
+                )
+                .join("; ")}. Mention this — it came from savings, so it does not count against this ` +
+              `month's net savings.`
             : ""),
       );
     } catch {

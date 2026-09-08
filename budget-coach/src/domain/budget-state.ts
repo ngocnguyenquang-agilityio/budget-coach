@@ -16,37 +16,55 @@ export const CoachPreferencesSchema = z.object({
 export type CoachPreferences = z.infer<typeof CoachPreferencesSchema>;
 
 // The Coach's resource-scoped working memory shape — the only state that
-// survives across threads for a given browser (per CLAUDE.md's Working
-// memory schema). Transactions themselves live in LibSQL, not here.
+// survives across threads for a given user. Transactions and Recurring
+// Schedules live in LibSQL, not here.
+//
+// Deliberately absent (ADR-0011, ADR-0013): `declaredIncome` and
+// `incomeDriftOfferedPeriod` (income is now the Transaction ledger itself)
+// and `savingsGoal` (derived from Savings Pot rates, never stored).
 export const BudgetStateSchema = z.object({
-  savingsGoal: z.number().optional(),
-  // Explicit, never inferred from summed Income transactions — see
-  // docs/adr/0007-category-limits-capped-by-declared-income-and-savings-goal.md.
-  declaredIncome: z.number().optional(),
-  // YYYY-MM — stamped the moment a >20% drift offer is surfaced, so it fires
-  // at most once per Period regardless of how the user responds.
-  incomeDriftOfferedPeriod: z.string().optional(),
   // partialRecord, not record — Zod v4's z.record with an enum key schema
   // requires every enum key present, which rejects the common case of only
   // a few categories having limits set.
   categoryLimits: z.partialRecord(CategorySchema, z.number()).optional(),
   // YYYY-MM — only ever compared at Period granularity, never a full date.
   lastReviewPeriod: z.string().optional(),
+  // YYYY-MM of the most recent Period whose Net Savings has been rolled into
+  // the Savings Balance. A Monthly Review closes every Period after this one
+  // (ADR-0012), so skipping a month defers the close rather than losing it.
+  lastClosedPeriod: z.string().optional(),
+  // The part of the Savings Balance not held by any pot. May go negative: an
+  // overspent Period draws it down, and money already inside a pot is never
+  // clawed back to cover it.
+  unallocated: z.number().optional(),
   // Set while an approval is Pending Approval; cleared once decided. `workflow`
   // records which workflow owns the suspended run so the two tools' resume
-  // paths don't collide (ADR-0008) — optional so runs suspended before this
-  // field existed default to the Monthly Review. At most one may be pending
-  // across both workflows at a time.
+  // paths don't collide (ADR-0008). At most one may be pending across both
+  // workflows at a time.
+  // Mastra's schema-based working memory lets the model clear a field by
+  // setting it to `null` (merge semantics) — both this and `workflow` must
+  // accept that shape or the model's own updateWorkingMemory tool call fails
+  // validation whenever it tries to clear a resolved approval.
   pendingApproval: z
     .object({
       runId: z.string(),
-      workflow: z.enum(["monthly-review", "funding-plan"]).optional(),
+      workflow: z.enum(["monthly-review", "refit"]).nullable().optional(),
     })
+    .nullable()
     .optional(),
   coachPreferences: CoachPreferencesSchema.optional(),
-  // Named cumulative savings trackers (ADR-0010). Pure projection — a Pot
-  // never touches Category Limits or the cap. Keyed by name, case-insensitive.
+  // Savings Pots (ADR-0013) — the single savings concept. Each holds part of
+  // the real Savings Balance; every pot's rate is a Commitment. Keyed by name,
+  // case-insensitive.
   savingsPots: z.array(SavingsPotSchema).optional(),
 });
 
 export type BudgetState = z.infer<typeof BudgetStateSchema>;
+
+// Savings Balance = every pot's balance plus whatever sits Unallocated
+// (ADR-0012). Derived, never stored — storing both it and its parts invites
+// them to disagree.
+export const savingsBalance = (state: BudgetState): number => {
+  const inPots = (state.savingsPots ?? []).reduce((total, pot) => total + pot.balance, 0);
+  return Math.round((inPots + (state.unallocated ?? 0)) * 100) / 100;
+};
