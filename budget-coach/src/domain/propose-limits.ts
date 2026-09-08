@@ -2,10 +2,10 @@ import type { AnalysisResult } from "./analysis";
 import type { Category } from "./categories";
 
 // Scales a set of Category Limits down proportionally so their sum fits within
-// `cap`, leaving them untouched when already under it. Shared by both the
-// Monthly Review (proposeCategoryLimits below) and the Goal Funding Plan
-// (computeFundingPlan) — the one scaling primitive per ADR-0008; the two
-// workflows' steps stay separate.
+// `cap`, leaving them untouched when already under it. Shared by the Monthly
+// Review (proposeCategoryLimits below) and the refit (computeRefit) — the one
+// scaling primitive; what changed under ADR-0014 is that both now receive the
+// *same* cap rather than each deriving one.
 export const scaleLimitsToCap = (
   limits: Partial<Record<Category, number>>,
   cap: number
@@ -24,29 +24,32 @@ export const scaleLimitsToCap = (
 // One formula for both the first-ever Monthly Review (no prior
 // categoryLimits) and every later adjustment — the Monthly Review workflow's
 // proposeAdjustments step calls this unconditionally rather than branching on
-// whether limits already exist, per the "same code path" requirement.
+// whether limits already exist.
 //
-// cap (Declared Income − Savings Goal, per ADR-0007) only ever scales the
-// proposal down when the sum would exceed it — never up. Leftover headroom
-// below the cap isn't a limits problem; it just shows up as extra Net
-// Savings, so an under-cap sum is left untouched.
+// Proportions come from trailing *received* spend (ADR-0011): an expected
+// expense is a forecast, not a habit, and shouldn't shape next month's
+// allowances.
+//
+// The cap (Forecast Income − Commitments, per ADR-0014) only ever scales the
+// proposal down — never up. Leftover headroom below the cap isn't a limits
+// problem; it just shows up as extra Net Savings.
 export const proposeCategoryLimits = (
   analysis: AnalysisResult,
   cap?: number
 ): Partial<Record<Category, number>> => {
   const proposed: Partial<Record<Category, number>> = {};
 
-  for (const { category, total } of analysis.categoryTotals) {
-    proposed[category] = Math.round(total * 1.1 * 100) / 100;
+  for (const { category, spent } of analysis.categoryTotals) {
+    proposed[category] = Math.round(spent * 1.1 * 100) / 100;
   }
 
   if (cap === undefined) return proposed;
 
-  // Refuse rather than produce negative or degenerate limits — per ADR-0007,
-  // an unworkable cap (Savings Goal >= Declared Income) is the caller's job
-  // to catch and flag to the user before ever reaching this function.
+  // Refuse rather than produce negative or degenerate limits — per ADR-0014,
+  // a non-positive Cap means the caller should have refused the Commitment
+  // that produced it before ever reaching this function.
   if (cap <= 0) {
-    throw new Error("Category limits cannot be proposed: cap (Declared Income − Savings Goal) is not positive.");
+    throw new Error("Category limits cannot be proposed: cap (Forecast Income − Commitments) is not positive.");
   }
 
   return scaleLimitsToCap(proposed, cap);

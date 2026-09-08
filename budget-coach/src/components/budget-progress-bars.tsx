@@ -21,15 +21,18 @@ export const BudgetProgressBars = ({
   // at $0 spent, so a limit set with no spending isn't hidden.
   const totalsByCategory = new Map(analysis.categoryTotals.map((entry) => [entry.category, entry]));
   const rows = CATEGORIES.filter(
-    (category) => (totalsByCategory.get(category)?.total ?? 0) > 0 || categoryLimits[category] !== undefined,
+    (category) =>
+      (totalsByCategory.get(category)?.committed ?? 0) > 0 || categoryLimits[category] !== undefined,
   ).map(
     (category) =>
       totalsByCategory.get(category) ?? {
         category,
-        total: 0,
-        // computeAnalysis's own overLimit formula (limit !== undefined && total
-        // > limit) with total substituted as 0, for the entries synthesized here.
-        overLimit: categoryLimits[category] !== undefined && 0 > categoryLimits[category],
+        spent: 0,
+        committed: 0,
+        // computeAnalysis's own formulas with spent/committed substituted as
+        // 0, for the entries synthesized here.
+        overLimit: false,
+        onTrackToExceed: false,
       },
   );
 
@@ -43,10 +46,14 @@ export const BudgetProgressBars = ({
 
   return (
     <div className="space-y-1.5">
-      {rows.map(({ category, total, overLimit }) => {
+      {rows.map(({ category, spent, committed, overLimit, onTrackToExceed }) => {
         const limit = categoryLimits[category];
-        const pct = limit
-          ? Math.min(100, Math.round((total / limit) * 100))
+        const pct = limit ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+        // The still-expected portion, drawn as a lighter segment past the
+        // spent bar so "already gone" and "still due" read differently
+        // (ADR-0011: overspending and being about to are different messages).
+        const pendingPct = limit
+          ? Math.min(100 - pct, Math.round(((committed - spent) / limit) * 100))
           : 0;
         const selected = selectedCategory === category;
 
@@ -86,26 +93,39 @@ export const BudgetProgressBars = ({
                 className={
                   overLimit
                     ? "text-[var(--destructive)] font-semibold"
-                    : "text-[var(--muted-foreground)]"
+                    : onTrackToExceed
+                      ? "font-semibold text-[var(--chart-warning,var(--foreground))]"
+                      : "text-[var(--muted-foreground)]"
                 }
               >
-                ${total.toFixed(2)}
-                {limit !== undefined
-                  ? ` / $${limit.toFixed(2)}`
-                  : " (no limit set)"}
+                ${spent.toFixed(2)}
+                {limit !== undefined ? ` / $${limit.toFixed(2)}` : " (no limit set)"}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-[var(--secondary)] overflow-hidden">
+            <div className="h-1.5 flex rounded-full bg-[var(--secondary)] overflow-hidden">
               <div
-                className="h-full rounded-full transition-[width]"
+                className="h-full transition-[width]"
                 style={{
                   width: limit ? `${pct}%` : "0%",
-                  backgroundColor: overLimit
-                    ? "var(--destructive)"
-                    : CATEGORY_COLORS[category],
+                  backgroundColor: overLimit ? "var(--destructive)" : CATEGORY_COLORS[category],
                 }}
               />
+              {pendingPct > 0 && (
+                <div
+                  className="h-full transition-[width]"
+                  style={{
+                    width: `${pendingPct}%`,
+                    backgroundColor: `color-mix(in srgb, ${CATEGORY_COLORS[category]} 35%, transparent)`,
+                  }}
+                />
+              )}
             </div>
+            {committed > spent && (
+              <div className="mt-1 text-[10px] text-[var(--muted-foreground)]">
+                ${(committed - spent).toFixed(2)} still expected
+                {onTrackToExceed ? " — on track to exceed this limit" : ""}
+              </div>
+            )}
           </div>
         );
       })}

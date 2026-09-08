@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AnalysisResult } from "@/domain/analysis";
+import type { PeriodClose, PotAllocation } from "@/domain/period-close";
 import { CATEGORIES, type Category, type CategoryLimits } from "@/domain/categories";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,12 +16,18 @@ import {
 export interface MonthlyReviewCardProps {
   proposedLimits: CategoryLimits;
   analysis: AnalysisResult;
-  // Declared Income − Savings Goal (ADR-0007). Undefined only for a
+  // Forecast Income − Commitments (ADR-0014). Undefined only for a
   // suspended run persisted before this field existed — treated as
   // unconstrained rather than blocking approval of an old run. Percentage
   // mode is disabled in that case since there's nothing to take a % of.
   cap?: number;
-  onApprove: (edits: CategoryLimits) => void;
+  // What the user's savings pots claim each month, shown so the Cap isn't a
+  // number out of nowhere.
+  commitments?: number;
+  // Every Period finished since the last close (ADR-0012). Usually one; more
+  // when the user skipped a month, since a close is deferred, never lost.
+  periodCloses?: PeriodClose[];
+  onApprove: (edits: CategoryLimits, allocationEdits?: PotAllocation[]) => void;
   onReject: () => void;
 }
 
@@ -43,10 +50,23 @@ export const MonthlyReviewCard = ({
   proposedLimits,
   analysis,
   cap,
+  commitments,
+  periodCloses = [],
   onApprove,
   onReject,
 }: MonthlyReviewCardProps) => {
   const [resolved, setResolved] = useState(false);
+  // Only the most recent close is editable — earlier ones are replayed as
+  // proposed, matching what applyOrDiscard does with allocationEdits.
+  const lastClose = periodCloses[periodCloses.length - 1];
+  const [allocations, setAllocations] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      (lastClose?.allocations ?? []).map((allocation) => [
+        allocation.potId,
+        String(allocation.amount),
+      ]),
+    ),
+  );
   const [values, setValues] = useState<Record<Category, string>>(() =>
     Object.fromEntries(
       CATEGORIES.map((category) => [
@@ -65,7 +85,7 @@ export const MonthlyReviewCard = ({
   if (resolved) return null;
 
   const totals = new Map(
-    analysis.categoryTotals.map((entry) => [entry.category, entry.total]),
+    analysis.categoryTotals.map((entry) => [entry.category, entry.spent]),
   );
 
   const toggleMode = (category: Category) => {
@@ -119,7 +139,24 @@ export const MonthlyReviewCard = ({
         .map(({ category, dollarValue }) => [category, Math.round(dollarValue * 100) / 100]),
     );
     setResolved(true);
-    onApprove(edits);
+
+    const allocationEdits: PotAllocation[] | undefined = lastClose
+      ? (lastClose.allocations
+          .map((allocation) => {
+            const raw = (allocations[allocation.potId] ?? "").trim();
+            const value = Number(raw);
+            // Blank means "skip this pot this month" (zero, then filtered
+            // out below), consistent with a blank limit field meaning "no
+            // limit". A malformed entry falls back to the proposal rather
+            // than silently zeroing money the user did not mean to move.
+            if (raw === "") return { ...allocation, amount: 0 };
+            if (!Number.isFinite(value) || value < 0) return allocation;
+            return { ...allocation, amount: Math.round(value * 100) / 100 };
+          })
+          .filter((allocation) => allocation.amount > 0))
+      : undefined;
+
+    onApprove(edits, allocationEdits);
   };
 
   const handleReject = () => {
@@ -137,6 +174,59 @@ export const MonthlyReviewCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {periodCloses.length > 0 && (
+          <div className="rounded-[var(--radius)] border border-[var(--border)] p-3">
+            <div className="text-sm font-medium">
+              {periodCloses.length === 1 ? "Closing out" : `Closing out ${periodCloses.length} months`}
+            </div>
+            <ul className="mt-2 space-y-2 text-xs">
+              {periodCloses.map((close) => (
+                <li key={close.period}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--muted-foreground)]">{close.period}</span>
+                    <span
+                      className={`tabular-nums font-medium ${close.netSavings < 0 ? "text-[var(--destructive)]" : ""}`}
+                    >
+                      {close.netSavings < 0 ? "−" : "+"}${Math.abs(close.netSavings).toFixed(2)} saved
+                    </span>
+                  </div>
+                  {close === lastClose && close.allocations.length > 0 && (
+                    <ul className="mt-1.5 space-y-1">
+                      {close.allocations.map((allocation) => (
+                        <li key={allocation.potId} className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[var(--muted-foreground)]">
+                            → {allocation.potName}
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-20 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-right text-xs"
+                            value={allocations[allocation.potId] ?? ""}
+                            onChange={(event) =>
+                              setAllocations((current) => ({
+                                ...current,
+                                [allocation.potId]: event.target.value,
+                              }))
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {close !== lastClose && close.allocations.length > 0 && (
+                    <div className="mt-1 text-[var(--muted-foreground)]">
+                      {close.allocations
+                        .map((allocation) => `${allocation.potName} +$${allocation.amount.toFixed(2)}`)
+                        .join(" · ")}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <ul className="space-y-2 text-sm">
           {parsed.map(({ category, mode, raw, rawNumber, dollarValue, valid }) => {
             const equivalent =
@@ -197,6 +287,9 @@ export const MonthlyReviewCard = ({
         <div className={`text-sm ${overCap ? "text-red-600" : "text-[var(--muted-foreground)]"}`}>
           Total: ${total.toFixed(2)}
           {cap !== undefined ? ` / $${cap.toFixed(2)} available` : ""}
+          {commitments !== undefined && commitments > 0
+            ? ` (after $${commitments.toFixed(2)}/mo to savings)`
+            : ""}
         </div>
         {invalidCategories.length > 0 && (
           <p className="text-sm text-red-600">Enter a valid non-negative amount for every filled-in category.</p>

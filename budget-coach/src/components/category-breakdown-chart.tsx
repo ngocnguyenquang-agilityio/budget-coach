@@ -28,10 +28,12 @@ export const CategoryBreakdownChart = ({
 }: {
   analysis: AnalysisResult;
 }) => {
+  // Received spending only (ADR-0011) — the chart shows where money actually
+  // went, not where it is forecast to go.
   const data = analysis.categoryTotals
-    .filter((entry) => entry.total > 0)
-    .sort((a, b) => b.total - a.total)
-    .map((entry) => ({ name: entry.category, value: entry.total }));
+    .filter((entry) => entry.spent > 0)
+    .sort((a, b) => b.spent - a.spent)
+    .map((entry) => ({ name: entry.category, value: entry.spent }));
 
   if (data.length === 0) {
     return (

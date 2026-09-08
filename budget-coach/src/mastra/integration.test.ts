@@ -17,7 +17,7 @@ process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
 const { mastra } = await import("./index");
 const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-workflow");
-const { FundingPlanSuspendSchema } = await import("./workflows/goal-funding-workflow");
+const { RefitSuspendSchema } = await import("./workflows/refit-workflow");
 const { listTransactions, addTransaction } = await import("@/db/transactions");
 const { addTransactionsTool } = await import("./tools/transactions");
 const { parseWorkingMemory } = await import("./lib/parse-working-memory");
@@ -120,10 +120,16 @@ describe("coachAgent tool resolution (bypassing the CopilotKit route)", () => {
     });
 
     const toolResult = result.toolResults?.find((r) => r.payload.toolName === "setSavingsGoal");
-    expect(toolResult?.payload.result).toEqual({ savingsGoal: 500 });
+    expect((toolResult?.payload.result as { ratePerMonth?: number })?.ratePerMonth).toBe(500);
 
+    // ADR-0013: the savings goal is not a stored field — the shorthand
+    // maintains the rate-driven General Savings pot, and the goal is read
+    // back as the sum of pot rates.
     const state = await getWorkingMemoryState(threadId, resourceId);
-    expect(state.savingsGoal).toBe(500);
+    const pots = state.savingsPots as { name: string; kind: string; ratePerMonth: number }[];
+    expect(pots).toHaveLength(1);
+    expect(pots[0]).toMatchObject({ name: "General savings", kind: "rate", ratePerMonth: 500 });
+    expect(state.savingsGoal).toBeUndefined();
   });
 });
 
@@ -208,7 +214,7 @@ describe("monthlyReviewWorkflow", () => {
   });
 });
 
-describe("goalFundingWorkflow", () => {
+describe("refitWorkflow", () => {
   const seedMemory = async (
     threadId: string,
     resourceId: string,
@@ -220,28 +226,42 @@ describe("goalFundingWorkflow", () => {
     await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(state) });
   };
 
-  it("suspends with a funding-plan payload and, when approved, cuts limits and sets the savings goal", async () => {
-    const resourceId = "wf-funding-cuts";
-    const threadId = "thread-funding-cuts";
-    // capacity = 4000 − 3900 = 100 < 500 required → cuts; cap = 3500.
-    await seedMemory(threadId, resourceId, {
-      declaredIncome: 4000,
-      categoryLimits: { Dining: 1950, Shopping: 1950 },
+  const seedIncome = (resourceId: string, amount: number) =>
+    addTransaction({
+      resourceId,
+      date: new Date().toISOString().slice(0, 10),
+      merchant: "Salary",
+      amount,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
     });
 
-    const workflow = mastra.getWorkflow("goalFundingWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({
-      inputData: { resourceId, threadId, target: { amount: 500, kind: "savings" } },
+  it("suspends with a refit payload and, when approved, scales limits to the new cap", async () => {
+    const resourceId = "wf-refit-cuts";
+    const threadId = "thread-refit-cuts";
+    await seedIncome(resourceId, 4000);
+    // Commitments 1500 → cap 2500, but limits total 3900 → cuts.
+    await seedMemory(threadId, resourceId, {
+      categoryLimits: { Dining: 1950, Shopping: 1950 },
+      savingsPots: [
+        { id: "pot-1", kind: "rate", name: "General savings", ratePerMonth: 1500, balance: 0 },
+      ],
     });
+
+    const workflow = mastra.getWorkflow("refitWorkflow");
+    const run = await workflow.createRun();
+    const result = await run.start({ inputData: { resourceId, threadId } });
 
     expect(result.status).toBe("suspended");
     if (result.status !== "suspended") throw new Error("expected suspended");
     // Same footgun as the Monthly Review: parse through the schema for a typed,
     // shape-asserted payload, and confirm the `kind` discriminator is present.
-    const payload = FundingPlanSuspendSchema.parse(result.steps["approval-gate"].suspendPayload);
-    expect(payload.kind).toBe("funding-plan");
-    expect(payload.requiredPerMonth).toBe(500);
+    const payload = RefitSuspendSchema.parse(result.steps["approval-gate"].suspendPayload);
+    expect(payload.kind).toBe("refit");
+    expect(payload.cap).toBeCloseTo(2500, 1);
+    expect(payload.commitments).toBeCloseTo(1500, 1);
     // apply-or-discard must not have run yet (return suspend, not await suspend).
     expect(result.steps["apply-or-discard"]).toBeUndefined();
 
@@ -251,33 +271,58 @@ describe("goalFundingWorkflow", () => {
     const state = await getWorkingMemoryState(threadId, resourceId);
     const limits = state.categoryLimits as Record<string, number>;
     const total = Object.values(limits).reduce((sum, value) => sum + value, 0);
-    expect(total).toBeCloseTo(3500, 1);
-    expect(limits.Dining).toBeCloseTo(1750, 1);
-    // A savings Target's required/month becomes the recurring Savings Goal.
-    expect(state.savingsGoal).toBe(500);
+    expect(total).toBeCloseTo(2500, 1);
+    expect(limits.Dining).toBeCloseTo(1250, 1);
   });
 
-  it("completes without suspending when the target is infeasible (required ≥ declared income)", async () => {
-    const resourceId = "wf-funding-infeasible";
-    const threadId = "thread-funding-infeasible";
-    await seedMemory(threadId, resourceId, { declaredIncome: 4000, categoryLimits: {} });
-
-    const workflow = mastra.getWorkflow("goalFundingWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({
-      inputData: { resourceId, threadId, target: { amount: 5000, kind: "savings" } },
+  it("completes without suspending when limits already fit beneath the cap", async () => {
+    const resourceId = "wf-refit-fits";
+    const threadId = "thread-refit-fits";
+    await seedIncome(resourceId, 4000);
+    await seedMemory(threadId, resourceId, {
+      categoryLimits: { Dining: 500 },
+      savingsPots: [
+        { id: "pot-2", kind: "rate", name: "General savings", ratePerMonth: 500, balance: 0 },
+      ],
     });
+
+    const workflow = mastra.getWorkflow("refitWorkflow");
+    const run = await workflow.createRun();
+    const result = await run.start({ inputData: { resourceId, threadId } });
 
     expect(result.status).toBe("success");
     if (result.status !== "success") throw new Error("expected success");
-    expect(result.result.status).toBe("infeasible");
+    expect(result.result.status).toBe("fits");
+  });
+
+  // ADR-0014: cap <= 0 is refused rather than turned into degenerate limits.
+  it("reports impossible when commitments meet or exceed forecast income", async () => {
+    const resourceId = "wf-refit-impossible";
+    const threadId = "thread-refit-impossible";
+    await seedIncome(resourceId, 4000);
+    await seedMemory(threadId, resourceId, {
+      categoryLimits: { Dining: 100 },
+      savingsPots: [
+        { id: "pot-3", kind: "rate", name: "General savings", ratePerMonth: 4000, balance: 0 },
+      ],
+    });
+
+    const workflow = mastra.getWorkflow("refitWorkflow");
+    const run = await workflow.createRun();
+    const result = await run.start({ inputData: { resourceId, threadId } });
+
+    expect(result.status).toBe("success");
+    if (result.status !== "success") throw new Error("expected success");
+    expect(result.result.status).toBe("impossible");
   });
 });
 
-describe("addTransactionsTool income-drift (batch)", () => {
-  it("evaluates drift once against the post-batch income total and re-offers at most once per period", async () => {
-    const resourceId = "batch-drift";
-    const threadId = "thread-batch-drift";
+describe("addTransactionsTool pot-funded expenses", () => {
+  // ADR-0012: the purchase draws the pot down; it must not also crater that
+  // month's Net Savings, and the debit must survive as working-memory state.
+  it("debits the named pot and excludes the expense from net savings", async () => {
+    const resourceId = "batch-pot-funded";
+    const threadId = "thread-batch-pot-funded";
 
     const coachAgent = mastra.getAgent("coach");
     const memory = await coachAgent.getMemory();
@@ -285,7 +330,22 @@ describe("addTransactionsTool income-drift (batch)", () => {
     await memory.updateWorkingMemory({
       threadId,
       resourceId,
-      workingMemory: JSON.stringify({ declaredIncome: 1000 }),
+      workingMemory: JSON.stringify({
+        savingsPots: [
+          { id: "pot-laptop", kind: "target", name: "Laptop", targetAmount: 1200, balance: 1200 },
+        ],
+      }),
+    });
+
+    await addTransaction({
+      resourceId,
+      date: new Date().toISOString().slice(0, 10),
+      merchant: "Salary",
+      amount: 3000,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
     });
 
     if (!addTransactionsTool.execute) throw new Error("addTransactionsTool.execute is undefined");
@@ -294,42 +354,56 @@ describe("addTransactionsTool income-drift (batch)", () => {
     const result = (await addTransactionsTool.execute(
       {
         transactions: [
-          { merchant: "Employer", amount: 3000, type: "income" as const },
-          { merchant: "Freelance", amount: 3000, type: "income" as const },
+          { merchant: "Laptop", amount: 1200, type: "expense" as const, category: "Shopping" as const, fundedByPot: "Laptop" },
         ],
       },
       context as never
-    )) as { transactions: unknown[]; incomeDrift?: { declaredIncome: number; currentIncomeTotal: number } };
+    )) as { transactions: unknown[]; potDraws?: { potName: string; balance: number }[] };
 
-    expect(result.transactions).toHaveLength(2);
-    // Both income rows counted (6000), not just the first (3000): the drift
-    // check runs once, after the whole batch is inserted.
-    expect(result.incomeDrift).toEqual({ declaredIncome: 1000, currentIncomeTotal: 6000 });
+    expect(result.transactions).toHaveLength(1);
+    expect(result.potDraws).toEqual([{ potName: "Laptop", amount: 1200, balance: 0 }]);
 
-    const period = new Date().toISOString().slice(0, 7);
     const state = await getWorkingMemoryState(threadId, resourceId);
-    expect(state.incomeDriftOfferedPeriod).toBe(period);
+    const pots = state.savingsPots as { balance: number }[];
+    expect(pots[0].balance).toBe(0);
 
-    // Already offered this period — a second batch must not re-offer.
-    const second = (await addTransactionsTool.execute(
-      { transactions: [{ merchant: "Bonus", amount: 5000, type: "income" as const }] },
-      context as never
-    )) as { incomeDrift?: unknown };
-    expect(second.incomeDrift).toBeUndefined();
+    const transactions = await listTransactions(resourceId);
+    const period = new Date().toISOString().slice(0, 7);
+    const analysis = computeAnalysis(transactions, {}, period);
+    // Expense is counted in the category total, but not against net savings.
+    expect(analysis.expenseTotal).toBeCloseTo(1200);
+    expect(analysis.netSavings).toBeCloseTo(3000);
   });
-});
 
-describe("Coach dynamic instructions (ag-ui requestContext regression)", () => {
-  it("includes ag-ui frontend context in the resolved instructions when present", async () => {
+  it("refuses an expense against a pot that cannot cover it, without writing the row", async () => {
+    const resourceId = "batch-pot-short";
+    const threadId = "thread-batch-pot-short";
+
     const coachAgent = mastra.getAgent("coach");
-    const frontendContext = { selectedCategory: "Dining" };
-
-    const withContext = await coachAgent.getInstructions({
-      requestContext: new RequestContext([["ag-ui", frontendContext]]),
+    const memory = await coachAgent.getMemory();
+    if (!memory) throw new Error("coach memory missing");
+    await memory.updateWorkingMemory({
+      threadId,
+      resourceId,
+      workingMemory: JSON.stringify({
+        savingsPots: [
+          { id: "pot-bike", kind: "target", name: "Bike", targetAmount: 800, balance: 100 },
+        ],
+      }),
     });
-    expect(String(withContext)).toContain(JSON.stringify(frontendContext));
 
-    const withoutContext = await coachAgent.getInstructions({ requestContext: new RequestContext() });
-    expect(String(withoutContext)).not.toContain("Frontend context:");
+    if (!addTransactionsTool.execute) throw new Error("addTransactionsTool.execute is undefined");
+    const result = (await addTransactionsTool.execute(
+      {
+        transactions: [
+          { merchant: "Bike", amount: 800, type: "expense" as const, category: "Shopping" as const, fundedByPot: "Bike" },
+        ],
+      },
+      { agent: { resourceId, threadId }, mastra } as never
+    )) as { transactions: unknown[]; failed?: { error: string }[] };
+
+    expect(result.transactions).toHaveLength(0);
+    expect(result.failed?.[0].error).toContain("only holds");
+    expect(await listTransactions(resourceId)).toHaveLength(0);
   });
 });

@@ -4,7 +4,7 @@ import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { storage } from "./config/storage";
 import { observability } from "./config/observability";
 import { monthlyReviewWorkflow } from "./workflows/monthly-review-workflow";
-import { goalFundingWorkflow } from "./workflows/goal-funding-workflow";
+import { refitWorkflow } from "./workflows/refit-workflow";
 import { categorizerAccuracyScorer } from "./scorers/categorizer-accuracy";
 import { coachScopeScorer } from "./scorers/coach-scope";
 import { adjustmentReasonablenessScorer } from "./scorers/adjustment-reasonableness";
@@ -21,7 +21,7 @@ export const mastra = new Mastra({
   },
   workflows: {
     monthlyReviewWorkflow,
-    goalFundingWorkflow,
+    refitWorkflow,
   },
   scorers: {
     categorizerAccuracy: categorizerAccuracyScorer,

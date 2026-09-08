@@ -8,7 +8,8 @@ type ReviewState = z.infer<typeof reviewSchema>;
 // Attached to the Monthly Review workflow's proposeAdjustments step
 // (src/mastra/workflows/monthly-review-workflow.ts). Deterministic: flags any
 // proposed limit landing more than 50% away from that category's trailing
-// spend, regardless of which formula produced it.
+// received spend, regardless of which formula produced it. Received, not
+// committed: a still-expected expense is a forecast, not a habit.
 export const adjustmentReasonablenessScorer = createScorer<ReviewState, ReviewState>({
   id: "adjustment-reasonableness",
   description: "Flags proposed category limits that land more than 50% away from trailing spend for that category.",
@@ -16,7 +17,7 @@ export const adjustmentReasonablenessScorer = createScorer<ReviewState, ReviewSt
   .analyze(({ run }) => {
     const proposedLimits = run.output.proposedLimits ?? {};
     const trailingByCategory = new Map(
-      (run.output.analysis?.categoryTotals ?? []).map((entry) => [entry.category, entry.total])
+      (run.output.analysis?.categoryTotals ?? []).map((entry) => [entry.category, entry.spent])
     );
 
     const flaggedCategories = (Object.entries(proposedLimits) as [Category, number][])
