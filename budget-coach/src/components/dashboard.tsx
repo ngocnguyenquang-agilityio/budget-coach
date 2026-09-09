@@ -33,6 +33,7 @@ import {
   type RecordTransactionsResult,
 } from "@/components/confirm-transactions-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
+import { ChooseCategoryCard } from "@/components/choose-category-card";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import { RefitCard } from "@/components/refit-card";
 import { SavingsPotsCard } from "@/components/savings-pots-card";
@@ -184,6 +185,32 @@ export const Dashboard = () => {
       parameters: z.object({}),
       render: ({ status, respond, result }) => (
         <SavingsGoalCard status={status} respond={respond} result={result} />
+      ),
+    },
+    [],
+  );
+
+  // Gate 1b — pure frontend tool, no server suspend. When the user names two
+  // or more categories to filter to (selectCategory takes only one), the Coach
+  // calls this instead of asking in plain text; on pick the card applies the
+  // filter itself via setSelectedCategory, then tells the model.
+  useHumanInTheLoop(
+    {
+      name: "chooseCategory",
+      description:
+        "Ask the user to pick a single category to filter the Transactions list to, when they named two or more at once.",
+      parameters: z.object({
+        // Optional because args stream in incrementally (CLAUDE.md gotcha).
+        categories: z.array(CategorySchema.optional()).optional(),
+      }),
+      render: ({ args, status, respond, result }) => (
+        <ChooseCategoryCard
+          categories={args.categories}
+          status={status}
+          respond={respond}
+          result={result}
+          onSelect={setSelectedCategory}
+        />
       ),
     },
     [],
@@ -442,15 +469,15 @@ export const Dashboard = () => {
   useConfigureSuggestions({
     available: "before-first-message",
     suggestions: [
-      { title: "Log a purchase", message: "I spent $40 at Trader Joe's." },
-      { title: "Log income", message: "I got paid $3000." },
+      { title: "Log a purchase", message: "I made a purchase — help me log it." },
+      { title: "Log income", message: "I got paid — help me log it." },
       {
         title: "Add my salary",
-        message: "My salary is $3000 a month, paid on the 25th.",
+        message: "Help me set up my salary as a recurring payment.",
       },
       {
         title: "Save for something",
-        message: "I want to save $1,200 for a laptop by next March.",
+        message: "I want to start saving for something — help me set it up.",
       },
       { title: "Review my budget", message: "Run my monthly budget review." },
       {
