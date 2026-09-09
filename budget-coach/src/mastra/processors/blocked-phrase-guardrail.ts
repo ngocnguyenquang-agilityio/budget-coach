@@ -1,15 +1,32 @@
+import { RegexFilterProcessor } from "@mastra/core/processors";
 import type { Processor, ProcessInputArgs, ProcessInputResult, ProcessorViolation } from "@mastra/core/processors";
+import { TripWire } from "@mastra/core/agent";
+import type { MastraDBMessage } from "@mastra/core/memory";
 import { recordGuardrailViolation } from "../guardrails/block-channel";
 import { getMessageText } from "../scorers/message-text";
 
+const escapeRegExp = (phrase: string): string => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Wraps Mastra's built-in RegexFilterProcessor (does the actual matching) to
+// scope it to just the latest user message (it otherwise re-scans resent
+// history) and to record the block's userMessage on the guardrail-block
+// channel before its TripWire propagates (it bypasses `abort`, so this is
+// the only synchronous hook available).
 export class BlockedPhraseGuardrail implements Processor {
   readonly id = "blocked-phrase-guardrail";
-  private readonly blockedPhrases: string[];
+  private readonly regexFilter: RegexFilterProcessor;
   private readonly userMessage?: string;
 
   constructor({ blockedPhrases, userMessage }: { blockedPhrases: string[]; userMessage?: string }) {
-    this.blockedPhrases = blockedPhrases;
     this.userMessage = userMessage;
+    this.regexFilter = new RegexFilterProcessor({
+      rules: blockedPhrases.map((phrase) => ({
+        name: phrase,
+        pattern: new RegExp(escapeRegExp(phrase), "i"),
+      })),
+      strategy: "block",
+      phase: "input",
+    });
   }
 
   // Part of Mastra's documented Processor interface, but not actually
@@ -20,34 +37,33 @@ export class BlockedPhraseGuardrail implements Processor {
     recordGuardrailViolation({ ...violation, userMessage: this.userMessage });
   };
 
-  processInput({ messages, abort, tracingContext }: ProcessInputArgs): ProcessInputResult {
-    // `messages` can include earlier turns from this thread (the chat
-    // transport resends full history on every call). Only the latest user
-    // message is this turn's actual input - checking older ones would keep
-    // re-blocking on a past message forever, including ones that were
-    // already blocked.
+  processInput({ messages, tracingContext }: ProcessInputArgs): ProcessInputResult {
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
-    const text = latestUserMessage ? getMessageText(latestUserMessage).toLowerCase() : "";
+    const text = latestUserMessage ? getMessageText(latestUserMessage) : "";
+    if (!text) return messages;
 
-    for (const phrase of this.blockedPhrases) {
-      if (text.includes(phrase.toLowerCase())) {
+    const syntheticMessage = {
+      role: "user",
+      content: { parts: [{ type: "text", text }] },
+    } as unknown as MastraDBMessage;
+
+    try {
+      this.regexFilter.processInput({ messages: [syntheticMessage] } as ProcessInputArgs);
+    } catch (error) {
+      if (error instanceof TripWire) {
         // Mastra runs input processors as workflow steps in this version, and
         // that path's error handling never calls onViolation (only a separate,
         // unused ProcessorRunner path does) - record the block message here,
-        // synchronously before abort() throws, rather than relying on it.
+        // synchronously before the TripWire propagates, rather than relying on it.
         recordGuardrailViolation({
           processorId: this.id,
           message: "blocked",
-          detail: { phrase },
+          detail: error.options?.metadata,
           userMessage: this.userMessage,
           span: tracingContext?.currentSpan,
         });
-
-        abort("Message blocked: contains disallowed content", {
-          retry: false,
-          metadata: { phrase },
-        });
       }
+      throw error;
     }
 
     return messages;

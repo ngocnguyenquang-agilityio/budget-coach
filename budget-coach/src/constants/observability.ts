@@ -8,3 +8,9 @@ export const OBSERVABILITY_EVENTS = {
 } as const;
 
 export type ObservabilityEvent = (typeof OBSERVABILITY_EVENTS)[keyof typeof OBSERVABILITY_EVENTS];
+
+// Pricing for `model` (src/mastra/config/model.ts), USD per token.
+export const MODEL_PRICING = {
+  inputCostPerToken: 0.35e-6,
+  outputCostPerToken: 0.75e-6,
+} as const;
