@@ -331,7 +331,7 @@ export const Dashboard = () => {
   // manual reload.
   useRenderTool(
     {
-      name: "confirmTransaction",
+      name: "confirmExpectedTransaction",
       parameters: z.object({}),
       render: ({ status }) => (
         <RefreshOnComplete status={status} onComplete={refreshTransactions} />
