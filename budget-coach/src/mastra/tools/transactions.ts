@@ -9,6 +9,15 @@ import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { SpanType } from "@mastra/core/observability";
 import { OBSERVABILITY_EVENTS } from "@/constants/observability";
 
+// Pot transfers aren't income or an expense (ADR-0013) and are never
+// user-added, so they're filtered out of every agent-facing transaction
+// list rather than widening this schema to a type the Coach never needs to
+// reason about. The dashboard's own history view reads the DB directly and
+// does see them.
+const isFinancialTransaction = (
+  transaction: Transaction
+): transaction is Transaction & { type: "income" | "expense" } => transaction.type !== "transfer";
+
 const TransactionSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
@@ -37,11 +46,13 @@ export const listTransactionsTool = createTool({
     const resourceId = resolveResourceId(context);
     try {
       const transactions = await listTransactions(resourceId);
-      const filtered = transactions.filter(
-        (transaction) =>
-          (category === undefined || transaction.category === category) &&
-          (month === undefined || transaction.date.startsWith(month))
-      );
+      const filtered = transactions
+        .filter(isFinancialTransaction)
+        .filter(
+          (transaction) =>
+            (category === undefined || transaction.category === category) &&
+            (month === undefined || transaction.date.startsWith(month))
+        );
       return { transactions: filtered };
     } catch (err) {
       context.observe.log("error", "list-transactions failed", { error: String(err) });
@@ -102,7 +113,7 @@ export const addTransactionsTool = createTool({
     const state = parseWorkingMemory(raw);
     let pots = parsePots(state.savingsPots);
 
-    const inserted: Transaction[] = [];
+    const inserted: (Transaction & { type: "income" | "expense" })[] = [];
     const failed: { merchant: string; amount: number; error: string }[] = [];
     const draws = new Map<string, { potName: string; amount: number; balance: number }>();
 
@@ -130,19 +141,21 @@ export const addTransactionsTool = createTool({
       }
 
       try {
-        inserted.push(
-          await addTransaction({
-            resourceId,
-            merchant: item.merchant,
-            amount: item.amount,
-            type: item.type,
-            category: item.category ?? null,
-            date: item.date ?? today,
-            seedCategory: null,
-            status: "received",
-            fundedByPotId: pot?.id ?? null,
-          })
-        );
+        const row = await addTransaction({
+          resourceId,
+          merchant: item.merchant,
+          amount: item.amount,
+          type: item.type,
+          category: item.category ?? null,
+          date: item.date ?? today,
+          seedCategory: null,
+          status: "received",
+          fundedByPotId: pot?.id ?? null,
+        });
+        // addTransaction's return type is the DB's full Transaction union, but
+        // this call always passes item.type ("income" | "expense" per
+        // AddTransactionItemSchema), so the row can never actually be a transfer.
+        inserted.push(row as Transaction & { type: "income" | "expense" });
 
         if (pot) {
           const balance = Math.round((pot.balance - item.amount) * 100) / 100;

@@ -88,4 +88,24 @@ describe("listTransactions", () => {
     expect(transactions[0].id).toBe(newer.id);
     expect(transactions[1].id).toBe(older.id);
   });
+
+  it("round-trips a transfer's transferDirection through the migrated column", async () => {
+    const inserted = await addTransaction({
+      resourceId: "resource-transfer",
+      date: "2026-01-15",
+      merchant: "Laptop",
+      amount: 100,
+      type: "transfer",
+      transferDirection: "to_pot",
+      category: null,
+      seedCategory: null,
+    });
+
+    expect(inserted.transferDirection).toBe("to_pot");
+
+    const [stored] = await listTransactions("resource-transfer");
+    expect(stored.type).toBe("transfer");
+    expect(stored.transferDirection).toBe("to_pot");
+    expect(stored.category).toBeNull();
+  });
 });

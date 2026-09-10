@@ -157,4 +157,27 @@ describe("computeAnalysis", () => {
     expect(result.categoryTotals).toEqual([]);
     expect(result.receivedIncome).toBeCloseTo(3200);
   });
+
+  // A pot allocation/deallocation is a reallocation within the Savings
+  // Balance, not income or spend — it must not move any total.
+  it("excludes a transfer from every total and from categoryTotals", () => {
+    const result = computeAnalysis(
+      [
+        received({ type: "income", amount: 3000, date: dateInPeriod(1) }),
+        received({ type: "expense", category: "Groceries", amount: 400, date: dateInPeriod(5) }),
+        received({ type: "transfer", amount: 100, date: dateInPeriod(6) }),
+      ],
+      {},
+      PERIOD
+    );
+
+    expect(result.categoryTotals).toEqual([
+      { category: "Groceries", spent: 400, committed: 400, overLimit: false, onTrackToExceed: false },
+    ]);
+    expect(result.expenseTotal).toBeCloseTo(400);
+    expect(result.committedExpenseTotal).toBeCloseTo(400);
+    expect(result.receivedIncome).toBeCloseTo(3000);
+    expect(result.forecastIncome).toBeCloseTo(3000);
+    expect(result.netSavings).toBeCloseTo(2600);
+  });
 });

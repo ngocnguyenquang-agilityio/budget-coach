@@ -35,7 +35,7 @@ export const AnalysisResultSchema = z.object({
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 export interface AnalyzableTransaction {
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   status: TransactionStatus;
   category?: Category | null;
   amount: number;
@@ -63,6 +63,7 @@ export const computeAnalysis = (
 
   for (const transaction of transactions) {
     if (transaction.date.slice(0, 7) !== period) continue;
+    if (transaction.type === "transfer") continue;
     const received = transaction.status === "received";
 
     if (transaction.type === "income") {

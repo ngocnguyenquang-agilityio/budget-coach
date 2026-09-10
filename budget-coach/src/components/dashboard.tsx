@@ -394,15 +394,21 @@ export const Dashboard = () => {
     [],
   );
 
+  // allocateToPot and deleteSavingsPot now also write a transfer transaction
+  // (unallocated <-> pot), so the Transactions list needs refreshing the same
+  // way confirmExpectedTransaction/addRecurringSchedule do above.
   useRenderTool(
     {
       name: "allocateToPot",
       parameters: z.object({}),
       render: ({ status, result }) => (
-        <SavingsPotResultCard status={status} result={result} />
+        <>
+          <SavingsPotResultCard status={status} result={result} />
+          <RefreshOnComplete status={status} onComplete={refreshTransactions} />
+        </>
       ),
     },
-    [],
+    [refreshTransactions],
   );
 
   useRenderTool(
@@ -414,6 +420,17 @@ export const Dashboard = () => {
       ),
     },
     [],
+  );
+
+  useRenderTool(
+    {
+      name: "deleteSavingsPot",
+      parameters: z.object({}),
+      render: ({ status }) => (
+        <RefreshOnComplete status={status} onComplete={refreshTransactions} />
+      ),
+    },
+    [refreshTransactions],
   );
 
   useDefaultRenderTool();
@@ -566,7 +583,7 @@ export const Dashboard = () => {
           <Card>
             <CardContent className="p-4">
               <p className="text-xs text-[var(--muted-foreground)]">
-                Income received
+                Income received this month
               </p>
               <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: "var(--chart-positive)" }}>
                 ${analysis.receivedIncome.toFixed(2)}
