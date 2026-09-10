@@ -13,3 +13,5 @@ export const CATEGORY_COLORS: Record<Category, string> = {
 };
 
 export const INCOME_COLOR = "var(--chart-positive)";
+
+export const TRANSFER_COLOR = "var(--chart-neutral)";

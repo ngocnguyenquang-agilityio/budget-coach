@@ -15,6 +15,14 @@ const ExpectedSchema = z.object({
   date: z.string(),
 });
 
+// Transfers are always created with status "received" (savings-pots.ts), so
+// an "expected" transaction can never actually be a transfer in practice —
+// but this narrows (and guards, if that invariant is ever broken) the DB's
+// wider type back to what this tool's schema promises.
+const isConfirmableTransaction = <T extends { type: "income" | "expense" | "transfer" }>(
+  transaction: T
+): transaction is T & { type: "income" | "expense" } => transaction.type !== "transfer";
+
 export const listExpectedTransactionsTool = createTool({
   id: "list-expected-transactions",
   description:
@@ -29,6 +37,7 @@ export const listExpectedTransactionsTool = createTool({
     return {
       expected: transactions
         .filter((transaction) => transaction.status === "expected" && transaction.date.startsWith(period))
+        .filter(isConfirmableTransaction)
         .map(({ id, merchant, amount, type, date }) => ({ id, merchant, amount, type, date })),
     };
   }),
@@ -68,6 +77,9 @@ export const confirmTransactionTool = createTool({
 
     const confirmed = await confirmTransaction(resourceId, match.id, amount);
     if (!confirmed) {
+      return { message: `Couldn't find that transaction to confirm.` };
+    }
+    if (!isConfirmableTransaction(confirmed)) {
       return { message: `Couldn't find that transaction to confirm.` };
     }
 

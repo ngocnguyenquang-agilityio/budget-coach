@@ -11,7 +11,7 @@ export interface Transaction {
   createdAt: string;
   merchant: string;
   amount: number;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   category: Category | null;
   seedCategory: Category | null;
   // ADR-0011. Rows created directly by the user default to "received";
@@ -20,13 +20,17 @@ export interface Transaction {
   // ADR-0012. When set, this Expense was paid out of a Savings Pot: it debits
   // that pot and is excluded from Net Savings.
   fundedByPotId: string | null;
+  // Set only on type "transfer": which way money moved between Unallocated
+  // and a pot (merchant carries the pot's name). Gives allocate/deallocate a
+  // ledger trace without being income or an expense (ADR-0013 discussion).
+  transferDirection: "to_pot" | "from_pot" | null;
   // Which Recurring Schedule generated this row, so materializing a Period
   // twice can't produce duplicates.
   scheduleId: string | null;
 }
 
 const COLUMNS =
-  "id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory, status, fundedByPotId, scheduleId";
+  "id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory, status, fundedByPotId, transferDirection, scheduleId";
 
 let ensured: Promise<void> | null = null;
 
@@ -47,6 +51,7 @@ export const createTable = async (): Promise<void> => {
         seedCategory TEXT,
         status TEXT NOT NULL DEFAULT 'received',
         fundedByPotId TEXT,
+        transferDirection TEXT,
         scheduleId TEXT
       )
     `);
@@ -59,6 +64,7 @@ export const createTable = async (): Promise<void> => {
     const additions: [string, string][] = [
       ["status", "TEXT NOT NULL DEFAULT 'received'"],
       ["fundedByPotId", "TEXT"],
+      ["transferDirection", "TEXT"],
       ["scheduleId", "TEXT"],
     ];
 
@@ -79,11 +85,12 @@ const toTransaction = (row: Record<string, unknown>): Transaction => ({
   createdAt: row.createdAt as string,
   merchant: row.merchant as string,
   amount: row.amount as number,
-  type: row.type as "income" | "expense",
+  type: row.type as "income" | "expense" | "transfer",
   category: (row.category as Category | null) ?? null,
   seedCategory: (row.seedCategory as Category | null) ?? null,
   status: ((row.status as TransactionStatus | null) ?? "received") as TransactionStatus,
   fundedByPotId: (row.fundedByPotId as string | null) ?? null,
+  transferDirection: (row.transferDirection as "to_pot" | "from_pot" | null) ?? null,
   scheduleId: (row.scheduleId as string | null) ?? null,
 });
 
@@ -152,11 +159,15 @@ export const getTransaction = async (resourceId: string, id: string): Promise<Tr
 };
 
 export const addTransaction = async (
-  transaction: Omit<Transaction, "id" | "createdAt" | "status" | "fundedByPotId" | "scheduleId"> & {
+  transaction: Omit<
+    Transaction,
+    "id" | "createdAt" | "status" | "fundedByPotId" | "transferDirection" | "scheduleId"
+  > & {
     id?: string;
     createdAt?: string;
     status?: TransactionStatus;
     fundedByPotId?: string | null;
+    transferDirection?: "to_pot" | "from_pot" | null;
     scheduleId?: string | null;
   }
 ): Promise<Transaction> => {
@@ -166,10 +177,11 @@ export const addTransaction = async (
   const createdAt = transaction.createdAt ?? new Date().toISOString();
   const status = transaction.status ?? "received";
   const fundedByPotId = transaction.fundedByPotId ?? null;
+  const transferDirection = transaction.transferDirection ?? null;
   const scheduleId = transaction.scheduleId ?? null;
 
   await dbClient.execute({
-    sql: `INSERT INTO transactions (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO transactions (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       transaction.resourceId,
@@ -182,11 +194,12 @@ export const addTransaction = async (
       transaction.seedCategory,
       status,
       fundedByPotId,
+      transferDirection,
       scheduleId,
     ],
   });
 
-  return { ...transaction, id, createdAt, status, fundedByPotId, scheduleId };
+  return { ...transaction, id, createdAt, status, fundedByPotId, transferDirection, scheduleId };
 };
 
 // Flips an `expected` Transaction to `received`, optionally correcting the

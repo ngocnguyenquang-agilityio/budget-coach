@@ -11,6 +11,7 @@ import {
 } from "@/domain/savings-pot";
 import { loadBudgetContext } from "@/mastra/lib/budget-context";
 import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
+import { addTransaction } from "@/db/transactions";
 
 // Every pot tool returns { message } for the Coach to relay, plus { pot } on
 // success for the chat render card, plus { refitNeeded } when the change made
@@ -176,7 +177,7 @@ export const deleteSavingsPotTool = createTool({
   inputSchema: z.object({ name: z.string().min(1) }),
   outputSchema: z.object({ message: z.string() }),
   execute: withToolErrorHandling(async ({ name }, context) => {
-    const { current, save, pots, unallocated } = await loadBudgetContext(context);
+    const { current, save, pots, unallocated, resourceId } = await loadBudgetContext(context);
     const existing = findPot(pots, name);
 
     if (!existing) {
@@ -190,6 +191,20 @@ export const deleteSavingsPotTool = createTool({
       savingsPots: pots.filter((pot) => pot.id !== existing.id),
       unallocated: Math.round((unallocated + existing.balance) * 100) / 100,
     });
+
+    if (existing.balance > 0) {
+      await addTransaction({
+        resourceId,
+        merchant: existing.name,
+        amount: existing.balance,
+        type: "transfer",
+        transferDirection: "from_pot",
+        category: null,
+        seedCategory: null,
+        date: new Date().toISOString().slice(0, 10),
+        status: "received",
+      });
+    }
 
     return {
       message:
@@ -207,7 +222,7 @@ export const allocateToPotTool = createTool({
   inputSchema: z.object({ name: z.string().min(1), amount: z.number().positive() }),
   outputSchema,
   execute: withToolErrorHandling(async ({ name, amount }, context) => {
-    const { current, save, pots, unallocated, period } = await loadBudgetContext(context);
+    const { current, save, pots, unallocated, period, resourceId } = await loadBudgetContext(context);
     const existing = findPot(pots, name);
 
     if (!existing) {
@@ -233,6 +248,18 @@ export const allocateToPotTool = createTool({
       ...current,
       savingsPots: pots.map((entry) => (entry.id === pot.id ? pot : entry)),
       unallocated: Math.round((unallocated - moved) * 100) / 100,
+    });
+
+    await addTransaction({
+      resourceId,
+      merchant: pot.name,
+      amount: moved,
+      type: "transfer",
+      transferDirection: "to_pot",
+      category: null,
+      seedCategory: null,
+      date: new Date().toISOString().slice(0, 10),
+      status: "received",
     });
 
     const progress = computePotProgress(pot, period);
