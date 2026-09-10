@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MastraDBMessage } from "@mastra/core/memory";
-import { categorizerAccuracyScorer } from "./categorizer-accuracy";
+import { categorizerAccuracyScorer } from "../categorizer-accuracy";
 import { EMPTY_SCORER_INPUT } from "@/constants/scorer-inputs";
 
 const assistantMessage = (text: string): MastraDBMessage => {

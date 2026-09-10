@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { computeRefit } from "./refit";
-import { computeCap, sumCommitments } from "./commitment";
-import { unclosedPeriods } from "./period";
-import type { SavingsPot } from "./savings-pot";
+import { computeRefit } from "../refit";
+import { computeCap, sumCommitments } from "../commitment";
+import { unclosedPeriods } from "../period";
+import type { SavingsPot } from "../savings-pot";
 
 const period = "2026-09";
 

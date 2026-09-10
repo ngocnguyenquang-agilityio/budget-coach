@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mastraToAGUIMessages,
   type MastraStoredMessage,
-} from "./mastra-to-agui-messages";
+} from "../mastra-to-agui-messages";
 
 const at = (seconds: number): string =>
   new Date(Date.UTC(2026, 7, 17, 0, 0, seconds)).toISOString();

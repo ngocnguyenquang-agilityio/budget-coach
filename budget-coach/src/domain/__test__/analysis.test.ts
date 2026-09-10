@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeAnalysis, type AnalyzableTransaction } from "./analysis";
+import { computeAnalysis, type AnalyzableTransaction } from "../analysis";
 
 const PERIOD = "2026-03";
 

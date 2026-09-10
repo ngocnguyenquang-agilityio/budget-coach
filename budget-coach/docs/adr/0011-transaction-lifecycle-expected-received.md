@@ -1,6 +1,6 @@
 # Transactions carry an expected/received lifecycle; Declared Income is deleted
 
-Supersedes the Declared Income half of [ADR-0007](./0007-category-limits-capped-by-declared-income-and-savings-goal.md).
+Supersedes the Declared Income half of [ADR-0007](./superseded/0007-category-limits-capped-by-declared-income-and-savings-goal.md).
 
 A `Transaction` now carries a **Status** of `expected` or `received`. An `expected` Transaction is a forecast the user has not yet confirmed; confirming it flips it to `received` and lets the user correct the amount. **Only `received` Transactions count toward Received Income, Net Savings, the Savings Balance, and a Category's over-limit flag.** `expected` Transactions feed Forecast Income and a Category's *committed* figure only.
 

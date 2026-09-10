@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import type { MastraDBMessage } from "@mastra/core/memory";
-import { createCoachScopeScorer } from "./coach-scope";
+import { createCoachScopeScorer } from "../coach-scope";
 import { EMPTY_SCORER_INPUT } from "@/constants/scorer-inputs";
 import type { CoachScopeSeverity } from "@/constants/coach-scope-rubric";
 

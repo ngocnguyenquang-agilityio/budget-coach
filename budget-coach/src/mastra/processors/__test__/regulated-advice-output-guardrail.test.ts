@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MastraDBMessage } from "@mastra/core/memory";
-import { RegulatedAdviceOutputGuardrail } from "./regulated-advice-output-guardrail";
+import { RegulatedAdviceOutputGuardrail } from "../regulated-advice-output-guardrail";
 
 const assistantMessage = (text: string): MastraDBMessage => {
   return {

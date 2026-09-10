@@ -32,7 +32,7 @@ let ensured: Promise<void> | null = null;
 
 // Idempotent create + migrate. Memoized because every read path calls it and
 // the ALTER TABLE probe is a round trip we don't want on each query.
-export async function createTable(): Promise<void> {
+export const createTable = async (): Promise<void> => {
   ensured ??= (async () => {
     await dbClient.execute(`
       CREATE TABLE IF NOT EXISTS transactions (
@@ -70,7 +70,7 @@ export async function createTable(): Promise<void> {
   })();
 
   await ensured;
-}
+};
 
 const toTransaction = (row: Record<string, unknown>): Transaction => ({
   id: row.id as string,
@@ -91,7 +91,7 @@ const toTransaction = (row: Record<string, unknown>): Transaction => ({
 // skipping any schedule that already has a row for that Period. Idempotent, so
 // it can safely run on every read — which is how it stays impossible to forget
 // (ADR-0011).
-export async function materializeSchedules(resourceId: string, period: string): Promise<void> {
+export const materializeSchedules = async (resourceId: string, period: string): Promise<void> => {
   await createTable();
 
   const schedules = await listSchedules(resourceId);
@@ -123,12 +123,12 @@ export async function materializeSchedules(resourceId: string, period: string): 
       scheduleId: schedule.id,
     });
   }
-}
+};
 
 // Ordered by createdAt (when the row was recorded), not `date` (the
 // transaction's own, user-editable business date) — two transactions can
 // share the same `date` and still need a stable, most-recent-first order.
-export async function listTransactions(resourceId: string): Promise<Transaction[]> {
+export const listTransactions = async (resourceId: string): Promise<Transaction[]> => {
   await materializeSchedules(resourceId, currentPeriod());
 
   const result = await dbClient.execute({
@@ -137,9 +137,9 @@ export async function listTransactions(resourceId: string): Promise<Transaction[
   });
 
   return result.rows.map((row) => toTransaction(row as unknown as Record<string, unknown>));
-}
+};
 
-export async function getTransaction(resourceId: string, id: string): Promise<Transaction | null> {
+export const getTransaction = async (resourceId: string, id: string): Promise<Transaction | null> => {
   await createTable();
 
   const result = await dbClient.execute({
@@ -149,9 +149,9 @@ export async function getTransaction(resourceId: string, id: string): Promise<Tr
 
   const row = result.rows[0];
   return row ? toTransaction(row as unknown as Record<string, unknown>) : null;
-}
+};
 
-export async function addTransaction(
+export const addTransaction = async (
   transaction: Omit<Transaction, "id" | "createdAt" | "status" | "fundedByPotId" | "scheduleId"> & {
     id?: string;
     createdAt?: string;
@@ -159,7 +159,7 @@ export async function addTransaction(
     fundedByPotId?: string | null;
     scheduleId?: string | null;
   }
-): Promise<Transaction> {
+): Promise<Transaction> => {
   await createTable();
 
   const id = transaction.id ?? crypto.randomUUID();
@@ -187,16 +187,16 @@ export async function addTransaction(
   });
 
   return { ...transaction, id, createdAt, status, fundedByPotId, scheduleId };
-}
+};
 
 // Flips an `expected` Transaction to `received`, optionally correcting the
 // amount — confirming is also the moment a user says "it was actually $2,900"
 // (ADR-0011). Returns null when the id doesn't exist for this resource.
-export async function confirmTransaction(
+export const confirmTransaction = async (
   resourceId: string,
   id: string,
   amount?: number
-): Promise<Transaction | null> {
+): Promise<Transaction | null> => {
   await createTable();
 
   const existing = await getTransaction(resourceId, id);
@@ -209,12 +209,12 @@ export async function confirmTransaction(
   });
 
   return { ...existing, status: "received", amount: nextAmount };
-}
+};
 
 // Period Close drops every Transaction still `expected` in a closed Period
 // (ADR-0011): an unconfirmed forecast is not rolled forward and never
 // auto-confirms. Returns how many were expired, so the Review can report it.
-export async function expireExpectedTransactions(resourceId: string, period: string): Promise<number> {
+export const expireExpectedTransactions = async (resourceId: string, period: string): Promise<number> => {
   await createTable();
 
   const result = await dbClient.execute({
@@ -223,4 +223,4 @@ export async function expireExpectedTransactions(resourceId: string, period: str
   });
 
   return Number(result.rowsAffected ?? 0);
-}
+};

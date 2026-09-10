@@ -116,6 +116,8 @@ export const parsePots = (value: unknown): SavingsPot[] => {
     if (parsed.success) return [parsed.data];
 
     // Legacy shape: a target pot with a self-reported balance.
+    if (typeof entry !== "object" || entry === null) return [];
+
     const legacy = entry as {
       id?: unknown;
       name?: unknown;

@@ -1,6 +1,6 @@
 # One Commitment ledger, one Cap, and a Refit triggered by change
 
-Supersedes the cap formula in [ADR-0007](./0007-category-limits-capped-by-declared-income-and-savings-goal.md) and the Capacity model in [ADR-0009](./0009-goal-funding-plan-workflow.md).
+Supersedes the cap formula in [ADR-0007](./superseded/0007-category-limits-capped-by-declared-income-and-savings-goal.md) and the Capacity model in [ADR-0009](./superseded/0009-goal-funding-plan-workflow.md).
 
 There is one **Commitment** ledger — every Savings Pot's current monthly rate, and nothing else — and one **Cap**: `Forecast Income − sum(Commitments)`. Both the Monthly Review and the **Refit** read it; **neither derives a cap of its own.** The Refit — what the old Funding Plan becomes, renamed because there is no longer a Target to fund — stops being user-invoked and instead runs **whenever the Commitment ledger changes**.
 

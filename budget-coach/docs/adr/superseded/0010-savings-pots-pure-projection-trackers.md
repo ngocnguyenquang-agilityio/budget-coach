@@ -1,6 +1,6 @@
 # Savings Pots are pure projection trackers, decoupled from the budget
 
-> **Superseded by [ADR-0013](./0013-savings-pot-is-the-single-savings-concept.md).** Pots are no longer pure projections: they hold part of a real Savings Balance and their rates are the Commitment ledger.
+> **Superseded by [ADR-0013](../0013-savings-pot-is-the-single-savings-concept.md).** Pots are no longer pure projections: they hold part of a real Savings Balance and their rates are the Commitment ledger.
 
 We added **Savings Pot** — a named, cumulative tracker toward a fixed target across Periods — as a third money concept beside the recurring `Savings Goal` and the `Funding Plan` workflow. A Pot is a *projection*: it holds no real money, its `savedSoFar` is a self-reported running balance (not derived from Transactions), and it never constrains Category Limits or the ADR-0007 cap. This preserves a clean division of labor — Savings Goal owns the per-Period net target that reshapes the cap, Funding Plan turns a target into re-fitted limits, and a Pot only tracks progress — and keeps Pots out of the multi-fund cap-splitting complexity that giving them "teeth" would require.
 

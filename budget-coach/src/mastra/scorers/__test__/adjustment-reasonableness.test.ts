@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adjustmentReasonablenessScorer } from "./adjustment-reasonableness";
+import { adjustmentReasonablenessScorer } from "../adjustment-reasonableness";
 
 describe("adjustmentReasonablenessScorer", () => {
   it("scores 1 when every proposed limit is within 50% of spend", async () => {

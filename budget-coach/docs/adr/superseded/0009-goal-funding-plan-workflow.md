@@ -1,6 +1,6 @@
 # A forward-looking Goal Funding Plan as a second workflow, routed by intent
 
-> **Superseded by [ADR-0014](./0014-one-commitment-ledger-and-one-cap.md).** Capacity is gone, the workflow is renamed **Refit**, it reads the shared Cap, and it is triggered by Commitment change rather than user invocation. Targets became Savings Pots in [ADR-0013](./0013-savings-pot-is-the-single-savings-concept.md).
+> **Superseded by [ADR-0014](../0014-one-commitment-ledger-and-one-cap.md).** Capacity is gone, the workflow is renamed **Refit**, it reads the shared Cap, and it is triggered by Commitment change rather than user invocation. Targets became Savings Pots in [ADR-0013](../0013-savings-pot-is-the-single-savings-concept.md).
 
 The app had one workflow — the retrospective Monthly Review, which looks *back* at trailing spend and proposes Category Limits at ~110% of it. We added a second, **forward-looking** workflow, the **Goal Funding Plan**: given a Target the user states in chat ("save $2,000 by December", "can I afford a $1,200 laptop"), it checks whether that Target is feasible under the User's committed budget and, when cuts are needed, proposes re-fitted Category Limits for approval. The point of a second workflow was to make "which workflow runs?" a real decision — so the Coach now routes between the two by intent (LLM tool-selection), the genuinely new capability this exercises; everything downstream deliberately reuses existing patterns.
 

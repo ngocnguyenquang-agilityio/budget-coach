@@ -10,8 +10,8 @@ const previousDbUrl = process.env.TURSO_DATABASE_URL;
 const tmpDir = mkdtempSync(path.join(tmpdir(), "budget-coach-test-"));
 process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
-const { listTransactions, addTransaction } = await import("./transactions");
-const { dbClient } = await import("./client");
+const { listTransactions, addTransaction } = await import("../transactions");
+const { dbClient } = await import("../client");
 
 describe("listTransactions", () => {
   afterAll(() => {

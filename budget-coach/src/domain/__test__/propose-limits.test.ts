@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { proposeCategoryLimits } from "./propose-limits";
-import type { AnalysisResult } from "./analysis";
+import { proposeCategoryLimits } from "../propose-limits";
+import type { AnalysisResult } from "../analysis";
 
 const analysis = (
   categoryTotals: AnalysisResult["categoryTotals"],

@@ -24,7 +24,7 @@ const COLUMNS = "id, resourceId, merchant, amount, type, category, dayOfMonth, c
 
 let ensured: Promise<void> | null = null;
 
-export async function createTable(): Promise<void> {
+export const createTable = async (): Promise<void> => {
   ensured ??= dbClient
     .execute(`
       CREATE TABLE IF NOT EXISTS recurring_schedules (
@@ -41,7 +41,7 @@ export async function createTable(): Promise<void> {
     .then(() => undefined);
 
   await ensured;
-}
+};
 
 const toSchedule = (row: Record<string, unknown>): RecurringSchedule => ({
   id: row.id as string,
@@ -54,7 +54,7 @@ const toSchedule = (row: Record<string, unknown>): RecurringSchedule => ({
   createdAt: row.createdAt as string,
 });
 
-export async function listSchedules(resourceId: string): Promise<RecurringSchedule[]> {
+export const listSchedules = async (resourceId: string): Promise<RecurringSchedule[]> => {
   await createTable();
 
   const result = await dbClient.execute({
@@ -63,11 +63,11 @@ export async function listSchedules(resourceId: string): Promise<RecurringSchedu
   });
 
   return result.rows.map((row) => toSchedule(row as unknown as Record<string, unknown>));
-}
+};
 
-export async function addSchedule(
+export const addSchedule = async (
   schedule: Omit<RecurringSchedule, "id" | "createdAt"> & { id?: string; createdAt?: string }
-): Promise<RecurringSchedule> {
+): Promise<RecurringSchedule> => {
   await createTable();
 
   const id = schedule.id ?? crypto.randomUUID();
@@ -88,12 +88,12 @@ export async function addSchedule(
   });
 
   return { ...schedule, id, createdAt };
-}
+};
 
 // Deletes the schedule and any Transaction it generated that is still
 // `expected` — a forecast whose rule is gone should not survive it. Rows the
 // user already confirmed are real money and are left alone.
-export async function deleteSchedule(resourceId: string, id: string): Promise<boolean> {
+export const deleteSchedule = async (resourceId: string, id: string): Promise<boolean> => {
   await createTable();
 
   const result = await dbClient.execute({
@@ -109,12 +109,12 @@ export async function deleteSchedule(resourceId: string, id: string): Promise<bo
   });
 
   return true;
-}
+};
 
-export async function findScheduleByMerchant(
+export const findScheduleByMerchant = async (
   resourceId: string,
   merchant: string
-): Promise<RecurringSchedule | undefined> {
+): Promise<RecurringSchedule | undefined> => {
   const schedules = await listSchedules(resourceId);
   return schedules.find((schedule) => schedule.merchant.toLowerCase() === merchant.trim().toLowerCase());
-}
+};

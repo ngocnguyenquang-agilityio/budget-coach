@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computePotProgress, potRate, type SavingsPot } from "./savings-pot";
+import { computePotProgress, parsePots, potRate, type SavingsPot } from "../savings-pot";
 
 const targetPot = (overrides: Partial<Extract<SavingsPot, { kind: "target" }>> = {}): SavingsPot => ({
   id: "p1",
@@ -90,5 +90,52 @@ describe("computePotProgress", () => {
     expect(progress.rate).toBe(500);
     expect(progress.balance).toBe(1000);
     expect(progress.targetAmount).toBeUndefined();
+  });
+});
+
+describe("parsePots", () => {
+  it("returns an empty list for a non-array value", () => {
+    expect(parsePots(undefined)).toEqual([]);
+    expect(parsePots({})).toEqual([]);
+  });
+
+  it("passes through pots already in the current shape", () => {
+    const pots = [ratePot(), targetPot()];
+    expect(parsePots(pots)).toEqual(pots);
+  });
+
+  // Pre-ADR-0013 shape: a target pot with a self-reported `savedSoFar`
+  // instead of `kind`/`balance`.
+  it("migrates a legacy target pot, mapping savedSoFar to balance", () => {
+    const legacy = {
+      id: "old-1",
+      name: "Vacation",
+      targetAmount: 2000,
+      savedSoFar: 400,
+      deadline: "2026-12",
+    };
+
+    expect(parsePots([legacy])).toEqual([
+      {
+        id: "old-1",
+        kind: "target",
+        name: "Vacation",
+        targetAmount: 2000,
+        balance: 400,
+        deadline: "2026-12",
+      },
+    ]);
+  });
+
+  it("defaults a legacy pot's balance to zero when savedSoFar is missing", () => {
+    const legacy = { id: "old-2", name: "Car", targetAmount: 5000 };
+    const [migrated] = parsePots([legacy]);
+    expect(migrated.balance).toBe(0);
+  });
+
+  // A malformed entry must never take down the whole budget read.
+  it("drops entries that match neither the current nor legacy shape", () => {
+    const good = ratePot();
+    expect(parsePots([good, { garbage: true }, null, 42])).toEqual([good]);
   });
 });

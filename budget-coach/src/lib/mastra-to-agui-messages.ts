@@ -1,15 +1,10 @@
 import type { Message } from "@ag-ui/client";
 
-// Rebuilds an AG-UI transcript from messages persisted by Mastra, so re-opening
-// a thread restores what the user saw — including tool calls and their
-// generative-UI cards.
-//
-// @ag-ui/mastra only ships the opposite direction (convertAGUIMessagesToMastra),
-// so this mapping is ours. The shapes below were confirmed against real rows in
-// mastra_messages rather than types alone.
+// Rebuilds an AG-UI transcript from messages persisted by Mastra (the reverse
+// of @ag-ui/mastra's convertAGUIMessagesToMastra, which isn't provided for us).
 
-// Mastra stores a v2 message as { content: { format: 2, parts: [...] } }, with
-// tool calls nested inside the ASSISTANT message — there is no separate tool row.
+// A Mastra v2 message: { content: { format: 2, parts: [...] } }. Tool calls
+// live inside the ASSISTANT message's parts, not as a separate tool row.
 type MastraToolInvocation = {
   state?: string;
   toolCallId?: string;
@@ -31,33 +26,19 @@ export type MastraStoredMessage = {
   content?: { parts?: MastraMessagePart[] } | null;
 };
 
-// @ag-ui/mastra splits assistant text that follows a tool call onto a
-// continuation id (MastraAgent.ASSISTANT_TEXT_CONTINUATION_SUFFIX). Reusing the
-// exact same id keeps a restored transcript identical to the live stream, which
-// matters beyond React keys: MastraAgent.selectNewMessages drops already-persisted
-// ids, so replayed messages re-sent on the next turn are not duplicated in
-// mastra_messages.
+// Id suffix @ag-ui/mastra uses for assistant text that follows a tool call.
+// Reusing it keeps replayed messages matching MastraAgent.selectNewMessages'
+// dedup, so they aren't re-sent/duplicated on the next turn.
 const TEXT_CONTINUATION_SUFFIX = "-agui-text";
 
-// Mastra records a merged-back tool result it can no longer attribute with this
-// literal toolName, on a LATER message than the call it answers. Real example
-// from this app: an approveBudget call persisted as `state: "call"`, and its
-// approval arriving afterwards as `{ toolName: "unknown", result:
-// '{"decision":"approve"}' }`.
-//
-// Such a part can't contribute an assistant toolCall — no name means no
-// useRenderTool match. Its `toolCallId` is still good though, so the result is
-// re-attached to the original call (see resolveKnownToolCallIds), which is what
-// keeps a completed approval from replaying as though it were still pending.
+// toolName Mastra assigns a merged-back tool result it can't attribute, on a
+// later message than the call it answers. Not renderable (no name to match a
+// useRenderTool), but its toolCallId is reattached to the original call.
 const UNRESOLVED_TOOL_NAME = "unknown";
 
-// useConfigureSuggestions (dynamic, providerAgentId-based) runs a secondary
-// call against this same agent to generate suggestion pills, forcing a
-// copilotkitSuggest tool call. Because it shares our Mastra-backed agent, that
-// exchange gets persisted into the real thread like any other turn — this
-// filters it back out at replay time so reopening a thread doesn't show the
-// internal instruction (which embeds the full tool-schema JSON) as a chat
-// bubble. See @copilotkit/core's generateSuggestions for the exact prompt.
+// useConfigureSuggestions's internal call to generate suggestion pills, run
+// against this same agent and persisted like a normal turn — filtered out so
+// it doesn't show up as a chat bubble on replay.
 const SUGGESTION_PROMPT_PREFIX = "Suggest what the user could say next.";
 const SUGGESTION_TOOL_NAME = "copilotkitSuggest";
 
@@ -89,10 +70,8 @@ const toMillis = (createdAt: MastraStoredMessage["createdAt"]): number => {
   return 0;
 };
 
-// A tool `result` reaches useRenderTool as a JSON string and is parsed by
-// parseToolResult. Server tools persist an object; a merged-back frontend tool
-// result is already a string — passing that through JSON.stringify again would
-// double-encode it and break every renderer.
+// Normalizes a tool result to the JSON string useRenderTool expects — server
+// tools persist an object, merged-back frontend results are already a string.
 const toResultString = (result: unknown): string =>
   typeof result === "string" ? result : JSON.stringify(result ?? null);
 
@@ -117,9 +96,8 @@ const convertUserMessage = (message: MastraStoredMessage): Message[] => {
   return [{ id: message.id, role: "user", content }];
 };
 
-// Every toolCallId that some part names with a real tool. A result whose own
-// part lost its toolName is only replayed when its id appears here — otherwise
-// it would be an orphan tool message answering a call no transcript contains.
+// toolCallIds that some part names with a real tool name — used to admit
+// results whose own part lost its toolName (see UNRESOLVED_TOOL_NAME).
 const resolveKnownToolCallIds = (
   stored: readonly MastraStoredMessage[],
 ): Set<string> => {
@@ -174,13 +152,12 @@ const convertAssistantMessage = (
         },
       });
     } else if (!knownToolCallIds.has(invocation.toolCallId)) {
-      // No name here and no call anywhere else to attach to — nothing renderable.
+      // Unnamed and unmatched — nothing to render.
       continue;
     }
 
-    // A call with no result is a genuine state: a suspended approval gate, or a
-    // frontend tool the user never answered. Emitting no tool message leaves the
-    // renderer showing its in-progress branch, which is what the live run did.
+    // No result means still pending (suspended approval, unanswered frontend
+    // tool) — skip emitting a tool message so the renderer stays in-progress.
     if (invocation.state === "result") {
       toolResults.push({
         id: `${invocation.toolCallId}-result`,
@@ -229,7 +206,7 @@ export const mastraToAGUIMessages = (
     if (message.role === "assistant") {
       return convertAssistantMessage(message, knownToolCallIds);
     }
-    // system / signal roles carry no transcript the user ever saw.
+    // system/signal roles have no user-visible transcript.
     return [];
   });
 };

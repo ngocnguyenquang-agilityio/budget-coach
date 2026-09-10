@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyPeriodClose, computePeriodClose } from "./period-close";
-import type { SavingsPot } from "./savings-pot";
+import { applyPeriodClose, computePeriodClose } from "../period-close";
+import type { SavingsPot } from "../savings-pot";
 
 const period = "2026-09";
 

@@ -1,6 +1,6 @@
 # Savings Goal is a recurring monthly target, not a cumulative goal-by-date
 
-> **Superseded by [ADR-0013](./0013-savings-pot-is-the-single-savings-concept.md).** Savings Goal is no longer stored: it is the derived sum of every Savings Pot's monthly rate.
+> **Superseded by [ADR-0013](../0013-savings-pot-is-the-single-savings-concept.md).** Savings Goal is no longer stored: it is the derived sum of every Savings Pot's monthly rate.
 
 The dashboard already shipped a suggestion chip — "Set a savings goal of $2,000 by December" — implying a cumulative, deadline-based goal accumulated across months. No code ever backed that framing: `savingsGoal` was a bare number nothing compared against. Now that Net Savings (Income − Expenses per Period) exists, we defined Savings Goal as a target checked and reset every calendar-month Period, consistent with how `Period` and `Net Savings` are already defined, rather than building out multi-month accumulation and deadline tracking to match the old UI copy.
 

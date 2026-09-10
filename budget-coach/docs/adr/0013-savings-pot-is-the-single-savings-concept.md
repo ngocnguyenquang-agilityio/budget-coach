@@ -1,6 +1,6 @@
 # Savings Pot is the single savings concept; Savings Goal and Target are derived
 
-Supersedes [ADR-0003](./0003-savings-goal-recurring-monthly-target.md) and [ADR-0010](./0010-savings-pots-pure-projection-trackers.md).
+Supersedes [ADR-0003](./superseded/0003-savings-goal-recurring-monthly-target.md) and [ADR-0010](./superseded/0010-savings-pots-pure-projection-trackers.md).
 
 There is now exactly **one** way for a user to say "I am putting money toward something": create a **Savings Pot**. A Pot holds part of the real Savings Balance ([ADR-0012](./0012-savings-balance-accumulates-net-savings.md)) and is one of two shapes — **target-driven** (amount + optional deadline, rate re-derived each Period as `remaining ÷ months left`) or **rate-driven** (an explicit per-month amount, open-ended). `Savings Goal` and `Target` cease to be stored concepts.
 
