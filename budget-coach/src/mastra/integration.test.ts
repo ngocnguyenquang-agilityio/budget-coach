@@ -5,6 +5,7 @@ import path from "node:path";
 import { RequestContext } from "@mastra/core/request-context";
 import { computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits } from "@/domain/propose-limits";
+import { addMonths, currentPeriod } from "@/domain/period";
 import type { Category } from "@/domain/categories";
 
 // mastra (and the storage/dbClient singletons it pulls in) read
@@ -405,5 +406,167 @@ describe("addTransactionsTool pot-funded expenses", () => {
     expect(result.transactions).toHaveLength(0);
     expect(result.failed?.[0].error).toContain("only holds");
     expect(await listTransactions(resourceId)).toHaveLength(0);
+  });
+});
+
+describe("backdated transactions into a closed period (ADR-0015)", () => {
+  const seedMemory = async (threadId: string, resourceId: string, state: Record<string, unknown>) => {
+    const coachAgent = mastra.getAgent("coach");
+    const memory = await coachAgent.getMemory();
+    if (!memory) throw new Error("coach memory missing");
+    await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(state) });
+  };
+
+  const addBatch = async (
+    resourceId: string,
+    threadId: string,
+    items: Array<{ merchant: string; amount: number; type: "income" | "expense"; category?: Category; date?: string }>
+  ) => {
+    if (!addTransactionsTool.execute) throw new Error("addTransactionsTool.execute is undefined");
+    return addTransactionsTool.execute(
+      { transactions: items },
+      { agent: { resourceId, threadId }, mastra } as never
+    ) as Promise<{ transactions: unknown[]; amendedPeriods?: string[] }>;
+  };
+
+  it("flags the closed period on a backdated insert, with the baseline captured before the insert", async () => {
+    const resourceId = "amend-flag";
+    const threadId = "thread-amend-flag";
+    const lastMonth = addMonths(currentPeriod(), -1);
+
+    await seedMemory(threadId, resourceId, { lastClosedPeriod: lastMonth, unallocated: 200 });
+    await addTransaction({
+      resourceId,
+      date: `${lastMonth}-05`,
+      merchant: "Salary",
+      amount: 500,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
+    });
+
+    const result = await addBatch(resourceId, threadId, [
+      { merchant: "Store refund", amount: 50, type: "income", date: `${lastMonth}-20` },
+    ]);
+
+    expect(result.amendedPeriods).toEqual([lastMonth]);
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.pendingAmendments).toEqual([{ period: lastMonth, netSavingsAtClose: 500 }]);
+  });
+
+  it("does not flag a transaction dated in the current period or after lastClosedPeriod", async () => {
+    const resourceId = "amend-not-backdated";
+    const threadId = "thread-amend-not-backdated";
+    const lastMonth = addMonths(currentPeriod(), -1);
+
+    await seedMemory(threadId, resourceId, { lastClosedPeriod: lastMonth, unallocated: 0 });
+
+    const result = await addBatch(resourceId, threadId, [
+      { merchant: "Coffee", amount: 5, type: "expense", category: "Dining" },
+    ]);
+
+    expect(result.amendedPeriods).toBeUndefined();
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.pendingAmendments).toBeUndefined();
+  });
+
+  it("does not overwrite an existing baseline on a second backdated insert into the same period", async () => {
+    const resourceId = "amend-no-overwrite";
+    const threadId = "thread-amend-no-overwrite";
+    const lastMonth = addMonths(currentPeriod(), -1);
+
+    await seedMemory(threadId, resourceId, { lastClosedPeriod: lastMonth, unallocated: 0 });
+    await addTransaction({
+      resourceId,
+      date: `${lastMonth}-05`,
+      merchant: "Salary",
+      amount: 500,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
+    });
+
+    await addBatch(resourceId, threadId, [
+      { merchant: "First refund", amount: 50, type: "income", date: `${lastMonth}-20` },
+    ]);
+    const afterFirst = await getWorkingMemoryState(threadId, resourceId);
+    expect(afterFirst.pendingAmendments).toEqual([{ period: lastMonth, netSavingsAtClose: 500 }]);
+
+    // A second backdated row into the SAME period — the baseline must stay
+    // at 500 (the true pre-amendment figure), not the 550 it's now at,
+    // which would silently drop the first correction.
+    const secondResult = await addBatch(resourceId, threadId, [
+      { merchant: "Second refund", amount: 25, type: "income", date: `${lastMonth}-21` },
+    ]);
+    expect(secondResult.amendedPeriods).toBeUndefined();
+
+    const afterSecond = await getWorkingMemoryState(threadId, resourceId);
+    expect(afterSecond.pendingAmendments).toEqual([{ period: lastMonth, netSavingsAtClose: 500 }]);
+  });
+
+  it("surfaces the amendment on the review and folds its delta into unallocated on approve, clearing pendingAmendments", async () => {
+    const resourceId = "amend-approve";
+    const threadId = "thread-amend-approve";
+    const lastMonth = addMonths(currentPeriod(), -1);
+
+    await seedMemory(threadId, resourceId, { lastClosedPeriod: lastMonth, unallocated: 200 });
+    await addTransaction({
+      resourceId,
+      date: `${lastMonth}-05`,
+      merchant: "Salary",
+      amount: 500,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
+    });
+    await addBatch(resourceId, threadId, [
+      { merchant: "Store refund", amount: 50, type: "income", date: `${lastMonth}-20` },
+    ]);
+
+    const { run, result } = await startSuspendedReview(resourceId, threadId);
+    const payload = parseSuspendPayload(result);
+    expect(payload.amendments).toEqual([
+      { period: lastMonth, previousNetSavings: 500, revisedNetSavings: 550, delta: 50 },
+    ]);
+
+    const resumeResult = await run.resume({ resumeData: { decision: "approve" as const } });
+    expect(resumeResult.status).toBe("success");
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.unallocated).toBe(250);
+    expect(state.pendingAmendments).toEqual([]);
+  });
+
+  it("leaves pendingAmendments untouched when the review is rejected", async () => {
+    const resourceId = "amend-reject";
+    const threadId = "thread-amend-reject";
+    const lastMonth = addMonths(currentPeriod(), -1);
+
+    await seedMemory(threadId, resourceId, { lastClosedPeriod: lastMonth, unallocated: 200 });
+    await addTransaction({
+      resourceId,
+      date: `${lastMonth}-05`,
+      merchant: "Salary",
+      amount: 500,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
+    });
+    await addBatch(resourceId, threadId, [
+      { merchant: "Store refund", amount: 50, type: "income", date: `${lastMonth}-20` },
+    ]);
+
+    const { run } = await startSuspendedReview(resourceId, threadId);
+    const resumeResult = await run.resume({ resumeData: { decision: "reject" as const } });
+    expect(resumeResult.status).toBe("success");
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.unallocated).toBe(200);
+    expect(state.pendingAmendments).toEqual([{ period: lastMonth, netSavingsAtClose: 500 }]);
   });
 });

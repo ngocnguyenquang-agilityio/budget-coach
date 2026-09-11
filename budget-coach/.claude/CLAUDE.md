@@ -107,8 +107,10 @@ Two easily-missed consequences: a pot-funded Expense is excluded from Net Saving
 Only the **Coach** carries `Memory`. Working memory (`scope: "resource"`, survives across threads) holds:
 
 ```ts
-{ categoryLimits, lastReviewPeriod, lastClosedPeriod, unallocated, pendingApproval, coachPreferences, savingsPots }
+{ categoryLimits, lastReviewPeriod, lastClosedPeriod, unallocated, pendingApproval, coachPreferences, savingsPots, pendingAmendments }
 ```
+
+`pendingAmendments` (ADR-0015) tracks already-closed Periods that have since had a Transaction backdated into them — `{ period, netSavingsAtClose }[]`, one entry per dirty period, with the baseline captured in `addTransactionsTool` **before** the backdated insert (the only moment `computeAnalysis` for that period still equals what was rolled in at close). The next Monthly Review's `closePeriods` step diffs a fresh `computeAnalysis` against that baseline (`computeAmendments` in `src/domain/period-close.ts`) and folds only the delta into `unallocated` — original pot allocations for the amended period are never replayed. An array, not a record, for the same reason `savingsPots` is one: `updateWorkingMemory` merges objects, so only an array is reliably replaced when an entry needs to disappear. Rejecting a review leaves `pendingAmendments` untouched (deferred, not lost, same as a skipped close).
 
 `savingsBalance` is **derived** (pot balances + `unallocated`), never stored — storing both invites them to disagree. Read pots with `parsePots` (`src/domain/savings-pot.ts`), never by parsing the array directly: resources written before ADR-0013 hold the old `savedSoFar` shape, and a raw `BudgetStateSchema.safeParse` on them fails the discriminated union and takes the *entire* state down with it.
 

@@ -102,4 +102,37 @@ export const applyPeriodClose = (
   return { pots: next, unallocated: round(availableToAllocate - spent) };
 };
 
+export interface PeriodAmendment {
+  period: string;
+  previousNetSavings: number;
+  revisedNetSavings: number;
+  // Signed: revised − previous. Folded straight into Unallocated (ADR-0015)
+  // — never replayed into pot allocations, which have already drawn against
+  // downstream closes.
+  delta: number;
+}
+
+// Diffs each already-closed Period a backdated Transaction has touched
+// against the Net Savings figure that was actually rolled in at close time.
+// Zero-delta entries are kept (filtered at display time only) so "evaluated
+// this run" and "clearable from pendingAmendments" stay the same set.
+export const computeAmendments = ({
+  pending,
+  revisedNetSavings,
+}: {
+  pending: { period: string; netSavingsAtClose: number }[];
+  revisedNetSavings: (period: string) => number;
+}): PeriodAmendment[] =>
+  pending
+    .map(({ period, netSavingsAtClose }) => {
+      const revised = revisedNetSavings(period);
+      return {
+        period,
+        previousNetSavings: netSavingsAtClose,
+        revisedNetSavings: revised,
+        delta: round(revised - netSavingsAtClose),
+      };
+    })
+    .sort((a, b) => a.period.localeCompare(b.period));
+
 const round = (value: number): number => Math.round(value * 100) / 100;

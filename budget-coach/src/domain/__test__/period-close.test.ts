@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyPeriodClose, computePeriodClose } from "../period-close";
+import { applyPeriodClose, computeAmendments, computePeriodClose } from "../period-close";
 import type { SavingsPot } from "../savings-pot";
 
 const period = "2026-09";
@@ -112,5 +112,55 @@ describe("applyPeriodClose", () => {
 
     expect(result.pots[1].balance).toBe(50);
     expect(result.unallocated).toBe(0);
+  });
+});
+
+describe("computeAmendments", () => {
+  it("returns a positive delta for a backdated income transaction", () => {
+    const amendments = computeAmendments({
+      pending: [{ period: "2026-07", netSavingsAtClose: 500 }],
+      revisedNetSavings: () => 550,
+    });
+
+    expect(amendments).toEqual([
+      { period: "2026-07", previousNetSavings: 500, revisedNetSavings: 550, delta: 50 },
+    ]);
+  });
+
+  // Signed, not floored — the amendment counterpart to computePeriodClose's
+  // own negative-net-savings behavior (ADR-0012/ADR-0015).
+  it("returns a negative delta for a backdated expense, signed not floored", () => {
+    const amendments = computeAmendments({
+      pending: [{ period: "2026-07", netSavingsAtClose: 500 }],
+      revisedNetSavings: () => 420,
+    });
+
+    expect(amendments[0].delta).toBe(-80);
+  });
+
+  it("returns a zero delta for an unchanged period", () => {
+    const amendments = computeAmendments({
+      pending: [{ period: "2026-07", netSavingsAtClose: 500 }],
+      revisedNetSavings: () => 500,
+    });
+
+    expect(amendments[0].delta).toBe(0);
+  });
+
+  it("returns an empty array for no pending amendments", () => {
+    expect(computeAmendments({ pending: [], revisedNetSavings: () => 0 })).toEqual([]);
+  });
+
+  it("sorts multiple entries by period ascending", () => {
+    const amendments = computeAmendments({
+      pending: [
+        { period: "2026-08", netSavingsAtClose: 100 },
+        { period: "2026-06", netSavingsAtClose: 200 },
+        { period: "2026-07", netSavingsAtClose: 300 },
+      ],
+      revisedNetSavings: (period) => (period === "2026-08" ? 150 : period === "2026-06" ? 200 : 300),
+    });
+
+    expect(amendments.map((a) => a.period)).toEqual(["2026-06", "2026-07", "2026-08"]);
   });
 });
