@@ -39,7 +39,7 @@ import { RefitCard } from "@/components/refit-card";
 import { SavingsPotsCard } from "@/components/savings-pots-card";
 import { SavingsPotResultCard } from "@/components/savings-pot-result-card";
 import { RefreshOnComplete } from "@/components/refresh-on-complete";
-import type { PeriodClose, PotAllocation } from "@/domain/period-close";
+import type { PeriodAmendment, PeriodClose, PotAllocation } from "@/domain/period-close";
 import { savingsBalance } from "@/domain/budget-state";
 import { computeCap, savingsGoal as deriveSavingsGoal } from "@/domain/commitment";
 import {
@@ -240,6 +240,7 @@ export const Dashboard = () => {
         cap?: number;
         commitments?: number;
         periodCloses?: PeriodClose[];
+        amendments?: PeriodAmendment[];
         kind?: "monthly-review" | "refit";
       };
       type SuspendPayload = {
@@ -276,6 +277,7 @@ export const Dashboard = () => {
           cap={payload.cap}
           commitments={payload.commitments}
           periodCloses={payload.periodCloses ?? []}
+          amendments={payload.amendments ?? []}
           onApprove={(edits: CategoryLimits, allocationEdits?: PotAllocation[]) =>
             resolve({ decision: "approve", edits, allocationEdits })
           }

@@ -139,6 +139,19 @@ export const coachAgent = new Agent({
         enabled: true,
         scope: "resource",
         schema: BudgetStateSchema,
+        // Every legitimate write already goes through a named tool
+        // (addTransactionsTool, setSavingsGoal, approveBudget, ...) or a
+        // workflow step calling memory.updateWorkingMemory() directly in
+        // code — the model itself never needs to write working memory.
+        // Without this, Mastra auto-injects a generic updateWorkingMemory
+        // tool (its own system prompt tells the model to "store" anything
+        // worth remembering), which lets the model hand-edit money fields
+        // like `unallocated` directly, bypassing every domain rule — this is
+        // exactly what let the Coach "correct" the Savings Balance itself
+        // instead of waiting for the next Monthly Review (ADR-0015).
+        // agentManaged: false keeps working memory readable (injected
+        // read-only into the system message) without registering that tool.
+        agentManaged: false,
       },
     },
   }),

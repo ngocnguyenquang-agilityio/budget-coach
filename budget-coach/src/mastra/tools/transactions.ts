@@ -1,11 +1,14 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { CategorySchema } from "@/domain/categories";
+import { CategorySchema, type CategoryLimits } from "@/domain/categories";
 import { TransactionStatusSchema } from "@/domain/transaction";
 import { addTransaction, listTransactions, type Transaction } from "@/db/transactions";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parsePots } from "@/mastra/lib/budget-context";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
+import { parseAmendments } from "@/domain/budget-state";
+import { computeAnalysis } from "@/domain/analysis";
+import { periodOf } from "@/domain/period";
 import { SpanType } from "@mastra/core/observability";
 import { OBSERVABILITY_EVENTS } from "@/constants/observability";
 
@@ -100,6 +103,10 @@ export const addTransactionsTool = createTool({
       .optional(),
     // Pots debited by this batch, so the Coach can report the new balances.
     potDraws: z.array(z.object({ potName: z.string(), amount: z.number(), balance: z.number() })).optional(),
+    // Closed months this batch changed; their savings correction applies at
+    // the next Monthly Review (ADR-0015) — never a refit, since only
+    // Unallocated moves, not a pot rate or the Cap.
+    amendedPeriods: z.array(z.string()).optional(),
   }),
   execute: async ({ transactions: items }, context) => {
     const resourceId = resolveResourceId(context);
@@ -112,6 +119,28 @@ export const addTransactionsTool = createTool({
     const raw = threadId && memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
     const state = parseWorkingMemory(raw);
     let pots = parsePots(state.savingsPots);
+
+    // A Transaction dated in an already-closed Period needs its close
+    // amended, not silently ignored (ADR-0015). The baseline must be read
+    // BEFORE anything is inserted: at this instant a period's Net Savings is
+    // exactly what was rolled up when it closed.
+    const lastClosed = typeof state.lastClosedPeriod === "string" ? state.lastClosedPeriod : undefined;
+    const existingAmendments = parseAmendments(state.pendingAmendments);
+    // YYYY-MM sorts lexicographically, so a plain <= is a correct Period compare.
+    const backdatedPeriods = lastClosed
+      ? [...new Set(items.map((item) => periodOf(item.date ?? today)))].filter(
+          (period) => period <= lastClosed && !existingAmendments.some((entry) => entry.period === period)
+        )
+      : [];
+
+    let baselines = new Map<string, number>();
+    if (backdatedPeriods.length > 0) {
+      const before = await listTransactions(resourceId);
+      const limits = (state.categoryLimits as CategoryLimits | undefined) ?? {};
+      baselines = new Map(
+        backdatedPeriods.map((period) => [period, computeAnalysis(before, limits, period).netSavings])
+      );
+    }
 
     const inserted: (Transaction & { type: "income" | "expense" })[] = [];
     const failed: { merchant: string; amount: number; error: string }[] = [];
@@ -187,13 +216,28 @@ export const addTransactionsTool = createTool({
       }
     }
 
-    // Persist pot draws once, after the batch, so a partial failure can't
-    // leave a pot debited for a row that never landed.
-    if (draws.size > 0 && threadId && memory) {
+    // Only periods that actually landed a row get flagged — a row that
+    // failed to insert never touched that period's ledger.
+    const amendedPeriods = [
+      ...new Set(inserted.filter((row) => baselines.has(periodOf(row.date))).map((row) => periodOf(row.date))),
+    ];
+    const nextAmendments = [
+      ...existingAmendments,
+      ...amendedPeriods.map((period) => ({ period, netSavingsAtClose: baselines.get(period)! })),
+    ];
+
+    // Persist pot draws and/or amendment flags once, after the batch, so a
+    // partial failure can't leave a pot debited (or a period flagged) for a
+    // row that never landed.
+    if ((draws.size > 0 || amendedPeriods.length > 0) && threadId && memory) {
       await memory.updateWorkingMemory({
         threadId,
         resourceId,
-        workingMemory: JSON.stringify({ ...state, savingsPots: pots }),
+        workingMemory: JSON.stringify({
+          ...state,
+          ...(draws.size > 0 ? { savingsPots: pots } : {}),
+          ...(amendedPeriods.length > 0 ? { pendingAmendments: nextAmendments } : {}),
+        }),
       });
     }
 
@@ -201,6 +245,7 @@ export const addTransactionsTool = createTool({
       transactions: inserted,
       ...(failed.length > 0 ? { failed } : {}),
       ...(draws.size > 0 ? { potDraws: [...draws.values()] } : {}),
+      ...(amendedPeriods.length > 0 ? { amendedPeriods } : {}),
     };
   },
 });

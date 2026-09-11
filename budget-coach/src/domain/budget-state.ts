@@ -15,6 +15,15 @@ export const CoachPreferencesSchema = z.object({
 
 export type CoachPreferences = z.infer<typeof CoachPreferencesSchema>;
 
+// A closed Period whose Net Savings has since been changed by a backdated
+// Transaction, awaiting the next Monthly Review's amendment (ADR-0015).
+export const PendingAmendmentSchema = z.object({
+  period: z.string(),
+  netSavingsAtClose: z.number(),
+});
+
+export type PendingAmendment = z.infer<typeof PendingAmendmentSchema>;
+
 // The Coach's resource-scoped working memory shape — the only state that
 // survives across threads for a given user. Transactions and Recurring
 // Schedules live in LibSQL, not here.
@@ -57,6 +66,14 @@ export const BudgetStateSchema = z.object({
   // the real Savings Balance; every pot's rate is a Commitment. Keyed by name,
   // case-insensitive.
   savingsPots: z.array(SavingsPotSchema).optional(),
+  // Periods already closed that have since had a Transaction backdated into
+  // them. `netSavingsAtClose` is the figure rolled into the Savings Balance
+  // at close time, captured just before the backdated insert — the next
+  // Monthly Review diffs a fresh computeAnalysis against it and folds only
+  // the difference into Unallocated (original pot allocations are not
+  // replayed). An array, not a record: working-memory writes merge, so only
+  // an array is reliably replaced when an entry is removed (ADR-0015).
+  pendingAmendments: z.array(PendingAmendmentSchema).optional(),
 });
 
 export type BudgetState = z.infer<typeof BudgetStateSchema>;
@@ -67,4 +84,14 @@ export type BudgetState = z.infer<typeof BudgetStateSchema>;
 export const savingsBalance = (state: BudgetState): number => {
   const inPots = (state.savingsPots ?? []).reduce((total, pot) => total + pot.balance, 0);
   return Math.round((inPots + (state.unallocated ?? 0)) * 100) / 100;
+};
+
+// Defensive parse, same posture as parsePots (savings-pot.ts): a malformed
+// or absent value must never take down a whole working-memory read.
+export const parseAmendments = (value: unknown): PendingAmendment[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const parsed = PendingAmendmentSchema.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
 };

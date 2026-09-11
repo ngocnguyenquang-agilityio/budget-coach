@@ -4,12 +4,13 @@ import { CategorySchema } from "@/domain/categories";
 import { AnalysisResultSchema, computeAnalysis } from "@/domain/analysis";
 import { proposeCategoryLimits, scaleLimitsToCap } from "@/domain/propose-limits";
 import { computeCap } from "@/domain/commitment";
-import { computePeriodClose, applyPeriodClose } from "@/domain/period-close";
+import { computePeriodClose, applyPeriodClose, computeAmendments } from "@/domain/period-close";
 import { SavingsPotSchema } from "@/domain/savings-pot";
 import { currentPeriod, unclosedPeriods } from "@/domain/period";
 import { expireExpectedTransactions, listTransactions } from "@/db/transactions";
 import { parsePots } from "@/mastra/lib/budget-context";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
+import { parseAmendments } from "@/domain/budget-state";
 import { adjustmentReasonablenessScorer } from "@/mastra/scorers/adjustment-reasonableness";
 
 // partialRecord, not record — see src/mastra/tools/analyze-transactions.ts for
@@ -32,6 +33,17 @@ export const PeriodCloseSchema = z.object({
   remainingUnallocated: z.number(),
 });
 
+// A correction to an already-closed Period's Net Savings, caused by a
+// Transaction backdated into it after the fact (ADR-0015). Folded into
+// Unallocated only — pot allocations from the original close are never
+// replayed.
+export const PeriodAmendmentSchema = z.object({
+  period: z.string(),
+  previousNetSavings: z.number(),
+  revisedNetSavings: z.number(),
+  delta: z.number(),
+});
+
 // Shared by every step as both inputSchema and outputSchema, so resourceId
 // (and the bookkeeping threadId used for Coach working-memory reads/writes)
 // flows through the whole pipeline unchanged.
@@ -46,6 +58,7 @@ export const reviewSchema = z.object({
   pots: z.array(SavingsPotSchema).optional(),
   unallocated: z.number().optional(),
   periodCloses: z.array(PeriodCloseSchema).optional(),
+  amendments: z.array(PeriodAmendmentSchema).optional(),
   // Forecast Income − Commitments (ADR-0014) — threaded through so the
   // approval gate can show it and applyOrDiscard can re-check edits.
   cap: z.number().optional(),
@@ -64,6 +77,7 @@ export const MonthlyReviewSuspendSchema = z.object({
   cap: z.number().optional(),
   commitments: z.number().optional(),
   periodCloses: z.array(PeriodCloseSchema).default([]),
+  amendments: z.array(PeriodAmendmentSchema).default([]),
   // Discriminator so the frontend's single coach useInterrupt picks the right
   // approval card (mirrors RefitSuspendSchema's "refit").
   kind: z.literal("monthly-review").default("monthly-review"),
@@ -115,6 +129,17 @@ const closePeriods = createStep({
     const transactions = await listTransactions(resourceId);
     const periods = unclosedPeriods(lastClosed, currentPeriod());
 
+    // A Transaction backdated into an already-closed Period (ADR-0015): fold
+    // the correction into Unallocated BEFORE the close loop, so it flows into
+    // pots through this Period's own pro-rata allocation and into the
+    // post-close pots the Cap below is derived from — no separate mechanism.
+    const pendingAmendments = parseAmendments(memoryState.pendingAmendments);
+    const amendments = computeAmendments({
+      pending: pendingAmendments,
+      revisedNetSavings: (period) => computeAnalysis(transactions, categoryLimits, period).netSavings,
+    });
+    unallocated = Math.round((unallocated + amendments.reduce((total, a) => total + a.delta, 0)) * 100) / 100;
+
     // Each close feeds the next: a pot filled in March has less room in April,
     // so they're computed in sequence against a running pot/unallocated state.
     let runningPots = pots;
@@ -138,7 +163,7 @@ const closePeriods = createStep({
     // these closes would fill has its rate drop to zero, which raises the Cap.
     // Proposing limits against pre-close balances would show the user a Cap
     // that contradicts the roll-up shown on the very same approval card.
-    return { ...inputData, categoryLimits, pots: runningPots, periodCloses, unallocated };
+    return { ...inputData, categoryLimits, pots: runningPots, periodCloses, amendments, unallocated };
   },
 });
 
@@ -225,6 +250,7 @@ const approvalGate = createStep({
         cap: inputData.cap,
         commitments: inputData.commitments,
         periodCloses: inputData.periodCloses ?? [],
+        amendments: inputData.amendments ?? [],
         kind: "monthly-review",
       });
     }
@@ -244,7 +270,8 @@ const applyOrDiscard = createStep({
   inputSchema: reviewSchema,
   outputSchema,
   execute: async ({ inputData, mastra }) => {
-    const { resourceId, threadId, decision, proposedLimits, edits, categoryLimits, periodCloses } = inputData;
+    const { resourceId, threadId, decision, proposedLimits, edits, categoryLimits, periodCloses, amendments } =
+      inputData;
 
     const approved = decision === "approve";
     const status: "applied" | "discarded" = approved ? "applied" : "discarded";
@@ -271,6 +298,13 @@ const applyOrDiscard = createStep({
       let unallocated = typeof current.unallocated === "number" ? current.unallocated : 0;
 
       if (approved) {
+        // Fold in the same amendment delta closePeriods showed on the
+        // approval card, against this fresh read of Unallocated — mirrors
+        // closePeriods' own fold-before-close ordering (ADR-0015).
+        unallocated = Math.round(
+          (unallocated + (amendments ?? []).reduce((total, a) => total + a.delta, 0)) * 100
+        ) / 100;
+
         for (const close of closes) {
           // User edits replace that Period's proposal wholesale; absent means
           // "as proposed" (ADR-0013's confirm-or-edit at Period Close).
@@ -288,6 +322,18 @@ const applyOrDiscard = createStep({
         }
       }
 
+      // Only an APPROVED run resolves an amendment (its delta is folded into
+      // Unallocated above) — a rejection leaves pendingAmendments untouched,
+      // same as a rejected close leaves lastClosedPeriod untouched, so the
+      // correction reappears at the next review rather than being lost.
+      // Filtered from this fresh `current` read, not `inputData`, so a
+      // period backdated into while this approval was suspended isn't
+      // dropped (ADR-0015).
+      const evaluatedPeriods = new Set((amendments ?? []).map((a) => a.period));
+      const remainingAmendments = parseAmendments(current.pendingAmendments).filter(
+        (entry) => !evaluatedPeriods.has(entry.period)
+      );
+
       await memory.updateWorkingMemory({
         threadId,
         resourceId,
@@ -297,6 +343,7 @@ const applyOrDiscard = createStep({
           ...(approved && closedPeriods.length > 0
             ? { lastClosedPeriod: closedPeriods[closedPeriods.length - 1] }
             : {}),
+          ...(approved && evaluatedPeriods.size > 0 ? { pendingAmendments: remainingAmendments } : {}),
           lastReviewPeriod: currentPeriod(),
           pendingApproval: null,
         }),

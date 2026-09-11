@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AnalysisResult } from "@/domain/analysis";
-import type { PeriodClose, PotAllocation } from "@/domain/period-close";
+import type { PeriodAmendment, PeriodClose, PotAllocation } from "@/domain/period-close";
 import { CATEGORIES, type Category, type CategoryLimits } from "@/domain/categories";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,9 @@ export interface MonthlyReviewCardProps {
   // Every Period finished since the last close (ADR-0012). Usually one; more
   // when the user skipped a month, since a close is deferred, never lost.
   periodCloses?: PeriodClose[];
+  // Corrections to already-closed Periods from a Transaction backdated into
+  // them (ADR-0015). Not editable — approve/reject via the existing gate.
+  amendments?: PeriodAmendment[];
   onApprove: (edits: CategoryLimits, allocationEdits?: PotAllocation[]) => void;
   onReject: () => void;
 }
@@ -52,6 +55,7 @@ export const MonthlyReviewCard = ({
   cap,
   commitments,
   periodCloses = [],
+  amendments = [],
   onApprove,
   onReject,
 }: MonthlyReviewCardProps) => {
@@ -131,6 +135,8 @@ export const MonthlyReviewCard = ({
   const overCap = cap !== undefined && total > cap;
   const canApprove = invalidCategories.length === 0 && !overCap;
 
+  const nonZeroAmendments = amendments.filter((amendment) => amendment.delta !== 0);
+
   const handleApprove = () => {
     if (!canApprove) return;
     const edits: CategoryLimits = Object.fromEntries(
@@ -174,6 +180,35 @@ export const MonthlyReviewCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
+        {nonZeroAmendments.length > 0 && (
+          <div className="rounded-[var(--radius)] border border-[var(--border)] p-3">
+            <div className="text-sm font-medium">
+              {nonZeroAmendments.length === 1
+                ? "Correcting 1 earlier month"
+                : `Correcting ${nonZeroAmendments.length} earlier months`}
+            </div>
+            <ul className="mt-2 space-y-2 text-xs">
+              {nonZeroAmendments.map((amendment) => (
+                <li key={amendment.period}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--muted-foreground)]">{amendment.period}</span>
+                    <span
+                      className={`tabular-nums font-medium ${amendment.delta < 0 ? "text-[var(--destructive)]" : ""}`}
+                    >
+                      {amendment.delta < 0 ? "−" : "+"}${Math.abs(amendment.delta).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="text-[var(--muted-foreground)]">
+                    was ${amendment.previousNetSavings.toFixed(2)}, now ${amendment.revisedNetSavings.toFixed(2)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[var(--muted-foreground)] text-xs">
+              Added to your unallocated savings — earlier pot allocations aren&apos;t changed.
+            </p>
+          </div>
+        )}
         {periodCloses.length > 0 && (
           <div className="rounded-[var(--radius)] border border-[var(--border)] p-3">
             <div className="text-sm font-medium">
