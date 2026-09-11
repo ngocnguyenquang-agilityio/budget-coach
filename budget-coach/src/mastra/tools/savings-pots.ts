@@ -11,7 +11,7 @@ import {
 } from "@/domain/savings-pot";
 import { loadBudgetContext } from "@/mastra/lib/budget-context";
 import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
-import { addTransaction } from "@/db/transactions";
+import { addTransaction, deleteTransaction } from "@/db/transactions";
 
 // Every pot tool returns { message } for the Coach to relay, plus { pot } on
 // success for the chat render card, plus { refitNeeded } when the change made
@@ -184,26 +184,36 @@ export const deleteSavingsPotTool = createTool({
       return { message: `You don't have a savings pot named "${name.trim()}" yet.` };
     }
 
-    // Its balance is real money inside the Savings Balance — returning it to
-    // Unallocated keeps the Balance unchanged (ADR-0013).
-    await save({
-      ...current,
-      savingsPots: pots.filter((pot) => pot.id !== existing.id),
-      unallocated: Math.round((unallocated + existing.balance) * 100) / 100,
-    });
+    // Record the transfer before mutating working memory: if addTransaction
+    // fails, the pot deletion never gets saved, so there's nothing to roll back.
+    const recorded =
+      existing.balance > 0
+        ? await addTransaction({
+            resourceId,
+            merchant: existing.name,
+            amount: existing.balance,
+            type: "transfer",
+            transferDirection: "from_pot",
+            category: null,
+            seedCategory: null,
+            date: new Date().toISOString().slice(0, 10),
+            status: "received",
+          })
+        : null;
 
-    if (existing.balance > 0) {
-      await addTransaction({
-        resourceId,
-        merchant: existing.name,
-        amount: existing.balance,
-        type: "transfer",
-        transferDirection: "from_pot",
-        category: null,
-        seedCategory: null,
-        date: new Date().toISOString().slice(0, 10),
-        status: "received",
+    try {
+      // Its balance is real money inside the Savings Balance — returning it to
+      // Unallocated keeps the Balance unchanged (ADR-0013).
+      await save({
+        ...current,
+        savingsPots: pots.filter((pot) => pot.id !== existing.id),
+        unallocated: Math.round((unallocated + existing.balance) * 100) / 100,
       });
+    } catch (error) {
+      // save() failed after the transaction was recorded — delete it so the
+      // ledger doesn't show money moving that never actually moved.
+      if (recorded) await deleteTransaction(resourceId, recorded.id);
+      throw error;
     }
 
     return {
@@ -244,13 +254,10 @@ export const allocateToPotTool = createTool({
     }
 
     const pot: SavingsPot = { ...existing, balance: Math.round((existing.balance + moved) * 100) / 100 };
-    await save({
-      ...current,
-      savingsPots: pots.map((entry) => (entry.id === pot.id ? pot : entry)),
-      unallocated: Math.round((unallocated - moved) * 100) / 100,
-    });
 
-    await addTransaction({
+    // Record the transfer before mutating working memory: if addTransaction
+    // fails, the pot/unallocated change never gets saved, so there's nothing to roll back.
+    const recorded = await addTransaction({
       resourceId,
       merchant: pot.name,
       amount: moved,
@@ -261,6 +268,19 @@ export const allocateToPotTool = createTool({
       date: new Date().toISOString().slice(0, 10),
       status: "received",
     });
+
+    try {
+      await save({
+        ...current,
+        savingsPots: pots.map((entry) => (entry.id === pot.id ? pot : entry)),
+        unallocated: Math.round((unallocated - moved) * 100) / 100,
+      });
+    } catch (error) {
+      // save() failed after the transaction was recorded — delete it so the
+      // ledger doesn't show money moving that never actually moved.
+      await deleteTransaction(resourceId, recorded.id);
+      throw error;
+    }
 
     const progress = computePotProgress(pot, period);
     return {

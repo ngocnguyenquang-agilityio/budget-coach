@@ -6,7 +6,8 @@ export const parseWorkingMemory = (raw: string | null): Record<string, unknown> 
   try {
     const parsed = JSON.parse(raw);
     return typeof parsed === "object" && parsed !== null ? parsed : {};
-  } catch {
+  } catch (err) {
+    console.error("[parseWorkingMemory] failed to parse working memory JSON:", err);
     return {};
   }
 };

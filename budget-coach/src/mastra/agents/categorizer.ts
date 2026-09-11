@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
-import { StreamErrorRetryProcessor } from "@mastra/core/processors";
 import { model } from "@/mastra/config/model";
+import { createCerebrasRetryProcessor } from "@/mastra/config/error-processors";
 import { CATEGORIES } from "@/domain/categories";
 import { categorizerAccuracyScorer } from "@/mastra/scorers/categorizer-accuracy";
 import { buildCategorizerInstructions } from "@/constants/categorizer-instructions";
@@ -15,13 +15,7 @@ export const categorizerAgent = new Agent({
   instructions: buildCategorizerInstructions(CATEGORIES),
   // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
   // with backoff instead of surfacing them to the user.
-  errorProcessors: [
-    new StreamErrorRetryProcessor({
-      retryUnknownErrors: true,
-      maxRetries: 2,
-      delayMs: ({ retryCount }) => Math.min(4000 * 2 ** retryCount, 20000),
-    }),
-  ],
+  errorProcessors: [createCerebrasRetryProcessor()],
   scorers: {
     categorizerAccuracy: {
       scorer: categorizerAccuracyScorer,

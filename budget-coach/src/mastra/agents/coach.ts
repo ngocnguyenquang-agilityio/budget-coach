@@ -1,11 +1,9 @@
 import { Agent } from "@mastra/core/agent";
-import {
-  StreamErrorRetryProcessor,
-  UnicodeNormalizer,
-} from "@mastra/core/processors";
+import { UnicodeNormalizer } from "@mastra/core/processors";
 import { Memory } from "@mastra/memory";
 import { model } from "@/mastra/config/model";
 import { storage } from "@/mastra/config/storage";
+import { createCerebrasRetryProcessor } from "@/mastra/config/error-processors";
 import {
   promptInjectionGuardrail,
   financialAdviceGuardrail,
@@ -97,13 +95,7 @@ export const coachAgent = new Agent({
   outputProcessors: [regulatedAdviceOutputGuardrail],
   // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
   // with backoff instead of surfacing them to the user.
-  errorProcessors: [
-    new StreamErrorRetryProcessor({
-      retryUnknownErrors: true,
-      maxRetries: 2,
-      delayMs: ({ retryCount }) => Math.min(4000 * 2 ** retryCount, 20000),
-    }),
-  ],
+  errorProcessors: [createCerebrasRetryProcessor()],
   scorers: {
     // Sampled, not every turn: at rate 1 each Coach response doubled Cerebras
     // request volume (main call + judge call), which blew through the free

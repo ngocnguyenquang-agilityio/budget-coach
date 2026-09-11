@@ -224,6 +224,18 @@ export const confirmTransaction = async (
   return { ...existing, status: "received", amount: nextAmount };
 };
 
+// Compensates a transaction insert whose subsequent working-memory save
+// failed — deletes the row so the ledger never shows money moving that the
+// pot/unallocated state doesn't back up.
+export const deleteTransaction = async (resourceId: string, id: string): Promise<void> => {
+  await createTable();
+
+  await dbClient.execute({
+    sql: "DELETE FROM transactions WHERE resourceId = ? AND id = ?",
+    args: [resourceId, id],
+  });
+};
+
 // Period Close drops every Transaction still `expected` in a closed Period
 // (ADR-0011): an unconfirmed forecast is not rolled forward and never
 // auto-confirms. Returns how many were expired, so the Review can report it.

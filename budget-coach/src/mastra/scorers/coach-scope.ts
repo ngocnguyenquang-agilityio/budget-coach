@@ -1,9 +1,9 @@
 import { createScorer } from "@mastra/core/evals";
-import { StreamErrorRetryProcessor } from "@mastra/core/processors";
 import type { MastraModelConfig } from "@mastra/core/llm";
 import { z } from "zod";
 import { getAssistantText } from "./message-text";
 import { model } from "@/mastra/config/model";
+import { createCerebrasRetryProcessor } from "@/mastra/config/error-processors";
 import {
   COACH_SCOPE_JUDGE_INSTRUCTIONS,
   COACH_SCOPE_SEVERITY_SCORES,
@@ -28,13 +28,7 @@ export const createCoachScopeScorer = (judgeModel: MastraModelConfig = model) =>
       instructions: COACH_SCOPE_JUDGE_INSTRUCTIONS,
       // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
       // with backoff, same as the Coach/Categorizer agents themselves.
-      errorProcessors: [
-        new StreamErrorRetryProcessor({
-          retryUnknownErrors: true,
-          maxRetries: 2,
-          delayMs: ({ retryCount }) => Math.min(4000 * 2 ** retryCount, 20000),
-        }),
-      ],
+      errorProcessors: [createCerebrasRetryProcessor()],
     },
   })
     .analyze({

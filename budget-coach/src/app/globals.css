@@ -72,7 +72,7 @@
    OS color scheme, so the threads panel is held light too — otherwise it would
    clash with the sidebar it sits beside. The panel reads --foreground for its
    titles/body text, which the dark-mode block above flips. The demo content
-   (CopilotSidebar + ProverbsCard) uses its own colors, not these tokens, so
+   (CopilotSidebar) uses its own colors, not these tokens, so
    re-pinning a stable light foreground/background on the threads layout wrapper
    keeps the panel readable without affecting anything else. The confirm dialog
    renders in a portal on <body>, so re-pin there as well. Values mirror the V2
