@@ -9,8 +9,7 @@ import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { parseAmendments } from "@/domain/budget-state";
 import { computeAnalysis } from "@/domain/analysis";
 import { periodOf } from "@/domain/period";
-import { SpanType } from "@mastra/core/observability";
-import { OBSERVABILITY_EVENTS } from "@/constants/observability";
+import { traceToolError, traceToolEvent } from "@/mastra/tools/with-tool-error-handling";
 
 // Pot transfers aren't income or an expense (ADR-0013) and are never
 // user-added, so they're filtered out of every agent-facing transaction
@@ -58,12 +57,8 @@ export const listTransactionsTool = createTool({
         );
       return { transactions: filtered };
     } catch (err) {
-      context.observe.log("error", "list-transactions failed", { error: String(err) });
       // Whole tool failed; the empty-list return would otherwise look successful.
-      context.tracingContext?.currentSpan?.error({
-        error: err instanceof Error ? err : new Error(String(err)),
-        metadata: { event: OBSERVABILITY_EVENTS.toolFailure, tool: "listTransactions" },
-      });
+      traceToolError(context, err, "LIST_TRANSACTIONS_FAILED");
       return { transactions: [], error: "Couldn't load your transactions right now." };
     }
   },
@@ -72,10 +67,14 @@ export const listTransactionsTool = createTool({
 export const AddTransactionItemSchema = z
   .object({
     merchant: z.string(),
-    amount: z.number(),
+    amount: z.number().positive(),
     type: z.enum(["income", "expense"]),
     category: CategorySchema.optional(),
-    date: z.string().optional().describe("ISO date (YYYY-MM-DD); defaults to today"),
+    date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be an ISO date (YYYY-MM-DD)")
+      .optional()
+      .describe("ISO date (YYYY-MM-DD); defaults to today"),
     // ADR-0012: an Expense paid out of a Savings Pot debits that pot and is
     // excluded from Net Savings, because the money was saved in an earlier
     // Period and already sits in the Savings Balance.
@@ -197,17 +196,8 @@ export const addTransactionsTool = createTool({
           });
         }
       } catch (err) {
-        context.observe.log("error", "add-transactions item failed", {
-          merchant: item.merchant,
-          error: String(err),
-        });
         // Event span, not span.error() — the batch can still partly succeed.
-        context.tracingContext?.currentSpan?.createEventSpan({
-          name: "add-transactions item failed",
-          type: SpanType.GENERIC,
-          metadata: { event: OBSERVABILITY_EVENTS.toolFailure, tool: "addTransactions" },
-          output: { merchant: item.merchant, error: String(err) },
-        });
+        traceToolEvent(context, err, `add-transactions item failed: ${item.merchant}`, "ADD_TRANSACTION_ITEM_FAILED");
         failed.push({
           merchant: item.merchant,
           amount: item.amount,

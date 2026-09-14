@@ -2,6 +2,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { categorizerAgent } from "@/mastra/agents/categorizer";
+import { traceToolError } from "@/mastra/tools/with-tool-error-handling";
 
 // Agent-as-tool: wraps the Categorizer agent so the Coach can delegate
 // classification while getting a schema-validated category back, rather
@@ -42,7 +43,7 @@ export const categorizeBatchTool = createTool({
     items: z.array(z.object({ merchant: z.string(), amount: z.number() })),
   }),
   outputSchema: CategorizeBatchOutputSchema,
-  execute: async ({ items }) => {
+  execute: async ({ items }, context) => {
     try {
       // One agent call for the whole batch — keeps Cerebras request count flat
       // regardless of N (the free tier caps at 5 req/min).
@@ -53,7 +54,11 @@ export const categorizeBatchTool = createTool({
         structuredOutput: { schema: CategorizeBatchOutputSchema },
       });
       return { results: reconcileBatchCategories(items, result.object?.results) };
-    } catch {
+    } catch (err) {
+      // Degrading to "Other" is the intended business fallback here (see
+      // reconcileBatchCategories), not a hard failure — but that must not
+      // also swallow the trace of what actually went wrong.
+      traceToolError(context, err, "CATEGORIZE_FALLBACK");
       return { results: reconcileBatchCategories(items, undefined) };
     }
   },
