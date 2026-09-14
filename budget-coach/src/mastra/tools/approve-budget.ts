@@ -4,6 +4,7 @@ import { currentPeriod } from "@/domain/period";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { loadBudgetContext } from "@/mastra/lib/budget-context";
+import { isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
 import { MonthlyReviewSuspendSchema, MonthlyReviewResumeSchema } from "@/mastra/workflows/monthly-review-workflow";
 import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
@@ -64,14 +65,19 @@ export const approveBudgetTool = createTool({
       };
     }
 
-    const { current, cap, forecastIncome, commitments } = await loadBudgetContext(context);
+    const { current, save, cap, forecastIncome, commitments } = await loadBudgetContext(context);
 
     // At most one Monthly Review may be Pending Approval at a time — a second
     // trigger before the first is decided would overwrite pendingApproval's
     // runId and orphan the first suspended run.
-    const pendingApproval = current.pendingApproval as { runId?: string } | undefined;
+    const pendingApproval = current.pendingApproval as PendingApproval | undefined;
     if (pendingApproval?.runId) {
-      return { message: "You already have an approval awaiting your decision." };
+      if (!isPendingApprovalStale(pendingApproval)) {
+        return { message: "You already have an approval awaiting your decision." };
+      }
+      // Abandoned: its suspend interrupt was never resumed, so applyOrDiscard
+      // never ran to clear it. Clear it here instead of blocking forever.
+      await save({ ...current, pendingApproval: null });
     }
 
     const lastReviewPeriod = current.lastReviewPeriod as string | undefined;

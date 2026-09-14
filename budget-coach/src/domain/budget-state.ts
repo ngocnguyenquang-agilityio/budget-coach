@@ -54,10 +54,14 @@ export const BudgetStateSchema = z.object({
   // setting it to `null` (merge semantics) — both this and `workflow` must
   // accept that shape or the model's own updateWorkingMemory tool call fails
   // validation whenever it tries to clear a resolved approval.
+  // `createdAt` (ISO timestamp) backs the TTL in
+  // src/mastra/lib/pending-approval.ts, the only thing that clears a pending
+  // approval whose suspend interrupt never reached the user.
   pendingApproval: z
     .object({
       runId: z.string(),
       workflow: z.enum(["monthly-review", "refit"]).nullable().optional(),
+      createdAt: z.string().optional(),
     })
     .nullable()
     .optional(),
