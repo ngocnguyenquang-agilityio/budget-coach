@@ -5,7 +5,7 @@ import { AnalysisResultSchema } from "@/domain/analysis";
 import { analystAgent } from "@/mastra/agents/analyst";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
-import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
+import { ToolPreconditionError, withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // Agent-as-tool: wraps the Analyst agent. The Analyst has no memory of its
 // own, so this tool fetches the Coach's current categoryLimits from working
@@ -20,14 +20,14 @@ export const analyzeSpendingTool = createTool({
   execute: withToolErrorHandling(async (_input, context) => {
     const resourceId = resolveResourceId(context);
     const threadId = context.agent?.threadId;
-
-    let categoryLimits: Record<string, number> = {};
-    if (threadId) {
-      const coachAgent = context.mastra?.getAgent("coach");
-      const memory = await coachAgent?.getMemory();
-      const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
-      categoryLimits = (parseWorkingMemory(raw).categoryLimits as Record<string, number> | undefined) ?? {};
+    if (!threadId) {
+      throw new ToolPreconditionError("Missing threadId — analyze-spending must be called within an agent thread");
     }
+
+    const coachAgent = context.mastra?.getAgent("coach");
+    const memory = await coachAgent?.getMemory();
+    const raw = memory ? await memory.getWorkingMemory({ threadId, resourceId }) : null;
+    const categoryLimits = (parseWorkingMemory(raw).categoryLimits as Record<string, number> | undefined) ?? {};
 
     const requestContext = new RequestContext();
     requestContext.set("resourceId", resourceId);

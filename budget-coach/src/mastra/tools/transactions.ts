@@ -9,7 +9,7 @@ import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { parseAmendments } from "@/domain/budget-state";
 import { computeAnalysis } from "@/domain/analysis";
 import { periodOf } from "@/domain/period";
-import { traceToolError, traceToolEvent } from "@/mastra/tools/with-tool-error-handling";
+import { traceToolError, traceToolEvent, withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // Pot transfers aren't income or an expense (ADR-0013) and are never
 // user-added, so they're filtered out of every agent-facing transaction
@@ -107,7 +107,7 @@ export const addTransactionsTool = createTool({
     // Unallocated moves, not a pot rate or the Cap.
     amendedPeriods: z.array(z.string()).optional(),
   }),
-  execute: async ({ transactions: items }, context) => {
+  execute: withToolErrorHandling(async ({ transactions: items }, context) => {
     const resourceId = resolveResourceId(context);
     const today = new Date().toISOString().slice(0, 10);
 
@@ -237,5 +237,5 @@ export const addTransactionsTool = createTool({
       ...(draws.size > 0 ? { potDraws: [...draws.values()] } : {}),
       ...(amendedPeriods.length > 0 ? { amendedPeriods } : {}),
     };
-  },
+  }),
 });
