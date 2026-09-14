@@ -47,8 +47,8 @@ export const analyzeSpendingTool = createTool({
         `Category limits (JSON): ${JSON.stringify(categoryLimits)}\n\nCall analyzeTransactions and report the result.`,
         { requestContext }
       );
-    } catch {
-      throw new Error("Spending analysis unavailable — analyst agent failed");
+    } catch (err) {
+      throw new Error("Spending analysis unavailable — analyst agent failed", { cause: err });
     }
 
     // Read the analyzeTransactions tool's own (deterministically-computed)

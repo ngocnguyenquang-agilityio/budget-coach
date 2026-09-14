@@ -27,9 +27,9 @@ export const POST = withErrorHandling(async (req) => {
   const amount = Number(body.amount);
   const type = body.type === "income" ? "income" : body.type === "expense" ? "expense" : undefined;
 
-  if (!merchant || !Number.isFinite(amount) || !type) {
+  if (!merchant || !Number.isFinite(amount) || amount <= 0 || !type) {
     return NextResponse.json(
-      { error: "merchant, amount, and a valid type are required" },
+      { error: "merchant, a positive amount, and a valid type are required" },
       { status: 400 },
     );
   }
