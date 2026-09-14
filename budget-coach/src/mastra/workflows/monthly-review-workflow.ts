@@ -238,7 +238,10 @@ const approvalGate = createStep({
         await memory.updateWorkingMemory({
           threadId: inputData.threadId,
           resourceId: inputData.resourceId,
-          workingMemory: JSON.stringify({ ...current, pendingApproval: { runId, workflow: "monthly-review" } }),
+          workingMemory: JSON.stringify({
+            ...current,
+            pendingApproval: { runId, workflow: "monthly-review", createdAt: new Date().toISOString() },
+          }),
         });
       }
 

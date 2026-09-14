@@ -3,6 +3,7 @@ import { z } from "zod";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { RefitSuspendSchema, RefitResumeSchema } from "@/mastra/workflows/refit-workflow";
+import { isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
 import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 // The Coach's entry point into refitWorkflow — the forward-looking counterpart
@@ -67,9 +68,20 @@ export const refitBudgetTool = createTool({
     // At most one approval may be Pending Approval across both workflows at a
     // time — a second trigger would overwrite pendingApproval's runId and
     // orphan the first suspended run.
-    const pendingApproval = current.pendingApproval as { runId?: string } | undefined;
+    const pendingApproval = current.pendingApproval as PendingApproval | undefined;
     if (pendingApproval?.runId) {
-      return { message: "You already have an approval awaiting your decision." };
+      if (!isPendingApprovalStale(pendingApproval)) {
+        return { message: "You already have an approval awaiting your decision." };
+      }
+      // Abandoned: its suspend interrupt was never resumed, so applyOrDiscard
+      // never ran to clear it. Clear it here instead of blocking forever.
+      if (memory) {
+        await memory.updateWorkingMemory({
+          threadId,
+          resourceId,
+          workingMemory: JSON.stringify({ ...current, pendingApproval: null }),
+        });
+      }
     }
 
     const run = await workflow.createRun();
