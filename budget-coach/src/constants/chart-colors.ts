@@ -1,17 +1,17 @@
 import type { Category } from "@/domain/categories";
 
 export const CATEGORY_COLORS: Record<Category, string> = {
-  Groceries: "var(--chart-1)",
-  Dining: "var(--chart-2)",
-  Transport: "var(--chart-3)",
-  Utilities: "var(--chart-4)",
-  Entertainment: "var(--chart-5)",
-  Shopping: "var(--chart-6)",
-  Housing: "var(--chart-7)",
-  Health: "var(--chart-8)",
-  Other: "var(--chart-neutral)",
+  Groceries: "var(--budget-chart-1)",
+  Dining: "var(--budget-chart-2)",
+  Transport: "var(--budget-chart-3)",
+  Utilities: "var(--budget-chart-4)",
+  Entertainment: "var(--budget-chart-5)",
+  Shopping: "var(--budget-chart-6)",
+  Housing: "var(--budget-chart-7)",
+  Health: "var(--budget-chart-8)",
+  Other: "var(--budget-chart-neutral)",
 };
 
-export const INCOME_COLOR = "var(--chart-positive)";
+export const INCOME_COLOR = "var(--budget-chart-positive)";
 
-export const TRANSFER_COLOR = "var(--chart-neutral)";
+export const TRANSFER_COLOR = "var(--budget-chart-neutral)";

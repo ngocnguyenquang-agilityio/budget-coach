@@ -587,7 +587,7 @@ export const Dashboard = () => {
               <p className="text-xs text-[var(--muted-foreground)]">
                 Income received this month
               </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: "var(--chart-positive)" }}>
+              <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: "var(--budget-chart-positive)" }}>
                 ${analysis.receivedIncome.toFixed(2)}
               </p>
               {analysis.forecastIncome > analysis.receivedIncome && (

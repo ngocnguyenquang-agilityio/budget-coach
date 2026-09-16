@@ -42,17 +42,21 @@
 
   /* Categorical chart palette (light) — validated for CVD-safe adjacent
      pairs via the dataviz skill's palette.md / validate_palette.js. Fixed
-     hue-per-slot order, never cycled. */
-  --chart-1: #2a78d6; /* blue */
-  --chart-2: #eb6834; /* orange */
-  --chart-3: #1baf7a; /* aqua */
-  --chart-4: #eda100; /* yellow */
-  --chart-5: #e87ba4; /* magenta */
-  --chart-6: #008300; /* green */
-  --chart-7: #4a3aa7; /* violet */
-  --chart-8: #e34948; /* red */
-  --chart-neutral: #78716c; /* uncategorized/"Other" — deliberately outside the categorical set */
-  --chart-positive: #16a34a; /* Income — deliberately outside the categorical set */
+     hue-per-slot order, never cycled. Namespaced --budget-chart-* (not
+     --chart-*) because CopilotKit's V2 CSS defines its own --chart-1..5
+     scoped to [data-copilotkit] — generative UI rendered inside the chat
+     sidebar sits under that wrapper and would otherwise inherit
+     CopilotKit's shadcn-default palette instead of ours. */
+  --budget-chart-1: #2a78d6; /* blue */
+  --budget-chart-2: #eb6834; /* orange */
+  --budget-chart-3: #1baf7a; /* aqua */
+  --budget-chart-4: #eda100; /* yellow */
+  --budget-chart-5: #e87ba4; /* magenta */
+  --budget-chart-6: #008300; /* green */
+  --budget-chart-7: #4a3aa7; /* violet */
+  --budget-chart-8: #e34948; /* red */
+  --budget-chart-neutral: #78716c; /* uncategorized/"Other" — deliberately outside the categorical set */
+  --budget-chart-positive: #16a34a; /* Income — deliberately outside the categorical set */
 }
 
 @theme inline {

@@ -1,0 +1,42 @@
+diff --git a/dist/copilotkit-2v7ami2b.cjs b/dist/copilotkit-2v7ami2b.cjs
+index 888f576ae8453e9930432f9f62d2a0a3023c048c..13d7bfeda6531dfce7155b178799a33b1376be3b 100644
+--- a/dist/copilotkit-2v7ami2b.cjs
++++ b/dist/copilotkit-2v7ami2b.cjs
+@@ -7133,7 +7133,8 @@ function CopilotChatMessageView({ messages = [], assistantMessage, userMessage,
+ 		initialRect: {
+ 			width: 0,
+ 			height: 600
+-		}
++		},
++		useFlushSync: false
+ 	});
+ 	const firstMessageId = deduplicatedMessages[0]?.id;
+ 	(0, react.useLayoutEffect)(() => {
+diff --git a/dist/copilotkit-DnlgZWST.mjs b/dist/copilotkit-DnlgZWST.mjs
+index 2d76e33465620a51d63a1b39f0d09c307b85740a..1596c16730f38b2351bc50320eed6f8d4e011ad5 100644
+--- a/dist/copilotkit-DnlgZWST.mjs
++++ b/dist/copilotkit-DnlgZWST.mjs
+@@ -7103,7 +7103,8 @@ function CopilotChatMessageView({ messages = [], assistantMessage, userMessage,
+ 		initialRect: {
+ 			width: 0,
+ 			height: 600
+-		}
++		},
++		useFlushSync: false
+ 	});
+ 	const firstMessageId = deduplicatedMessages[0]?.id;
+ 	useLayoutEffect(() => {
+diff --git a/dist/v2/index.umd.js b/dist/v2/index.umd.js
+index 0944aec51d8ada7185315906477f2725115726de..ba1d28a8fecf870d1c5f902f55c6a6861f2b72c6 100644
+--- a/dist/v2/index.umd.js
++++ b/dist/v2/index.umd.js
+@@ -7118,7 +7118,8 @@ window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-
+ 			initialRect: {
+ 				width: 0,
+ 				height: 600
+-			}
++			},
++			useFlushSync: false
+ 		});
+ 		const firstMessageId = deduplicatedMessages[0]?.id;
+ 		(0, react.useLayoutEffect)(() => {

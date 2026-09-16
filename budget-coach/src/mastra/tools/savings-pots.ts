@@ -112,13 +112,22 @@ export const updateSavingsPotTool = createTool({
   id: "update-savings-pot",
   description:
     "Update a savings pot: rename it, or change its target amount, deadline, or monthly rate. Identify the pot by its current name. Pass an empty string as newDeadline to clear a deadline.",
-  inputSchema: z.object({
-    name: z.string().min(1),
-    newName: z.string().min(1).max(60).optional(),
-    newTarget: z.number().positive().optional(),
-    newDeadline: z.string().optional(),
-    newRatePerMonth: z.number().positive().optional(),
-  }),
+  inputSchema: z
+    .object({
+      name: z.string().min(1),
+      newName: z.string().min(1).max(60).optional(),
+      newTarget: z.number().positive().optional(),
+      newDeadline: z.string().optional(),
+      newRatePerMonth: z.number().positive().optional(),
+    })
+    .refine(
+      (value) =>
+        value.newName !== undefined ||
+        value.newTarget !== undefined ||
+        value.newDeadline !== undefined ||
+        value.newRatePerMonth !== undefined,
+      { message: "Provide at least one of newName, newTarget, newDeadline, or newRatePerMonth to change." }
+    ),
   outputSchema,
   execute: withToolErrorHandling(
     async ({ name, newName, newTarget, newDeadline, newRatePerMonth }, context) => {
@@ -148,6 +157,14 @@ export const updateSavingsPotTool = createTool({
               ...renamed,
               ...(newRatePerMonth !== undefined ? { ratePerMonth: newRatePerMonth } : {}),
             };
+
+      // A call whose fields all match the pot's current values (the model has
+      // been observed retrying this tool with no actual change) — skip the
+      // write and the refit check rather than persisting and rendering a
+      // no-op "update".
+      if (JSON.stringify(pot) === JSON.stringify(existing)) {
+        return { message: `Nothing to update — the "${existing.name}" pot already matches that.` };
+      }
 
       const next = pots.map((entry) => (entry.id === pot.id ? pot : entry));
       const rate = potRate(pot, period);
