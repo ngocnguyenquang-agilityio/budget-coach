@@ -58,3 +58,20 @@ export const REGULATED_ADVICE_KEYWORDS = [
   "index fund",
   "mutual fund",
 ];
+
+// Top-level BudgetStateSchema field names (src/domain/budget-state.ts).
+// workingMemoryLeakGuardrail treats a `{...}` span in the Coach's response as
+// a leaked working-memory dump when it contains several of these — Mastra's
+// read-only working memory injection tells the model "the user will not see
+// this data directly", but Cerebras's gpt-oss-120b doesn't reliably honor
+// that and sometimes pastes the raw blob into its reply mid-sentence.
+export const WORKING_MEMORY_LEAK_MARKERS = [
+  '"categoryLimits"',
+  '"lastReviewPeriod"',
+  '"lastClosedPeriod"',
+  '"unallocated"',
+  '"pendingApproval"',
+  '"coachPreferences"',
+  '"savingsPots"',
+  '"pendingAmendments"',
+];

@@ -8,6 +8,7 @@ import {
   promptInjectionGuardrail,
   financialAdviceGuardrail,
   regulatedAdviceOutputGuardrail,
+  workingMemoryLeakGuardrail,
 } from "@/mastra/guardrails";
 import { DedupeToolCallsProcessor } from "@/mastra/processors/dedupe-tool-calls";
 import {
@@ -68,6 +69,20 @@ const buildPreferenceDirectives = (
     : "";
 };
 
+// Cerebras's gpt-oss-120b can go off-script and loop on spurious tool calls
+// (observed: it answered "what did I spend on groceries?" by calling
+// listTransactions correctly, then repeatedly hallucinated a call to a
+// nonexistent "updateWorkingMemory" tool under the updateSavingsPot name,
+// with args matching the working-memory schema rather than the pot schema)
+// and burn the whole step budget without ever emitting text — the user sees
+// tool-result cards and no answer. Reserving the final step with
+// `toolChoice: "none"` alone isn't enough — Cerebras doesn't reliably honor
+// it and the model can still attempt a (now-invalid) tool call, which comes
+// back as an empty, unresolved step. Also drop `activeTools` to an empty
+// list on that step so no tool schemas are even sent, leaving text as the
+// model's only option.
+const COACH_MAX_STEPS = 8;
+
 // requestContext.get("ag-ui") is @ag-ui/mastra's frontend-context channel, not
 // auto-injected into the prompt. coachPreferences rides the same channel since
 // instructions() has no resourceId/threadId to read working memory directly.
@@ -75,6 +90,11 @@ export const coachAgent = new Agent({
   id: "coach",
   name: "Coach",
   model,
+  defaultOptions: {
+    maxSteps: COACH_MAX_STEPS,
+    prepareStep: ({ stepNumber }) =>
+      stepNumber >= COACH_MAX_STEPS - 1 ? { toolChoice: "none", activeTools: [] } : undefined,
+  },
   instructions: async ({ requestContext }) => {
     const withDate = `Today's date is ${new Date().toISOString().slice(0, 10)}.\n\n${COACH_BASE_INSTRUCTIONS}`;
     const frontendContext = requestContext?.get("ag-ui") as
@@ -92,7 +112,7 @@ export const coachAgent = new Agent({
     promptInjectionGuardrail,
     financialAdviceGuardrail,
   ],
-  outputProcessors: [regulatedAdviceOutputGuardrail],
+  outputProcessors: [workingMemoryLeakGuardrail, regulatedAdviceOutputGuardrail],
   // Cerebras's free tier caps at 5 requests/minute; retry transient 429s
   // with backoff instead of surfacing them to the user.
   errorProcessors: [createCerebrasRetryProcessor()],

@@ -13,7 +13,7 @@ export const SavingsPotProgress = ({ pot }: { pot: SavingsPot }) => {
 
   const barColor =
     status === "complete"
-      ? "var(--chart-positive)"
+      ? "var(--budget-chart-positive)"
       : status === "behind"
         ? "var(--destructive)"
         : "var(--foreground)";
@@ -27,8 +27,8 @@ export const SavingsPotProgress = ({ pot }: { pot: SavingsPot }) => {
           <span className="truncate">{pot.name}</span>
           {status === "complete" && (
             <span
-              className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--chart-positive)_18%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              style={{ color: "var(--chart-positive)" }}
+              className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--budget-chart-positive)_18%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: "var(--budget-chart-positive)" }}
             >
               Complete
             </span>

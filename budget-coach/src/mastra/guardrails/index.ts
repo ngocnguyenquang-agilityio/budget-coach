@@ -1,11 +1,13 @@
 import { BlockedPhraseGuardrail } from "../processors/blocked-phrase-guardrail";
 import { FinancialAdviceGuardrail } from "../processors/financial-advice-guardrail";
 import { RegulatedAdviceOutputGuardrail } from "../processors/regulated-advice-output-guardrail";
+import { WorkingMemoryLeakGuardrail } from "../processors/working-memory-leak-guardrail";
 import {
   PROMPT_INJECTION_PHRASES,
   FINANCIAL_INSTRUMENT_KEYWORDS,
   DECISION_SEEKING_KEYWORDS,
   REGULATED_ADVICE_KEYWORDS,
+  WORKING_MEMORY_LEAK_MARKERS,
 } from "@/constants/guardrail-phrases";
 
 export const promptInjectionGuardrail = new BlockedPhraseGuardrail({
@@ -27,3 +29,8 @@ export const regulatedAdviceOutputGuardrail = new RegulatedAdviceOutputGuardrail
   blockedKeywords: REGULATED_ADVICE_KEYWORDS,
   redirectMessage: "I can't help with investment advice — I can help you budget for it, though.",
 });
+
+// Output-side backstop for the Coach's read-only working memory (coach.ts) —
+// redacts a raw working-memory JSON dump if the model pastes one into its
+// reply instead of treating it as background context only.
+export const workingMemoryLeakGuardrail = new WorkingMemoryLeakGuardrail(WORKING_MEMORY_LEAK_MARKERS);
