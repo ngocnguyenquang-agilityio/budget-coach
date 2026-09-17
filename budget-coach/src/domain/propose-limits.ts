@@ -1,3 +1,4 @@
+import { LIMIT_BUFFER_MULTIPLIER } from "../constants/propose-limits";
 import type { AnalysisResult } from "./analysis";
 import type { Category } from "./categories";
 
@@ -40,7 +41,7 @@ export const proposeCategoryLimits = (
   const proposed: Partial<Record<Category, number>> = {};
 
   for (const { category, spent } of analysis.categoryTotals) {
-    proposed[category] = Math.round(spent * 1.1 * 100) / 100;
+    proposed[category] = Math.round(spent * LIMIT_BUFFER_MULTIPLIER * 100) / 100;
   }
 
   if (cap === undefined) return proposed;
