@@ -1,53 +1,7 @@
 import type { Processor, ProcessOutputResultArgs, ProcessorMessageResult } from "@mastra/core/processors";
 import type { MastraDBMessage } from "@mastra/core/memory";
 import { logGuardrailViolation } from "../guardrails/block-channel";
-
-const MIN_MARKER_MATCHES = 3;
-
-// Brace-matches from `start` (a `{`), string/escape aware so a `}` inside a
-// quoted value (pot name, nickname, ...) doesn't end the object early.
-// Returns the index of the matching `}`, or -1 if the text ends unbalanced.
-const matchBrace = (text: string, start: number): number => {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i++) {
-    const char = text[i];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') inString = true;
-    else if (char === "{") depth++;
-    else if (char === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-};
-
-// Scans left to right for the smallest top-level `{...}` span whose content
-// contains at least MIN_MARKER_MATCHES distinct working-memory field names.
-// Brace-matching (rather than a fixed-key-order regex) is required because
-// Mastra serializes working memory in whatever key order the resource
-// currently holds, not BudgetStateSchema's declaration order.
-const findLeakedWorkingMemorySpan = (
-  text: string,
-  markers: readonly string[],
-): [number, number] | null => {
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] !== "{") continue;
-    const end = matchBrace(text, i);
-    if (end === -1) continue;
-    const candidate = text.slice(i, end + 1);
-    const matches = markers.filter((marker) => candidate.includes(marker)).length;
-    if (matches >= MIN_MARKER_MATCHES) return [i, end + 1];
-  }
-  return null;
-};
+import { redactWorkingMemoryLeak } from "../lib/redact-working-memory-leak";
 
 type TextPart = Extract<MastraDBMessage["content"]["parts"][number], { type: "text" }>;
 
@@ -57,10 +11,16 @@ type TextPart = Extract<MastraDBMessage["content"]["parts"][number], { type: "te
 // gpt-oss-120b doesn't reliably honor that — observed pasting the raw
 // working-memory JSON it was given for context straight into a reply,
 // mid-sentence, before self-correcting into the real answer. Unlike the
-// regulated-advice guardrail this redacts just the leaked span rather than
+// regulated-advice guardrail this redacts just the leaked span(s) rather than
 // discarding the whole reply, since the surrounding text is normally the
 // real answer and the leaked data (limits, pot balances, preferences) isn't
 // itself a safety concern.
+//
+// This is the post-generation half of the fix; the AG-UI run wrapper
+// (src/agent.ts) runs the same `redactWorkingMemoryLeak` on the streamed
+// TEXT_MESSAGE_CHUNK, which is what the user actually sees — a
+// processOutputResult rewrite does not make it into @ag-ui/mastra's re-emitted
+// finish-chunk text. Keeping both means the stored message is clean too.
 //
 // Operates per text part of the actual `messages` array, not `result.text`
 // (the OutputResult's text accumulated across every step of the Coach's up-
@@ -85,15 +45,11 @@ export class WorkingMemoryLeakGuardrail implements Processor {
       const cleanedParts = parts.map((part) => {
         if (part.type !== "text") return part;
 
-        const span = findLeakedWorkingMemorySpan(part.text, this.markers);
-        if (!span) return part;
+        const { text: cleanedText, redactedLength } = redactWorkingMemoryLeak(part.text, this.markers);
+        if (redactedLength === 0) return part;
 
-        const [start, end] = span;
-        leakedLength += end - start;
+        leakedLength += redactedLength;
         changed = true;
-        const cleanedText = `${part.text.slice(0, start)}${part.text.slice(end)}`
-          .replace(/[ \t]{2,}/g, " ")
-          .trim();
         return { ...part, text: cleanedText } satisfies TextPart;
       });
 
