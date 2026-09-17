@@ -6,6 +6,9 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/core";
 import { Observable } from "rxjs";
 import { mastra } from "@/mastra";
 import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardrails/block-channel";
+import { COACH_EMPTY_RESPONSE_FALLBACK } from "@/constants/coach-fallback";
+import { redactWorkingMemoryLeak } from "@/mastra/lib/redact-working-memory-leak";
+import { WORKING_MEMORY_LEAK_MARKERS } from "@/constants/guardrail-phrases";
 
 // Mastra's tripwire chunk (emitted when a guardrail calls abort()) is
 // silently dropped by @ag-ui/mastra's chunk handler — there's no public
@@ -14,11 +17,56 @@ import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardr
 // inject a synthetic assistant text message carrying the guardrail's
 // friendly userMessage whenever a guardrail fired (via onViolation, see
 // src/mastra/guardrails/block-channel.ts) but no real text was produced.
-const ASSISTANT_TEXT_EVENT_TYPES: EventType[] = [
-  EventType.TEXT_MESSAGE_START,
+//
+// The same wrapper also covers a second silent-turn cause: gpt-oss-120b on
+// Cerebras can exhaust its step budget on reasoning/tool calls and end with
+// an empty content channel (see coach.ts:72-83) — tools ran, but the user
+// sees no reply. On a clean RUN_FINISHED with no assistant text and no
+// guardrail message, we echo the last tool's human-readable `message`
+// (e.g. addRecurringSchedule's "Recorded 'Salary' as a recurring income…")
+// or, failing that, a neutral fallback.
+// Events that carry the assistant's reply text in a `delta` field. With
+// `useProcessedFinalText` enabled (see enableProcessedFinalText below),
+// @ag-ui/mastra buffers the reply and re-emits it as a single
+// TEXT_MESSAGE_CHUNK whose delta is the whole answer — so redacting each
+// delta here catches a complete leaked working-memory blob (gpt-oss-120b
+// sometimes dumps its read-only working memory into the reply; see
+// src/mastra/lib/redact-working-memory-leak.ts). This is the only layer the
+// browser actually renders: a processOutputResult rewrite does not reach the
+// re-emitted finish-chunk text.
+const ASSISTANT_TEXT_DELTA_EVENT_TYPES: EventType[] = [
   EventType.TEXT_MESSAGE_CONTENT,
   EventType.TEXT_MESSAGE_CHUNK,
 ];
+
+// Redacts a leaked working-memory blob from a text-delta event. Returns the
+// (possibly rewritten) event plus whether any real reply text survives, so a
+// turn whose entire content was the leak still falls through to the fallback
+// instead of showing the user an empty bubble.
+const redactTextDeltaEvent = (event: BaseEvent): { event: BaseEvent; hasText: boolean } => {
+  const delta = (event as { delta?: unknown }).delta;
+  if (typeof delta !== "string" || delta.length === 0) return { event, hasText: false };
+
+  const { text, redactedLength } = redactWorkingMemoryLeak(delta, WORKING_MEMORY_LEAK_MARKERS);
+  if (redactedLength === 0) return { event, hasText: delta.trim().length > 0 };
+  return { event: { ...event, delta: text } as BaseEvent, hasText: text.trim().length > 0 };
+};
+
+// Best-effort extraction of a tool result's user-facing `message` field.
+// Tool results arrive as a JSON string on the TOOL_CALL_RESULT event's
+// `content`; parse defensively and ignore anything without a string message.
+const toolResultMessage = (event: BaseEvent): string | undefined => {
+  const content = (event as { content?: unknown }).content;
+  try {
+    const parsed = typeof content === "string" ? JSON.parse(content) : content;
+    if (parsed && typeof parsed === "object" && typeof (parsed as { message?: unknown }).message === "string") {
+      return (parsed as { message: string }).message;
+    }
+  } catch {
+    // Not JSON, or not the shape we expected — no message to echo.
+  }
+  return undefined;
+};
 
 // CopilotKit's runtime clones the agent per request (`agents[id].clone()` in
 // @copilotkit/runtime's agent-utils), and MastraAgent.clone() rebuilds a
@@ -45,23 +93,65 @@ const patchMastraAgentRunOnce = (): void => {
   ): Observable<BaseEvent> {
     return new Observable<BaseEvent>((subscriber) => {
       const store: GuardrailBlockStore = { sawAssistantText: false };
+      // Last tool result's user-facing message, echoed if the turn ends with
+      // no assistant text (the empty-content-channel case described above).
+      let lastToolMessage: string | undefined;
+      // Tool calls started in this run but not yet resolved by a result. A
+      // frontend `useHumanInTheLoop` tool (confirmTransactions, chooseCategory,
+      // provideSavingsGoal) is dispatched to the browser: CopilotKit ends the
+      // run with RUN_FINISHED so the client can render the card, and the tool's
+      // RESULT only arrives in the *next* (continuation) run — where the model
+      // produces its actual reply. Such a run legitimately ends with no
+      // assistant text, so it must NOT get the empty-response fallback, or a
+      // spurious "Sorry…" bubble lands between the card and the real answer.
+      // Server-side tools resolve within the same run, leaving this set empty,
+      // so the genuine dead-turn fallback still fires.
+      const pendingToolCalls = new Set<string>();
 
       return guardrailBlockChannel.run(store, () => {
         const subscription = originalRun.call(this, input).subscribe({
           next: (event) => {
-            if (ASSISTANT_TEXT_EVENT_TYPES.includes(event.type)) {
-              store.sawAssistantText = true;
+            let outgoing = event;
+            if (ASSISTANT_TEXT_DELTA_EVENT_TYPES.includes(event.type)) {
+              const { event: redacted, hasText } = redactTextDeltaEvent(event);
+              outgoing = redacted;
+              // Only count text that survives redaction: a turn whose entire
+              // reply was the leaked blob should still reach the fallback below
+              // rather than emit an empty bubble.
+              if (hasText) store.sawAssistantText = true;
+            }
+            if (event.type === EventType.TOOL_CALL_START) {
+              const id = (event as { toolCallId?: string }).toolCallId;
+              if (id) pendingToolCalls.add(id);
+            }
+            if (event.type === EventType.TOOL_CALL_RESULT) {
+              const id = (event as { toolCallId?: string }).toolCallId;
+              if (id) pendingToolCalls.delete(id);
+              lastToolMessage = toolResultMessage(event) ?? lastToolMessage;
             }
 
             const isTerminal = event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR;
-            if (isTerminal && store.userMessage && !store.sawAssistantText) {
+            // A guardrail block wins (fires on either terminal type); otherwise
+            // a clean RUN_FINISHED with no text gets the tool-echo/generic
+            // fallback — unless the run is yielding to an unresolved frontend
+            // tool call (see pendingToolCalls above), in which case a
+            // continuation run will carry the reply and no fallback is due.
+            // RUN_ERROR without a guardrail is left to error handling so a real
+            // failure isn't masked as a successful-looking reply.
+            const fallbackText = !store.sawAssistantText
+              ? store.userMessage ??
+                (event.type === EventType.RUN_FINISHED && pendingToolCalls.size === 0
+                  ? lastToolMessage ?? COACH_EMPTY_RESPONSE_FALLBACK
+                  : undefined)
+              : undefined;
+            if (isTerminal && fallbackText) {
               const messageId = randomUUID();
               subscriber.next({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" } as BaseEvent);
-              subscriber.next({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: store.userMessage } as BaseEvent);
+              subscriber.next({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: fallbackText } as BaseEvent);
               subscriber.next({ type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent);
             }
 
-            subscriber.next(event);
+            subscriber.next(outgoing);
           },
           error: (err) => subscriber.error(err),
           complete: () => subscriber.complete(),
