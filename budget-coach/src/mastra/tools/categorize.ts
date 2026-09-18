@@ -2,7 +2,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { CategorySchema } from "@/domain/categories";
 import { categorizerAgent } from "@/mastra/agents/categorizer";
-import { traceToolError } from "@/mastra/tools/with-tool-error-handling";
+import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
 // Agent-as-tool: wraps the Categorizer agent so the Coach can delegate
 // classification while getting a schema-validated category back, rather
@@ -43,23 +43,24 @@ export const categorizeBatchTool = createTool({
     items: z.array(z.object({ merchant: z.string(), amount: z.number() })),
   }),
   outputSchema: CategorizeBatchOutputSchema,
-  execute: async ({ items }, context) => {
-    try {
-      // One agent call for the whole batch — keeps Cerebras request count flat
-      // regardless of N (the free tier caps at 5 req/min).
-      const prompt = `Classify each of these transactions:\n${items
-        .map((item, index) => `${index + 1}. Merchant: ${item.merchant}, Amount: ${item.amount}`)
-        .join("\n")}`;
-      const result = await categorizerAgent.generate(prompt, {
-        structuredOutput: { schema: CategorizeBatchOutputSchema },
-      });
-      return { results: reconcileBatchCategories(items, result.object?.results) };
-    } catch (err) {
-      // Degrading to "Other" is the intended business fallback here (see
-      // reconcileBatchCategories), not a hard failure — but that must not
-      // also swallow the trace of what actually went wrong.
-      traceToolError(context, err, "CATEGORIZE_FALLBACK");
-      return { results: reconcileBatchCategories(items, undefined) };
-    }
-  },
+  execute: withToolErrorHandling(async ({ items }) => {
+    // One agent call for the whole batch — keeps Cerebras request count flat
+    // regardless of N (the free tier caps at 5 req/min).
+    const prompt = `Classify each of these transactions:\n${items
+      .map((item, index) => `${index + 1}. Merchant: ${item.merchant}, Amount: ${item.amount}`)
+      .join("\n")}`;
+    const result = await categorizerAgent.generate(prompt, {
+      structuredOutput: { schema: CategorizeBatchOutputSchema },
+    });
+    // Two distinct failure modes, deliberately handled differently:
+    //   - The weak model returned but produced no valid structured object
+    //     (result.object undefined) — the expected benign case;
+    //     reconcileBatchCategories degrades it to expense/"Other".
+    //   - A genuine API/network/rate-limit failure throws (after
+    //     StreamErrorRetryProcessor exhausts its retries) — withToolErrorHandling
+    //     turns that into { success: false, code: "TOOL_ERROR" } so the Coach
+    //     surfaces the failure, rather than silently mis-categorizing every
+    //     item as "Other" and pretending it worked.
+    return { results: reconcileBatchCategories(items, result.object?.results) };
+  }),
 });
