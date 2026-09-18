@@ -1,9 +1,12 @@
 import { BlockedPhraseGuardrail } from "../processors/blocked-phrase-guardrail";
+import { PromptInjectionGuardrail } from "../processors/prompt-injection-guardrail";
 import { FinancialAdviceGuardrail } from "../processors/financial-advice-guardrail";
 import { RegulatedAdviceOutputGuardrail } from "../processors/regulated-advice-output-guardrail";
 import { WorkingMemoryLeakGuardrail } from "../processors/working-memory-leak-guardrail";
 import {
   PROMPT_INJECTION_PHRASES,
+  PROMPT_INJECTION_INTENT_KEYWORDS,
+  PROMPT_INJECTION_TARGET_KEYWORDS,
   FINANCIAL_INSTRUMENT_KEYWORDS,
   DECISION_SEEKING_KEYWORDS,
   REGULATED_ADVICE_KEYWORDS,
@@ -12,6 +15,15 @@ import {
 
 export const promptInjectionGuardrail = new BlockedPhraseGuardrail({
   blockedPhrases: PROMPT_INJECTION_PHRASES,
+  userMessage: "I can't process that request.",
+});
+
+// Paraphrase-resistant companion to promptInjectionGuardrail: blocks on the
+// co-occurrence of an intent word and a target word (see guardrail-phrases.ts),
+// catching injections the fixed-phrase list above misses.
+export const promptInjectionHeuristicGuardrail = new PromptInjectionGuardrail({
+  intentKeywords: PROMPT_INJECTION_INTENT_KEYWORDS,
+  targetKeywords: PROMPT_INJECTION_TARGET_KEYWORDS,
   userMessage: "I can't process that request.",
 });
 

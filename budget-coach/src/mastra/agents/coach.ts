@@ -6,6 +6,7 @@ import { storage } from "@/mastra/config/storage";
 import { createCerebrasRetryProcessor } from "@/mastra/config/error-processors";
 import {
   promptInjectionGuardrail,
+  promptInjectionHeuristicGuardrail,
   financialAdviceGuardrail,
   regulatedAdviceOutputGuardrail,
   workingMemoryLeakGuardrail,
@@ -110,6 +111,7 @@ export const coachAgent = new Agent({
     new UnicodeNormalizer({ stripControlChars: true }),
     new DedupeToolCallsProcessor(),
     promptInjectionGuardrail,
+    promptInjectionHeuristicGuardrail,
     financialAdviceGuardrail,
   ],
   outputProcessors: [workingMemoryLeakGuardrail, regulatedAdviceOutputGuardrail],
