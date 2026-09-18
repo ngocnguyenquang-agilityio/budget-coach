@@ -55,36 +55,27 @@ These were mechanical, low-risk fixes with no real design ambiguity:
   after `auth.protect()` succeeds, instead of silently forwarding the
   literal string `"null"` as a resourceId.
 
-## Recommendations (not implemented — ranked by priority)
+## Recommendations
 
-### 1. Tool-level DB/runtime error handling (highest priority)
+### 1. Tool-level DB/runtime error handling — ✅ DONE
 
-`listTransactionsTool`, `addTransactionsTool`, the analyze-* tools
-(`analyze-transactions.ts`, `analyze-spending.ts`), `approveBudgetTool`,
-`setSavingsGoalTool`, and `src/db/transactions.ts` itself have no try/catch
-around DB or working-memory calls. A LibSQL failure propagates raw into
-Mastra's tool-call machinery, which currently just silently closes the SSE
-stream (see the agent-level limitation below) — the user sees the response
-simply stop, with no explanation.
+**Resolved since this review.** Every Coach tool now wraps its `execute` with
+`withToolErrorHandling` (`src/mastra/tools/with-tool-error-handling.ts`), which
+converts an unhandled throw into `{ success: false, error, code: "TOOL_ERROR" }`
+— the shape the Coach prompt is instructed to handle — while re-throwing a
+`ToolPreconditionError` so genuine precondition bugs stay distinguishable from
+runtime failures. The per-tool fallbacks this review called for all landed:
+- `listTransactionsTool` catches its own DB failure and returns an empty list +
+  an error note ("Couldn't load your transactions right now.").
+- `addTransactionsTool` surfaces partial-batch failures via a `failed[]` field,
+  so the Coach never claims a transaction was recorded when it wasn't.
+- `categorizeBatchTool` no longer swallows a genuine Cerebras failure as an
+  all-"Other" result (see #3 below).
 
-This is ranked above the workflow fix below because it affects **every**
-ordinary chat interaction (logging a transaction, asking for a spending
-breakdown), not just the once-a-month Monthly Review flow.
-
-Needs a per-tool design pass, not a mechanical wrap, because the right
-fallback differs by tool:
-- `listTransactionsTool` failing could reasonably return an empty list +
-  an error note, so the Coach can say "I couldn't load your transactions
-  right now."
-- `addTransactionsTool` failing should **not** pretend to succeed — the tool
-  result needs to make the failure legible to the Coach so it doesn't tell
-  the user transactions were recorded when they weren't (and, for a partial
-  batch failure, which of them did land).
-- `approveBudgetTool` / `setSavingsGoalTool` already deliberately throw for
-  bad *preconditions* (missing `threadId`, workflow not registered) — those
-  throws should stay as-is; only genuine runtime failures (a DB timeout
-  during `memory.updateWorkingMemory`) need a different, non-throwing path
-  so they're distinguishable from precondition bugs.
+Originally captured the pre-`withToolErrorHandling` state, when
+`listTransactionsTool`, `addTransactionsTool`, the analyze-* tools,
+`approveBudgetTool`, and `setSavingsGoalTool` had no try/catch around DB or
+working-memory calls.
 
 ### 2. Monthly Review workflow has no failure path
 
@@ -99,45 +90,41 @@ first suspended run") without addressing it. Recommend adding an explicit
 failure/cancel step and a way to discard or re-trigger a stale suspended
 run.
 
-### 3. `categorize.ts`'s broad catch conflates two different failure modes
+### 3. `categorize.ts`'s broad catch conflates two different failure modes — ✅ DONE
 
-```ts
-try {
-  const result = await categorizerAgent.generate(...);
-  return { results: reconcileBatchCategories(items, result.object?.results) };
-} catch {
-  return { results: reconcileBatchCategories(items, undefined) };
-}
-```
+**Resolved.** The broad `try/catch` that degraded to "Other" on any error was
+removed; `categorizeBatchTool.execute` is now wrapped with
+`withToolErrorHandling`. The two failure modes are handled distinctly:
+- Weak model returned but produced no valid structured object
+  (`result.object` undefined) — the benign case — still degrades to
+  expense/"Other" via `reconcileBatchCategories`, no throw.
+- A genuine API/network/rate-limit failure throws (after
+  `StreamErrorRetryProcessor` exhausts its retries) and surfaces as
+  `{ success: false, code: "TOOL_ERROR" }`, so the Coach reports the failure
+  instead of silently mis-categorizing every item.
 
-This is meant to catch the documented "weak local model returns
-non-structured output" case, but as written it also catches a genuine
-Cerebras outage or rate-limit exhaustion and silently degrades every item to
-category "Other" either way — masking a real failure as if it were the
-benign, expected case. Recommend narrowing the catch (or checking the error shape)
-so only the structured-output-parse failure degrades silently; a genuine
-API failure should propagate (or retry) rather than mis-categorize
-silently.
+### 4. No external error-reporting/alerting service — ⚠️ SEAM ADDED (no vendor wired)
 
-### 4. No external error-reporting/alerting service
+A shared reporter seam now exists at `src/lib/report-error.ts`: `reportError`
+logs to the console (the prior behavior) and, when `ERROR_REPORTING=on`, hands
+the error to a single forwarding hook — so wiring an actual service (Sentry,
+etc.) is a one-function change rather than touching every call site. The API
+route wrapper (`src/lib/with-error-handling.ts`), tool error tracing
+(`traceToolError`), and the Coach `run()` error path (`src/agent.ts`) all funnel
+through it. **Still open:** no third-party service is wired in yet.
 
-Logging today is console-only: Mastra's `ConsoleLogger`, one
-`console.warn` for guardrail violations (`guardrails/block-channel.ts`), and
-vendor `console.error` inside `@copilotkit/runtime`. There's no Sentry/
-equivalent, so a failure in production is only visible if someone is
-tailing server logs at the time. Not urgent for a local/demo project, but
-worth flagging for anything closer to production.
+### 5. Agent-level errors — ✅ app-controllable path now handled; ⚠️ vendor mid-stream unchanged
 
-### 5. Agent-level errors are vendor-constrained (known limitation, not fixable from app code)
+The user-visible half is fixed. The `run()` wrapper in `src/agent.ts` now emits
+`COACH_ERROR_FALLBACK` on a `RUN_ERROR` terminal event with no assistant text
+(previously that path emitted nothing, so the reply silently stopped) and
+reports the error through the seam above. The message is worded explicitly as a
+failure, so it surfaces the error rather than masking it as a successful reply.
 
-Beyond `StreamErrorRetryProcessor`'s retry-with-backoff, there is no
-app-level handling of a Cerebras call failing inside `coachAgent`,
-`analystAgent`, or `categorizerAgent`. Once retries are exhausted, the
-error surfaces inside `@copilotkit/runtime`'s SSE handling
-(`sse-response.mjs`), which logs server-side and closes the stream —
-**no error event is written to the client stream**, so the user just sees
-the response stop. This is vendor behavior, not something fixable from
-this codebase; noted here so it isn't mistaken for an oversight.
+**Still vendor-constrained:** an error that surfaces *mid-stream* inside
+`@copilotkit/runtime`'s SSE handling (`sse-response.mjs`) — rather than as a
+`RUN_ERROR` event this wrapper sees — is still logged server-side and closes the
+stream with no client event. That path isn't reachable from app code.
 
 ## Explicitly out of scope
 
