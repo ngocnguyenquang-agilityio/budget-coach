@@ -2,6 +2,7 @@
 
 import { SpanType } from "@mastra/core/observability";
 import { OBSERVABILITY_EVENTS } from "@/constants/observability";
+import { reportError } from "@/lib/report-error";
 
 // Bad preconditions (missing threadId, unregistered workflow, etc.) — kept distinct from a runtime failure.
 export class ToolPreconditionError extends Error {}
@@ -20,6 +21,8 @@ export const traceToolError = (context: any, err: unknown, code: string = "TOOL_
     error: err instanceof Error ? err : new Error(message),
     metadata: { event: OBSERVABILITY_EVENTS.toolFailure, code },
   });
+  // Shared external-reporting seam (no-op until ERROR_REPORTING is enabled).
+  reportError(err, { event: OBSERVABILITY_EVENTS.toolFailure, code });
 };
 
 // Like traceToolError, but for a per-item failure inside a batch that can still otherwise succeed.

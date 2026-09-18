@@ -6,7 +6,8 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/core";
 import { Observable } from "rxjs";
 import { mastra } from "@/mastra";
 import { guardrailBlockChannel, type GuardrailBlockStore } from "@/mastra/guardrails/block-channel";
-import { COACH_EMPTY_RESPONSE_FALLBACK } from "@/constants/coach-fallback";
+import { COACH_EMPTY_RESPONSE_FALLBACK, COACH_ERROR_FALLBACK } from "@/constants/coach-fallback";
+import { reportError } from "@/lib/report-error";
 import { redactWorkingMemoryLeak } from "@/mastra/lib/redact-working-memory-leak";
 import { WORKING_MEMORY_LEAK_MARKERS } from "@/constants/guardrail-phrases";
 
@@ -136,14 +137,25 @@ const patchMastraAgentRunOnce = (): void => {
             // fallback — unless the run is yielding to an unresolved frontend
             // tool call (see pendingToolCalls above), in which case a
             // continuation run will carry the reply and no fallback is due.
-            // RUN_ERROR without a guardrail is left to error handling so a real
-            // failure isn't masked as a successful-looking reply.
+            // A RUN_ERROR with no text (a genuine failure once the Cerebras
+            // retries are exhausted) gets COACH_ERROR_FALLBACK: without it the
+            // stream just closes and the user sees the reply silently stop. The
+            // message is explicitly worded as an error, not a normal reply, so
+            // this surfaces the failure rather than masking it.
             const fallbackText = !store.sawAssistantText
               ? store.userMessage ??
                 (event.type === EventType.RUN_FINISHED && pendingToolCalls.size === 0
                   ? lastToolMessage ?? COACH_EMPTY_RESPONSE_FALLBACK
-                  : undefined)
+                  : event.type === EventType.RUN_ERROR
+                    ? COACH_ERROR_FALLBACK
+                    : undefined)
               : undefined;
+            if (event.type === EventType.RUN_ERROR && !store.userMessage) {
+              reportError(new Error((event as { message?: string }).message ?? "Coach run error"), {
+                source: "coach-run",
+                event: EventType.RUN_ERROR,
+              });
+            }
             if (isTerminal && fallbackText) {
               const messageId = randomUUID();
               subscriber.next({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" } as BaseEvent);
@@ -153,7 +165,10 @@ const patchMastraAgentRunOnce = (): void => {
 
             subscriber.next(outgoing);
           },
-          error: (err) => subscriber.error(err),
+          error: (err) => {
+            reportError(err, { source: "coach-run" });
+            subscriber.error(err);
+          },
           complete: () => subscriber.complete(),
         });
 

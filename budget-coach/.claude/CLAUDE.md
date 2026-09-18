@@ -146,6 +146,7 @@ CEREBRAS_API_KEY=         # required — get one at cloud.cerebras.ai
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  # required — keys from dashboard.clerk.com
 CLERK_SECRET_KEY=         # required
 LOG_LEVEL=debug           # optional verbose logging
+ERROR_REPORTING=on        # optional — forward server-side errors through src/lib/report-error.ts's hook (no-op until a service is wired)
 
 # CopilotKit Intelligence (optional, enables durable threads)
 COPILOTKIT_LICENSE_TOKEN=
