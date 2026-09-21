@@ -121,7 +121,7 @@ Only the **Coach** carries `Memory` (matching `my-nextjs-agent`, where only `wea
 |---|---|---|
 | `listTransactionsTool` | Analyst, Coach | Read transactions for the current `resourceId` (from `context.agent.resourceId`), with optional category/date filters |
 | `addTransactionsTool` | Coach | Persist one or more confirmed transactions in a single batch; income-drift check runs once against post-batch totals |
-| `categorizeBatchTool` | Coach | Agent-as-tool wrapper delegating to Categorizer, classifying one or more items in a single call, results in input order (pattern: `my-nextjs-agent/src/mastra/tools/ask-weather-agent-tool.ts`) |
+| `extractTransactionsTool` | Coach | Splits a user's natural-language message into individual transactions (one per amount) via a structured-output pass through the Transaction Extractor, then classifies each through the Categorizer; returns items shaped for `confirmTransactions`. `categorizeBatchTool` is no longer wired to the Coach but remains as the shared classifier seam (`categorizeItems`) both paths reuse |
 | `analyzeSpendingTool` | Coach | Agent-as-tool wrapper delegating to Analyst |
 | `setSavingsGoalTool` | Coach | Writes the goal into working memory via `memory.updateWorkingMemory` |
 | `approveBudgetTool` | Coach | **Suspends** (see Step 4) |
@@ -129,6 +129,7 @@ Only the **Coach** carries `Memory` (matching `my-nextjs-agent`, where only `wea
 **Agents** (`src/mastra/agents/`):
 
 - **`categorizerAgent`** (`id: "categorizer"`) — narrow: given merchant + amount, return exactly one category from the taxonomy. No tools, no memory.
+- **`transactionExtractorAgent`** (`id: "transaction-extractor"`) — narrow: given a natural-language message, split it into individual transactions (one per amount, structured output). No tools, no memory. Keeps the message split out of the Coach's inline prose, where the weak model split unreliably.
 - **`analystAgent`** (`id: "analyst"`) — calls `listTransactionsTool`, returns per-category totals, over-limit flags, and trailing-spend figures. Instructions pin the output shape so the scorer can assert against it.
 - **`coachAgent`** (`id: "coach"`) — user-facing. Carries memory, both guardrails as `inputProcessors`, all the tools above, and **dynamic instructions** (see gotcha below).
 

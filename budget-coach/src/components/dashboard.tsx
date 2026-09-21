@@ -467,7 +467,33 @@ export const Dashboard = () => {
         category: CategorySchema.optional(),
       }),
       handler: async ({ merchant, amount, type, category }) => {
-        setFormPrefill({ merchant, amount, type, category });
+        // When the Coach opens the form for a described purchase without an
+        // explicit category, classify the merchant through the same categorizer
+        // the confirmTransactions flow uses (/api/categorize → categorizeItems)
+        // rather than trusting the Coach's own guess. An explicit category from
+        // the Coach (the user named one) is honored as-is.
+        let resolvedType = type;
+        let resolvedCategory = category;
+        if (merchant && category === undefined) {
+          try {
+            const res = await fetch("/api/categorize", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ merchant, amount: amount ?? 0 }),
+            });
+            if (res.ok) {
+              const data = (await res.json()) as {
+                type?: "income" | "expense";
+                category?: Category | null;
+              };
+              resolvedType = type ?? data.type;
+              resolvedCategory = data.category ?? undefined;
+            }
+          } catch {
+            // Fall back to opening the form uncategorized (it defaults to "Other").
+          }
+        }
+        setFormPrefill({ merchant, amount, type: resolvedType, category: resolvedCategory });
         setFormOpen(true);
         return "Opened the add-transaction form.";
       },
