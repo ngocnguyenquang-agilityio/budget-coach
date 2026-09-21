@@ -35,6 +35,33 @@ export const reconcileBatchCategories = (
     return { type: "expense" as const, category: "Other" as const };
   });
 
+// Shared classification pass: one categorizer call for the whole batch (keeps
+// Cerebras request count flat regardless of N — the free tier caps at 5
+// req/min), reconciled to exactly one aligned result per input item. Used by
+// both categorizeBatchTool and extract-transactions.ts, so the two paths share
+// one categorizer prompt, one failure posture, and one alignment guarantee.
+//
+// Two distinct failure modes, deliberately handled differently:
+//   - The weak model returned but produced no valid structured object
+//     (result.object undefined) — the expected benign case;
+//     reconcileBatchCategories degrades it to expense/"Other".
+//   - A genuine API/network/rate-limit failure throws (after the retry
+//     processor exhausts its retries) and propagates to the caller's
+//     withToolErrorHandling, which turns it into { success: false,
+//     code: "TOOL_ERROR" } so the Coach surfaces the failure, rather than
+//     silently mis-categorizing every item as "Other" and pretending it worked.
+export const categorizeItems = async (
+  items: Array<{ merchant: string; amount: number }>,
+): Promise<CategorizeResult[]> => {
+  const prompt = `Classify each of these transactions:\n${items
+    .map((item, index) => `${index + 1}. Merchant: ${item.merchant}, Amount: ${item.amount}`)
+    .join("\n")}`;
+  const result = await categorizerAgent.generate(prompt, {
+    structuredOutput: { schema: CategorizeBatchOutputSchema },
+  });
+  return reconcileBatchCategories(items, result.object?.results);
+};
+
 export const categorizeBatchTool = createTool({
   id: "categorize-batch",
   description:
@@ -43,24 +70,7 @@ export const categorizeBatchTool = createTool({
     items: z.array(z.object({ merchant: z.string(), amount: z.number() })),
   }),
   outputSchema: CategorizeBatchOutputSchema,
-  execute: withToolErrorHandling(async ({ items }) => {
-    // One agent call for the whole batch — keeps Cerebras request count flat
-    // regardless of N (the free tier caps at 5 req/min).
-    const prompt = `Classify each of these transactions:\n${items
-      .map((item, index) => `${index + 1}. Merchant: ${item.merchant}, Amount: ${item.amount}`)
-      .join("\n")}`;
-    const result = await categorizerAgent.generate(prompt, {
-      structuredOutput: { schema: CategorizeBatchOutputSchema },
-    });
-    // Two distinct failure modes, deliberately handled differently:
-    //   - The weak model returned but produced no valid structured object
-    //     (result.object undefined) — the expected benign case;
-    //     reconcileBatchCategories degrades it to expense/"Other".
-    //   - A genuine API/network/rate-limit failure throws (after
-    //     StreamErrorRetryProcessor exhausts its retries) — withToolErrorHandling
-    //     turns that into { success: false, code: "TOOL_ERROR" } so the Coach
-    //     surfaces the failure, rather than silently mis-categorizing every
-    //     item as "Other" and pretending it worked.
-    return { results: reconcileBatchCategories(items, result.object?.results) };
-  }),
+  execute: withToolErrorHandling(async ({ items }) => ({
+    results: await categorizeItems(items),
+  })),
 });
