@@ -51,7 +51,28 @@ const RITUAL_LINE_MARKERS = [/updateWorkingMemory/i, /Do not remove empty sectio
 export interface RedactionResult {
   text: string;
   redactedLength: number;
+  // True only when a leak was redacted AND what survives is dominated by
+  // punctuation/ellipsis fragments rather than a coherent reply — the
+  // "shredded skeleton" a full-turn leak leaves behind (stray `$`, lone
+  // `...`, dangling `—?`). The AG-UI wrapper (src/agent.ts) treats this as no
+  // usable text so the empty-response fallback fires instead of rendering the
+  // residue. Always false when nothing was redacted.
+  garbled: boolean;
 }
+
+// A surviving line with no run of 3+ letters is a pure fragment (e.g. "...",
+// "$ $ $ ...", "—?"). A redaction survivor made up mostly of such lines is
+// unreadable residue, not an answer. Only meaningful once a leak was removed;
+// a clean reply never reaches this check.
+const isGarbledResidue = (text: string): boolean => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return false;
+  const fragmentLines = lines.filter((line) => !/[A-Za-z]{3,}/.test(line));
+  return fragmentLines.length >= 3 || fragmentLines.length / lines.length > 0.4;
+};
 
 // Removes EVERY top-level `{...}` span carrying at least MIN_MARKER_MATCHES
 // working-memory field names (not just the first — a single reply can paste
@@ -82,8 +103,8 @@ export const redactWorkingMemoryLeak = (
     .join("\n");
   redactedLength += beforeLines - result.length;
 
-  if (redactedLength === 0) return { text, redactedLength: 0 };
+  if (redactedLength === 0) return { text, redactedLength: 0, garbled: false };
 
   result = result.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
-  return { text: result, redactedLength };
+  return { text: result, redactedLength, garbled: isGarbledResidue(result) };
 };

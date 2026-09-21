@@ -48,8 +48,13 @@ const redactTextDeltaEvent = (event: BaseEvent): { event: BaseEvent; hasText: bo
   const delta = (event as { delta?: unknown }).delta;
   if (typeof delta !== "string" || delta.length === 0) return { event, hasText: false };
 
-  const { text, redactedLength } = redactWorkingMemoryLeak(delta, WORKING_MEMORY_LEAK_MARKERS);
+  const { text, redactedLength, garbled } = redactWorkingMemoryLeak(delta, WORKING_MEMORY_LEAK_MARKERS);
   if (redactedLength === 0) return { event, hasText: delta.trim().length > 0 };
+  // A leak was removed. If a coherent reply survives, show it. If what's left
+  // is shredded residue (a turn that was mostly leak — stray `$`, lone `...`,
+  // dangling `—?`), blank the delta so only the empty-response fallback below
+  // reaches the user, never the garble.
+  if (garbled) return { event: { ...event, delta: "" } as BaseEvent, hasText: false };
   return { event: { ...event, delta: text } as BaseEvent, hasText: text.trim().length > 0 };
 };
 

@@ -45,12 +45,17 @@ export class WorkingMemoryLeakGuardrail implements Processor {
       const cleanedParts = parts.map((part) => {
         if (part.type !== "text") return part;
 
-        const { text: cleanedText, redactedLength } = redactWorkingMemoryLeak(part.text, this.markers);
+        const { text: cleanedText, redactedLength, garbled } = redactWorkingMemoryLeak(part.text, this.markers);
         if (redactedLength === 0) return part;
 
         leakedLength += redactedLength;
         changed = true;
-        return { ...part, text: cleanedText } satisfies TextPart;
+        // A turn that was mostly leak leaves shredded residue (stray `$`, lone
+        // `...`, dangling `—?`) — worthless as stored context and a
+        // re-garbling source in the next turn's `lastMessages`. Store nothing
+        // for it rather than the crumbs; the AG-UI wrapper (src/agent.ts)
+        // already shows the user the empty-response fallback for this turn.
+        return { ...part, text: garbled ? "" : cleanedText } satisfies TextPart;
       });
 
       if (!changed) return message;

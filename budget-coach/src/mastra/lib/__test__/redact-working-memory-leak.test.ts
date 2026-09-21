@@ -23,6 +23,40 @@ describe("redactWorkingMemoryLeak", () => {
     expect(cleaned).toContain("Your rent payment of $1,200 on the 1st has been set up as a recurring expense.");
   });
 
+  it("flags shredded residue as garbled when the turn was mostly leak", () => {
+    // The screenshot shape: the model dumps the blob repeatedly with only
+    // stray fragments (lone `$`, literal `...`, dangling `—?`) between the
+    // dumps. Removing every blob leaves an unreadable skeleton, not an answer,
+    // so the AG-UI wrapper must fall through to the fallback rather than render
+    // it.
+    const text = [
+      "Got!",
+      `The Rent expense — $ ${BLOB}`,
+      "...",
+      "...",
+      `... ${BLOB}`,
+      "...",
+      "Probably",
+      "...",
+      "The...",
+      "...—?",
+    ].join("\n\n");
+
+    const { redactedLength, garbled } = redact(text);
+
+    expect(redactedLength).toBeGreaterThan(0);
+    expect(garbled).toBe(true);
+  });
+
+  it("does not flag a coherent salvaged reply as garbled", () => {
+    const text = `Let's construct:\n\n${BLOB}\n\nYour rent payment of $1,200 on the 1st has been set up as a recurring expense.`;
+
+    const { redactedLength, garbled } = redact(text);
+
+    expect(redactedLength).toBeGreaterThan(0);
+    expect(garbled).toBe(false);
+  });
+
   it("strips the working-memory ritual boilerplate lines", () => {
     const text = `guidelines: "Do not remove empty sections - you must include the empty sections".\n${BLOB}\nAll set!`;
 
@@ -38,7 +72,7 @@ describe("redactWorkingMemoryLeak", () => {
 
     const result = redact(text);
 
-    expect(result).toEqual({ text, redactedLength: 0 });
+    expect(result).toEqual({ text, redactedLength: 0, garbled: false });
   });
 
   it("does not redact a small JSON snippet below the marker threshold", () => {
@@ -46,6 +80,6 @@ describe("redactWorkingMemoryLeak", () => {
 
     const result = redact(text);
 
-    expect(result).toEqual({ text, redactedLength: 0 });
+    expect(result).toEqual({ text, redactedLength: 0, garbled: false });
   });
 });

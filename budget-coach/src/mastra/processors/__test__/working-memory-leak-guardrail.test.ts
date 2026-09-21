@@ -30,6 +30,33 @@ describe("WorkingMemoryLeakGuardrail", () => {
     expect(cleanedText).toContain("Your Netflix charge of $15.99 has been confirmed and logged");
   });
 
+  it("blanks the stored text when the turn was mostly leak (shredded residue)", () => {
+    const guardrail = new WorkingMemoryLeakGuardrail(WORKING_MEMORY_LEAK_MARKERS);
+    // The screenshot shape: repeated blob dumps with only stray fragments
+    // between them. Redacting every blob leaves an unreadable skeleton, so the
+    // stored message must carry nothing rather than re-seed the next turn's
+    // context with crumbs.
+    const text = [
+      "Got!",
+      `The Rent expense — $ ${LEAKED_BLOB}`,
+      "...",
+      "...",
+      `... ${LEAKED_BLOB}`,
+      "...",
+      "Probably",
+      "...",
+      "The...",
+      "...—?",
+    ].join("\n\n");
+
+    const result = guardrail.processOutputResult({
+      messages: [assistantMessage(text)],
+    } as any) as MastraDBMessage[];
+
+    expect((result[0].content as any).parts[0].text).toBe("");
+    expect((result[0].content as any).content).toBe("");
+  });
+
   it("leaves a clean reply untouched", () => {
     const guardrail = new WorkingMemoryLeakGuardrail(WORKING_MEMORY_LEAK_MARKERS);
     const text = "Your Netflix charge of $15.99 has been confirmed and logged as an Entertainment expense.";

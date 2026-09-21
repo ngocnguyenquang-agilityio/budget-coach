@@ -93,6 +93,12 @@ export const coachAgent = new Agent({
   model,
   defaultOptions: {
     maxSteps: COACH_MAX_STEPS,
+    // gpt-oss-120b on Cerebras runs hot at the provider default temperature and
+    // is prone to repetition-collapse and regurgitating its injected read-only
+    // working memory into the reply (see redact-working-memory-leak.ts). A low
+    // temperature curbs that degeneration at the source rather than only
+    // cleaning it up after the fact.
+    modelSettings: { temperature: 0.3 },
     prepareStep: ({ stepNumber }) =>
       stepNumber >= COACH_MAX_STEPS - 1 ? { toolChoice: "none", activeTools: [] } : undefined,
   },
