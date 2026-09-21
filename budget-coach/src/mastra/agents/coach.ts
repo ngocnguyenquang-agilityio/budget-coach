@@ -17,7 +17,7 @@ import {
   type CoachPreferences,
 } from "@/domain/budget-state";
 import { listTransactionsTool } from "@/mastra/tools/transactions";
-import { categorizeBatchTool } from "@/mastra/tools/categorize";
+import { extractTransactionsTool } from "@/mastra/tools/extract-transactions";
 import { analyzeSpendingTool } from "@/mastra/tools/analyze-spending";
 import { setSavingsGoalTool } from "@/mastra/tools/set-savings-goal";
 import { approveBudgetTool } from "@/mastra/tools/approve-budget";
@@ -135,7 +135,7 @@ export const coachAgent = new Agent({
   },
   tools: {
     listTransactions: listTransactionsTool,
-    categorizeBatch: categorizeBatchTool,
+    extractTransactions: extractTransactionsTool,
     analyzeSpending: analyzeSpendingTool,
     setSavingsGoal: setSavingsGoalTool,
     approveBudget: approveBudgetTool,
