@@ -1,5 +1,11 @@
 import { Mastra } from "@mastra/core/mastra";
-import { categorizerAgent, analystAgent, coachAgent, suggesterAgent } from "./agents";
+import {
+  categorizerAgent,
+  transactionExtractorAgent,
+  analystAgent,
+  coachAgent,
+  suggesterAgent,
+} from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 import { storage } from "./config/storage";
 import { observability } from "./config/observability";
@@ -14,6 +20,7 @@ const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 export const mastra = new Mastra({
   agents: {
     categorizer: categorizerAgent,
+    transactionExtractor: transactionExtractorAgent,
     analyst: analystAgent,
     coach: coachAgent,
     suggester: suggesterAgent,
