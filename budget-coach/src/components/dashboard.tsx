@@ -135,6 +135,23 @@ export const Dashboard = () => {
     [transactions, state.categoryLimits, visibleMonth],
   );
 
+  // This month's expected (unconfirmed) rows, folded into frontend context so
+  // the Coach can recognize "my rent went out" as confirming a scheduled
+  // payment without a listExpectedTransactions round-trip. Mirrors that tool's
+  // shape (transfers can't be expected — see confirm-transaction.ts).
+  const expectedTransactions = useMemo(
+    () =>
+      transactions
+        .filter(
+          (t) =>
+            t.status === "expected" &&
+            t.type !== "transfer" &&
+            t.date.startsWith(visibleMonth),
+        )
+        .map(({ merchant, amount, type, date }) => ({ merchant, amount, type, date })),
+    [transactions, visibleMonth],
+  );
+
   // Gate 1 — pure frontend tool, no server suspend. The Coach calls this
   // (per its instructions) after categorizing the described purchase(s) as a
   // batch; on confirm the card writes them itself via recordTransactions, then
@@ -476,10 +493,11 @@ export const Dashboard = () => {
 
   useAgentContext({
     description:
-      "The month currently visible on the dashboard, any category the Transactions list is currently filtered to, and the user's stored Coach Preferences (round-tripped from working memory so the Coach's instructions can weave them in as directives — see coach.ts)",
+      "The month currently visible on the dashboard, any category the Transactions list is currently filtered to, this month's expected (unconfirmed) transactions, and the user's stored Coach Preferences (round-tripped from working memory so the Coach's instructions can weave them in as directives — see coach.ts)",
     value: {
       visibleMonth,
       selectedCategory: selectedCategory ?? null,
+      expectedTransactions,
       coachPreferences: state.coachPreferences ?? null,
     },
   });
