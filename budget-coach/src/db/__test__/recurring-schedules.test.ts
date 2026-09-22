@@ -69,7 +69,7 @@ describe("recurring schedules", () => {
       merchant: "Netflix",
       amount: 15,
       type: "expense",
-      category: "Subscriptions",
+      category: "Entertainment",
       dayOfMonth: 10,
     });
 

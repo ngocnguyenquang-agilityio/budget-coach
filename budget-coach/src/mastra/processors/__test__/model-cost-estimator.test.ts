@@ -13,7 +13,7 @@ describe("ModelCostEstimator", () => {
 
     const result = estimator.process(span as any);
 
-    expect(result?.attributes.costContext).toEqual({
+    expect((result as any)?.attributes.costContext).toEqual({
       provider: "cerebras",
       model: "llama-3.3-70b",
       estimatedCost: 1000 * MODEL_PRICING.inputCostPerToken + 500 * MODEL_PRICING.outputCostPerToken,
@@ -30,7 +30,7 @@ describe("ModelCostEstimator", () => {
 
     const result = estimator.process(span as any);
 
-    expect(result?.attributes.costContext).toEqual({
+    expect((result as any)?.attributes.costContext).toEqual({
       provider: "cerebras",
       model: "llama-3.3-70b",
       estimatedCost: 0,
@@ -54,7 +54,7 @@ describe("ModelCostEstimator", () => {
 
     const result = estimator.process(span as any);
 
-    expect(result?.attributes.costContext).toBeUndefined();
+    expect((result as any)?.attributes.costContext).toBeUndefined();
   });
 
   it("returns undefined when called without a span", () => {

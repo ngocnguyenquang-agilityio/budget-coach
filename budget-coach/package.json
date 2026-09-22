@@ -9,6 +9,7 @@
     "dev:ui": "next dev --turbopack",
     "dev:debug": "LOG_LEVEL=debug pnpm run dev",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start",
     "dev:infra": "node scripts/copilotkit-dev-infra.mjs",
     "backfill:titles": "tsx scripts/backfill-thread-titles.ts",
