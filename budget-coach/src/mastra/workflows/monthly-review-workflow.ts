@@ -319,9 +319,6 @@ const applyOrDiscard = createStep({
           const applied = applyPeriodClose(pots, allocations, available);
           pots = applied.pots;
           unallocated = applied.unallocated;
-
-          // An unconfirmed forecast doesn't survive its Period (ADR-0011).
-          await expireExpectedTransactions(resourceId, close.period);
         }
       }
 
@@ -347,10 +344,20 @@ const applyOrDiscard = createStep({
             ? { lastClosedPeriod: closedPeriods[closedPeriods.length - 1] }
             : {}),
           ...(approved && evaluatedPeriods.size > 0 ? { pendingAmendments: remainingAmendments } : {}),
-          lastReviewPeriod: currentPeriod(),
+          // Only an approved review completes the month. A rejection defers
+          // it — same as the close and amendments above — so the user can run
+          // the review again rather than being locked out until next month.
+          ...(approved ? { lastReviewPeriod: currentPeriod() } : {}),
           pendingApproval: null,
         }),
       });
+
+      // An unconfirmed forecast doesn't survive its Period (ADR-0011).
+      // Deleted only after the close above is saved: if that save fails, the
+      // Periods stay open and their expected rows must still be there.
+      for (const period of closedPeriods) {
+        await expireExpectedTransactions(resourceId, period);
+      }
     }
 
     return { status, categoryLimits: nextLimits, closedPeriods };

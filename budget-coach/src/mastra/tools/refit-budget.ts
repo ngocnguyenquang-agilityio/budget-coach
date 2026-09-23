@@ -3,8 +3,8 @@ import { z } from "zod";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { RefitSuspendSchema, RefitResumeSchema } from "@/mastra/workflows/refit-workflow";
-import { isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
-import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
+import { clearPendingApproval, isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
+import { traceToolError, withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 // The Coach's entry point into refitWorkflow — the forward-looking counterpart
 // to approveBudgetTool. Called when a Commitment-ledger change reports
@@ -52,7 +52,21 @@ export const refitBudgetTool = createTool({
       }
 
       const run = await workflow.createRun({ runId: pending.runId });
-      await run.resume({ resumeData });
+      const result = await run.resume({ resumeData });
+
+      // Same as approveBudget: a failed resume is a returned status, not a throw.
+      if (result.status !== "success") {
+        traceToolError(
+          context,
+          result.status === "failed" ? result.error : new Error(`Refit resume ended with status "${result.status}"`),
+          "REFIT_RESUME_FAILED",
+        );
+        if (memory) await clearPendingApproval(memory, threadId, resourceId);
+        return {
+          message:
+            "Something went wrong saving your re-fit, so nothing was changed. You can ask me to re-fit your budget again.",
+        };
+      }
 
       return {
         message:

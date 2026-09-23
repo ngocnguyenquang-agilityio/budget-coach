@@ -4,9 +4,9 @@ import { currentPeriod } from "@/domain/period";
 import { resolveResourceId } from "@/mastra/lib/get-resource-id";
 import { parseWorkingMemory } from "@/mastra/lib/parse-working-memory";
 import { loadBudgetContext } from "@/mastra/lib/budget-context";
-import { isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
+import { clearPendingApproval, isPendingApprovalStale, type PendingApproval } from "@/mastra/lib/pending-approval";
 import { MonthlyReviewSuspendSchema, MonthlyReviewResumeSchema } from "@/mastra/workflows/monthly-review-workflow";
-import { withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
+import { traceToolError, withToolErrorHandling, ToolPreconditionError } from "@/mastra/tools/with-tool-error-handling";
 
 // The Coach's entry point into monthlyReviewWorkflow. Suspends server-side
 // (tool-level suspend, distinct from the workflow's own approvalGate suspend)
@@ -55,13 +55,29 @@ export const approveBudgetTool = createTool({
       }
 
       const run = await workflow.createRun({ runId: pending.runId });
-      await run.resume({ resumeData });
+      const result = await run.resume({ resumeData });
+
+      // A step that throws during resume (e.g. a DB error in applyOrDiscard)
+      // comes back as a returned status, not an exception — so check it
+      // rather than report a save that never happened.
+      if (result.status !== "success") {
+        traceToolError(
+          context,
+          result.status === "failed" ? result.error : new Error(`Monthly Review resume ended with status "${result.status}"`),
+          "REVIEW_RESUME_FAILED",
+        );
+        if (memory) await clearPendingApproval(memory, threadId, resourceId);
+        return {
+          message:
+            "Something went wrong saving your review, so nothing was changed. You can ask me to run it again.",
+        };
+      }
 
       return {
         message:
           resumeData.decision === "approve"
             ? "Approved — your new category limits are saved and your savings are up to date."
-            : "Rejected — your budget is unchanged.",
+            : "Rejected — your budget is unchanged. You can run the review again whenever you're ready.",
       };
     }
 

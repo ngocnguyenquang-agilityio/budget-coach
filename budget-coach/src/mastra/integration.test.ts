@@ -21,6 +21,8 @@ const { MonthlyReviewSuspendSchema } = await import("./workflows/monthly-review-
 const { RefitSuspendSchema } = await import("./workflows/refit-workflow");
 const { listTransactions, addTransaction } = await import("@/db/transactions");
 const { addTransactionsTool } = await import("./tools/transactions");
+const { approveBudgetTool } = await import("./tools/approve-budget");
+const { refitBudgetTool } = await import("./tools/refit-budget");
 const { parseWorkingMemory } = await import("./lib/parse-working-memory");
 const { dbClient } = await import("@/db/client");
 
@@ -212,6 +214,153 @@ describe("monthlyReviewWorkflow", () => {
 
     const afterReject = await getWorkingMemoryState(threadId, resourceId);
     expect(afterReject.categoryLimits).toEqual(baseline.categoryLimits);
+  });
+
+  // A rejection defers the review rather than completing it — marking the
+  // month reviewed would lock the user out of retrying until next month.
+  it("does not mark the month reviewed when the review is rejected", async () => {
+    const resourceId = "wf-reject-not-reviewed";
+    const threadId = "thread-reject-not-reviewed";
+    const { run } = await startSuspendedReview(resourceId, threadId);
+
+    const resumeResult = await run.resume({ resumeData: { decision: "reject" as const } });
+    expect(resumeResult.status).toBe("success");
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.lastReviewPeriod).toBeUndefined();
+    expect(state.pendingApproval).toBeNull();
+  });
+
+  it("marks the month reviewed when the review is approved", async () => {
+    const resourceId = "wf-approve-reviewed";
+    const threadId = "thread-approve-reviewed";
+    const { run } = await startSuspendedReview(resourceId, threadId);
+
+    await run.resume({ resumeData: { decision: "approve" as const } });
+
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.lastReviewPeriod).toBe(currentPeriod());
+  });
+});
+
+describe("approval tools: resume outcome", () => {
+  const coachMemory = async () => {
+    const memory = await mastra.getAgent("coach").getMemory();
+    if (!memory) throw new Error("coach memory missing");
+    return memory;
+  };
+
+  const seedState = async (threadId: string, resourceId: string, state: Record<string, unknown>) => {
+    const memory = await coachMemory();
+    await memory.updateWorkingMemory({ threadId, resourceId, workingMemory: JSON.stringify(state) });
+  };
+
+  // Stands in for a workflow whose resumed run fails (e.g. a DB error inside
+  // applyOrDiscard) — Mastra reports that as a returned status, not a throw.
+  const failingMastra = {
+    getAgent: (id: string) => mastra.getAgent(id as "coach"),
+    getWorkflow: () => ({
+      createRun: async () => ({
+        resume: async () => ({ status: "failed", error: new Error("simulated DB failure") }),
+      }),
+    }),
+  };
+
+  const toolContext = (
+    resourceId: string,
+    threadId: string,
+    { resumeData, mastraInstance = mastra }: { resumeData?: unknown; mastraInstance?: unknown } = {},
+  ) => {
+    const suspended: unknown[] = [];
+    const context = {
+      agent: {
+        resourceId,
+        threadId,
+        resumeData,
+        suspend: async (payload: unknown) => {
+          suspended.push(payload);
+        },
+      },
+      mastra: mastraInstance,
+      observe: { log: () => {} },
+    };
+    return { context: context as never, suspended };
+  };
+
+  const runApprove = async (context: never) => {
+    if (!approveBudgetTool.execute) throw new Error("approveBudgetTool.execute is undefined");
+    return (await approveBudgetTool.execute({}, context)) as { message?: string } | undefined;
+  };
+
+  const runRefit = async (context: never) => {
+    if (!refitBudgetTool.execute) throw new Error("refitBudgetTool.execute is undefined");
+    return (await refitBudgetTool.execute({}, context)) as { message?: string } | undefined;
+  };
+
+  it("lets the user run the Monthly Review again after rejecting it", async () => {
+    const resourceId = "tool-reject-rerun";
+    const threadId = "thread-tool-reject-rerun";
+    await addTransaction({
+      resourceId,
+      date: new Date().toISOString().slice(0, 10),
+      merchant: "Salary",
+      amount: 3000,
+      type: "income",
+      category: null,
+      seedCategory: null,
+      status: "received",
+    });
+
+    const first = toolContext(resourceId, threadId);
+    await runApprove(first.context);
+    expect(first.suspended).toHaveLength(1);
+
+    const rejected = await runApprove(
+      toolContext(resourceId, threadId, { resumeData: { decision: "reject" } }).context,
+    );
+    expect(rejected?.message).toMatch(/^Rejected/);
+
+    // Reaching suspend() again — rather than returning "already completed" —
+    // is what proves the review is runnable.
+    const retry = toolContext(resourceId, threadId);
+    await runApprove(retry.context);
+    expect(retry.suspended).toHaveLength(1);
+  });
+
+  it("does not claim a Monthly Review was saved when the resumed run failed, and unblocks a retry", async () => {
+    const resourceId = "tool-approve-failed";
+    const threadId = "thread-tool-approve-failed";
+    await seedState(threadId, resourceId, {
+      pendingApproval: { runId: "run-failed", workflow: "monthly-review", createdAt: new Date().toISOString() },
+    });
+
+    const result = await runApprove(
+      toolContext(resourceId, threadId, { resumeData: { decision: "approve" }, mastraInstance: failingMastra })
+        .context,
+    );
+
+    expect(result?.message).not.toMatch(/^Approved/);
+    expect(result?.message).toMatch(/nothing was changed/i);
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.pendingApproval).toBeNull();
+  });
+
+  it("does not claim a refit was saved when the resumed run failed, and unblocks a retry", async () => {
+    const resourceId = "tool-refit-failed";
+    const threadId = "thread-tool-refit-failed";
+    await seedState(threadId, resourceId, {
+      pendingApproval: { runId: "run-refit-failed", workflow: "refit", createdAt: new Date().toISOString() },
+    });
+
+    const result = await runRefit(
+      toolContext(resourceId, threadId, { resumeData: { decision: "approve" }, mastraInstance: failingMastra })
+        .context,
+    );
+
+    expect(result?.message).not.toMatch(/^Approved/);
+    expect(result?.message).toMatch(/nothing was changed/i);
+    const state = await getWorkingMemoryState(threadId, resourceId);
+    expect(state.pendingApproval).toBeNull();
   });
 });
 
