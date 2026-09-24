@@ -1,6 +1,7 @@
 import { dbClient } from "./client";
 import type { Category } from "@/domain/categories";
 import type { TransactionStatus } from "@/domain/transaction";
+import type { TransactionChanges, TransactionSnapshot } from "@/domain/transaction-correction";
 import { currentPeriod } from "@/domain/period";
 import { listSchedules } from "./recurring-schedules";
 import { toSearchTerms } from "@/lib/search-terms";
@@ -286,6 +287,65 @@ export const deleteTransaction = async (resourceId: string, id: string): Promise
     sql: "DELETE FROM transactions WHERE resourceId = ? AND id = ?",
     args: [resourceId, id],
   });
+};
+
+// Matches a row only while it still equals what the User was shown and is
+// still correctable (ADR-0016), so a change landing between validation and
+// the write makes it affect nothing — reported as stale — rather than
+// overwrite someone else's change.
+const UNCHANGED_WHERE =
+  "resourceId = ? AND id = ? AND merchant = ? AND amount = ? AND date = ? AND type = ? AND note IS ? AND category IS ?" +
+  " AND type <> 'transfer' AND status = 'received' AND fundedByPotId IS NULL";
+
+const unchangedArgs = (resourceId: string, id: string, before: TransactionSnapshot) => [
+  resourceId,
+  id,
+  before.merchant,
+  before.amount,
+  before.date,
+  before.type,
+  before.note ?? null,
+  before.category ?? null,
+];
+
+// Fixed whitelist — the SET clause is never built from request keys.
+const EDITABLE_COLUMNS = ["merchant", "note", "amount", "date", "category"] as const;
+
+// Applies a correction to one row; false when the row no longer matches
+// `before` (or was never correctable). A single statement, so each row is
+// atomic on its own.
+export const updateTransactionIfUnchanged = async (
+  resourceId: string,
+  id: string,
+  before: TransactionSnapshot,
+  changes: TransactionChanges
+): Promise<boolean> => {
+  await createTable();
+
+  const columns = EDITABLE_COLUMNS.filter((column) => changes[column] !== undefined);
+  if (columns.length === 0) return false;
+
+  const result = await dbClient.execute({
+    sql: `UPDATE transactions SET ${columns.map((column) => `${column} = ?`).join(", ")} WHERE ${UNCHANGED_WHERE}`,
+    args: [...columns.map((column) => changes[column] ?? null), ...unchangedArgs(resourceId, id, before)],
+  });
+
+  return Number(result.rowsAffected ?? 0) === 1;
+};
+
+export const deleteTransactionIfUnchanged = async (
+  resourceId: string,
+  id: string,
+  before: TransactionSnapshot
+): Promise<boolean> => {
+  await createTable();
+
+  const result = await dbClient.execute({
+    sql: `DELETE FROM transactions WHERE ${UNCHANGED_WHERE}`,
+    args: unchangedArgs(resourceId, id, before),
+  });
+
+  return Number(result.rowsAffected ?? 0) === 1;
 };
 
 // Period Close drops every Transaction still `expected` in a closed Period
