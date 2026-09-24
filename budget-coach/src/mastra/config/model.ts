@@ -1,1 +1,1 @@
-export const model = "cerebras/gpt-oss-120b";
+export const model = "anthropic/claude-haiku-4-5";

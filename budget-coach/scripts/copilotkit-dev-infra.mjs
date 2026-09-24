@@ -8,15 +8,15 @@ import { existsSync, readFileSync } from 'node:fs';
 
 /**
  * Vendor API keys this scaffold needs before chat and generations will work.
- * The model provider is Cerebras (see src/mastra/config/model.ts), which requires
- * CEREBRAS_API_KEY.
+ * The model provider is Anthropic Claude (see src/mastra/config/model.ts), which requires
+ * ANTHROPIC_API_KEY.
  */
 const REQUIRED_ENV_KEYS = [
   {
-    key: "CEREBRAS_API_KEY",
-    note: "Used by the Mastra agents (see src/mastra/config/model.ts) to call gpt-oss-120b on Cerebras.",
-    url: "https://cloud.cerebras.ai",
-    example: "csk-...",
+    key: "ANTHROPIC_API_KEY",
+    note: "Used by the Mastra agents (see src/mastra/config/model.ts) to call Claude Haiku 4.5 via Anthropic.",
+    url: "https://console.anthropic.com",
+    example: "sk-ant-...",
   },
 ];
 

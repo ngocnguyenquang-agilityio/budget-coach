@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface AddTransactionFormPrefill {
   merchant?: string;
+  note?: string;
   amount?: number;
   type?: "income" | "expense";
   category?: Category;
@@ -26,6 +27,7 @@ export const AddTransactionForm = ({
   onSaved,
 }: AddTransactionFormProps) => {
   const [merchant, setMerchant] = useState(prefill.merchant ?? "");
+  const [note, setNote] = useState(prefill.note ?? "");
   const [amount, setAmount] = useState(
     prefill.amount !== undefined ? String(prefill.amount) : "",
   );
@@ -40,6 +42,7 @@ export const AddTransactionForm = ({
 
   useEffect(() => {
     setMerchant(prefill.merchant ?? "");
+    setNote(prefill.note ?? "");
     setAmount(prefill.amount !== undefined ? String(prefill.amount) : "");
     setType(prefill.type ?? "expense");
     setCategory(prefill.category ?? "Other");
@@ -58,6 +61,7 @@ export const AddTransactionForm = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           merchant,
+          note,
           amount: Number(amount),
           type,
           ...(type === "expense" ? { category } : {}),
@@ -90,6 +94,12 @@ export const AddTransactionForm = ({
             value={merchant}
             onChange={(event) => setMerchant(event.target.value)}
             required
+          />
+          <input
+            className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
+            placeholder="What did you buy? (optional)"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
           />
           <input
             type="number"

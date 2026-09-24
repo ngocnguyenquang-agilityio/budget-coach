@@ -3,6 +3,7 @@ import type { Category } from "@/domain/categories";
 import type { TransactionStatus } from "@/domain/transaction";
 import { currentPeriod } from "@/domain/period";
 import { listSchedules } from "./recurring-schedules";
+import { toSearchTerms } from "@/lib/search-terms";
 
 export interface Transaction {
   id: string;
@@ -10,6 +11,9 @@ export interface Transaction {
   date: string;
   createdAt: string;
   merchant: string;
+  // What was bought, when it isn't already in the merchant ("Zara" + "jacket"),
+  // so a search by item finds a row named after the store.
+  note: string | null;
   amount: number;
   type: "income" | "expense" | "transfer";
   category: Category | null;
@@ -30,7 +34,7 @@ export interface Transaction {
 }
 
 const COLUMNS =
-  "id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory, status, fundedByPotId, transferDirection, scheduleId";
+  "id, resourceId, date, createdAt, merchant, amount, type, category, seedCategory, status, fundedByPotId, transferDirection, scheduleId, note";
 
 let ensured: Promise<void> | null = null;
 
@@ -52,7 +56,8 @@ export const createTable = async (): Promise<void> => {
         status TEXT NOT NULL DEFAULT 'received',
         fundedByPotId TEXT,
         transferDirection TEXT,
-        scheduleId TEXT
+        scheduleId TEXT,
+        note TEXT
       )
     `);
 
@@ -66,6 +71,8 @@ export const createTable = async (): Promise<void> => {
       ["fundedByPotId", "TEXT"],
       ["transferDirection", "TEXT"],
       ["scheduleId", "TEXT"],
+      // Older rows have no separate item note; null is correct for them.
+      ["note", "TEXT"],
     ];
 
     for (const [column, definition] of additions) {
@@ -84,6 +91,7 @@ const toTransaction = (row: Record<string, unknown>): Transaction => ({
   date: row.date as string,
   createdAt: row.createdAt as string,
   merchant: row.merchant as string,
+  note: (row.note as string | null) ?? null,
   amount: row.amount as number,
   type: row.type as "income" | "expense" | "transfer",
   category: (row.category as Category | null) ?? null,
@@ -132,15 +140,56 @@ export const materializeSchedules = async (resourceId: string, period: string): 
   }
 };
 
+// Every field is optional; dates are ISO strings, so they compare correctly
+// as text. startDate/endDate are inclusive. `search` matches the merchant
+// (the transaction's name) or its note case-insensitively, word by word.
+export interface TransactionFilter {
+  category?: Category;
+  search?: string;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 // Ordered by createdAt (when the row was recorded), not `date` (the
 // transaction's own, user-editable business date) — two transactions can
 // share the same `date` and still need a stable, most-recent-first order.
-export const listTransactions = async (resourceId: string): Promise<Transaction[]> => {
+export const listTransactions = async (
+  resourceId: string,
+  filter: TransactionFilter = {}
+): Promise<Transaction[]> => {
   await materializeSchedules(resourceId, currentPeriod());
 
+  const conditions = ["resourceId = ?"];
+  const args: string[] = [resourceId];
+  if (filter.category !== undefined) {
+    conditions.push("category = ?");
+    args.push(filter.category);
+  }
+  if (filter.search !== undefined) {
+    // Every identifying word must appear in the merchant or note, in any
+    // order. Escape LIKE wildcards so "50%" matches literally, not as a pattern.
+    for (const term of toSearchTerms(filter.search)) {
+      conditions.push("(merchant || ' ' || COALESCE(note, '')) LIKE ? ESCAPE '\\'");
+      args.push(`%${term.replace(/[\\%_]/g, "\\$&")}%`);
+    }
+  }
+  if (filter.month !== undefined) {
+    conditions.push("substr(date, 1, 7) = ?");
+    args.push(filter.month);
+  }
+  if (filter.startDate !== undefined) {
+    conditions.push("date >= ?");
+    args.push(filter.startDate);
+  }
+  if (filter.endDate !== undefined) {
+    conditions.push("date <= ?");
+    args.push(filter.endDate);
+  }
+
   const result = await dbClient.execute({
-    sql: `SELECT ${COLUMNS} FROM transactions WHERE resourceId = ? ORDER BY createdAt DESC`,
-    args: [resourceId],
+    sql: `SELECT ${COLUMNS} FROM transactions WHERE ${conditions.join(" AND ")} ORDER BY createdAt DESC`,
+    args,
   });
 
   return result.rows.map((row) => toTransaction(row as unknown as Record<string, unknown>));
@@ -161,7 +210,7 @@ export const getTransaction = async (resourceId: string, id: string): Promise<Tr
 export const addTransaction = async (
   transaction: Omit<
     Transaction,
-    "id" | "createdAt" | "status" | "fundedByPotId" | "transferDirection" | "scheduleId"
+    "id" | "createdAt" | "status" | "fundedByPotId" | "transferDirection" | "scheduleId" | "note"
   > & {
     id?: string;
     createdAt?: string;
@@ -169,6 +218,7 @@ export const addTransaction = async (
     fundedByPotId?: string | null;
     transferDirection?: "to_pot" | "from_pot" | null;
     scheduleId?: string | null;
+    note?: string | null;
   }
 ): Promise<Transaction> => {
   await createTable();
@@ -179,9 +229,10 @@ export const addTransaction = async (
   const fundedByPotId = transaction.fundedByPotId ?? null;
   const transferDirection = transaction.transferDirection ?? null;
   const scheduleId = transaction.scheduleId ?? null;
+  const note = transaction.note ?? null;
 
   await dbClient.execute({
-    sql: `INSERT INTO transactions (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO transactions (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
       transaction.resourceId,
@@ -196,10 +247,11 @@ export const addTransaction = async (
       fundedByPotId,
       transferDirection,
       scheduleId,
+      note,
     ],
   });
 
-  return { ...transaction, id, createdAt, status, fundedByPotId, transferDirection, scheduleId };
+  return { ...transaction, id, createdAt, status, fundedByPotId, transferDirection, scheduleId, note };
 };
 
 // Flips an `expected` Transaction to `received`, optionally correcting the

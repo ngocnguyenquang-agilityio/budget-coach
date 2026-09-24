@@ -16,7 +16,7 @@ export const GET = withErrorHandling(async (req) => {
 
 export const POST = withErrorHandling(async (req) => {
   const resourceId = getResourceId(req);
-  let body: { merchant?: unknown; amount?: unknown; type?: unknown; category?: unknown };
+  let body: { merchant?: unknown; note?: unknown; amount?: unknown; type?: unknown; category?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -24,6 +24,7 @@ export const POST = withErrorHandling(async (req) => {
   }
 
   const merchant = String(body.merchant ?? "").trim();
+  const note = String(body.note ?? "").trim() || null;
   const amount = Number(body.amount);
   const type = body.type === "income" ? "income" : body.type === "expense" ? "expense" : undefined;
 
@@ -49,6 +50,7 @@ export const POST = withErrorHandling(async (req) => {
   const transaction = await addTransaction({
     resourceId,
     merchant,
+    note,
     amount,
     type,
     category,

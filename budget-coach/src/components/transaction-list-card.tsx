@@ -66,6 +66,7 @@ export const TransactionListCard = ({
                   {isTransfer ? `${transaction.date} · Savings transfer` : (
                     <>
                       {transaction.date} · {isIncome ? "Income" : transaction.category}
+                      {transaction.note ? ` · ${transaction.note}` : ""}
                       {transaction.fundedByPotId ? " · from savings" : ""}
                     </>
                   )}
