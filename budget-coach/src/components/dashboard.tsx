@@ -35,6 +35,10 @@ import {
 } from "@/components/confirm-transactions-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { ChooseCategoryCard } from "@/components/choose-category-card";
+import {
+  TransactionChangeCard,
+  type ApplyCorrections,
+} from "@/components/transaction-change-card";
 import { ResumableHitl } from "@/components/resumable-hitl";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import { RefitCard } from "@/components/refit-card";
@@ -50,6 +54,17 @@ import {
 } from "@/components/add-transaction-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+// A recorded transaction as the Coach copied it from listTransactions, for the
+// edit/delete cards. Optional throughout because args stream in.
+const SnapshotArgsSchema = z.object({
+  merchant: z.string().optional(),
+  note: z.string().nullable().optional(),
+  amount: z.number().optional(),
+  date: z.string().optional(),
+  type: z.enum(["income", "expense"]).optional(),
+  category: CategorySchema.nullable().optional(),
+});
 
 const emptyAnalysis: AnalysisResult = {
   categoryTotals: [],
@@ -123,6 +138,35 @@ export const Dashboard = () => {
       return result;
     },
     [configuration?.threadId, refreshTransactions],
+  );
+
+  // Re-reads working memory into agent.state after a server-side write the
+  // agent didn't make. Must finish before the HITL card `respond`s: the
+  // follow-up run syncs agent.state over working memory, so a stale copy here
+  // would wipe what the route just saved (e.g. pendingAmendments).
+  const refreshWorkingMemory = useCallback(async () => {
+    const res = await fetch("/api/working-memory");
+    if (!res.ok) return;
+    const data = await res.json();
+    agent.setState({ ...(agent.state ?? {}), ...data.state });
+  }, [agent]);
+
+  // Write path for the edit/delete cards (ADR-0016): persists exactly the rows
+  // the user ticked, bypassing the model.
+  const applyCorrections = useCallback<ApplyCorrections>(
+    async (kind, rows) => {
+      const res = await fetch("/api/transactions/corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, rows }),
+      });
+      if (!res.ok) throw new Error(`Failed to apply changes (${res.status})`);
+      const result = await res.json();
+      await refreshTransactions();
+      await refreshWorkingMemory();
+      return result;
+    },
+    [refreshTransactions, refreshWorkingMemory],
   );
 
   useEffect(() => {
@@ -244,6 +288,80 @@ export const Dashboard = () => {
       ),
     },
     [],
+  );
+
+  // Gate 1c — pure frontend tools, no server suspend (ADR-0016). The Coach
+  // proposes a correction to recorded transactions; the card writes the rows
+  // the user ticks itself and reports per-row outcomes. There is deliberately
+  // no Mastra tool for edits or deletes. One tool per kind of action, so a
+  // single card can never mix them.
+  useHumanInTheLoop(
+    {
+      name: "confirmDeleteTransactions",
+      description:
+        "Ask the user to confirm deleting one or more recorded transactions. Each row needs the transaction's id and a `before` copy of its merchant, note, amount, date, type and category exactly as listTransactions returned them.",
+      parameters: z.object({
+        // Every field optional: args stream in incrementally (CLAUDE.md gotcha).
+        rows: z.array(z.object({ id: z.string().optional(), before: SnapshotArgsSchema.optional() })).optional(),
+      }),
+      render: ({ args, status, respond, result, toolCallId }) => (
+        <ResumableHitl agentId="coach" toolCallId={toolCallId} status={status} respond={respond}>
+          {(hitl) => (
+            <TransactionChangeCard
+              kind="delete"
+              rows={args.rows}
+              status={hitl.status}
+              respond={hitl.respond}
+              result={result}
+              applyCorrections={applyCorrections}
+            />
+          )}
+        </ResumableHitl>
+      ),
+    },
+    [applyCorrections],
+  );
+
+  useHumanInTheLoop(
+    {
+      name: "confirmEditTransactions",
+      description:
+        "Ask the user to confirm changes to one or more recorded transactions. Each row needs the transaction's id, a `before` copy of its merchant, note, amount, date, type and category exactly as listTransactions returned them, and `changes` holding only the fields to change (merchant, note, amount, date, category).",
+      parameters: z.object({
+        rows: z
+          .array(
+            z.object({
+              id: z.string().optional(),
+              before: SnapshotArgsSchema.optional(),
+              changes: z
+                .object({
+                  merchant: z.string().optional(),
+                  note: z.string().nullable().optional(),
+                  amount: z.number().optional(),
+                  date: z.string().optional(),
+                  category: CategorySchema.optional(),
+                })
+                .optional(),
+            }),
+          )
+          .optional(),
+      }),
+      render: ({ args, status, respond, result, toolCallId }) => (
+        <ResumableHitl agentId="coach" toolCallId={toolCallId} status={status} respond={respond}>
+          {(hitl) => (
+            <TransactionChangeCard
+              kind="edit"
+              rows={args.rows}
+              status={hitl.status}
+              respond={hitl.respond}
+              result={result}
+              applyCorrections={applyCorrections}
+            />
+          )}
+        </ResumableHitl>
+      ),
+    },
+    [applyCorrections],
   );
 
   // Gate 2 — server-side Mastra suspend/resume via approveBudgetTool.

@@ -10,7 +10,8 @@ const previousDbUrl = process.env.TURSO_DATABASE_URL;
 const tmpDir = mkdtempSync(path.join(tmpdir(), "budget-coach-test-"));
 process.env.TURSO_DATABASE_URL = `file:${path.join(tmpDir, "test.db")}`;
 
-const { listTransactions, addTransaction } = await import("../transactions");
+const { listTransactions, addTransaction, getTransaction, updateTransactionIfUnchanged, deleteTransactionIfUnchanged } =
+  await import("../transactions");
 const { dbClient } = await import("../client");
 
 describe("listTransactions", () => {
@@ -107,5 +108,58 @@ describe("listTransactions", () => {
     expect(stored.type).toBe("transfer");
     expect(stored.transferDirection).toBe("to_pot");
     expect(stored.category).toBeNull();
+  });
+
+  describe("corrections guarded by the shown snapshot (ADR-0016)", () => {
+    const seed = (resourceId: string, overrides: Record<string, unknown> = {}) =>
+      addTransaction({
+        resourceId,
+        date: "2026-09-10",
+        merchant: "Grab",
+        amount: 21,
+        type: "expense",
+        category: "Transport",
+        seedCategory: null,
+        ...overrides,
+      });
+    const before = { merchant: "Grab", note: null, amount: 21, date: "2026-09-10", type: "expense" as const, category: "Transport" as const };
+
+    it("updates a row that still matches, and only the whitelisted columns", async () => {
+      const inserted = await seed("resource-edit");
+      expect(await updateTransactionIfUnchanged("resource-edit", inserted.id, before, { amount: 12, note: "airport" })).toBe(true);
+      const stored = await getTransaction("resource-edit", inserted.id);
+      expect(stored).toMatchObject({ amount: 12, note: "airport", merchant: "Grab", category: "Transport" });
+    });
+
+    it("leaves a row untouched when the snapshot no longer matches", async () => {
+      const inserted = await seed("resource-edit-stale");
+      expect(
+        await updateTransactionIfUnchanged("resource-edit-stale", inserted.id, { ...before, amount: 99 }, { amount: 12 })
+      ).toBe(false);
+      expect((await getTransaction("resource-edit-stale", inserted.id))?.amount).toBe(21);
+    });
+
+    it("never touches another user's row", async () => {
+      const inserted = await seed("resource-owner");
+      expect(await updateTransactionIfUnchanged("resource-intruder", inserted.id, before, { amount: 1 })).toBe(false);
+      expect(await deleteTransactionIfUnchanged("resource-intruder", inserted.id, before)).toBe(false);
+      expect(await getTransaction("resource-owner", inserted.id)).not.toBeNull();
+    });
+
+    it("refuses expected and pot-funded rows", async () => {
+      const expected = await seed("resource-guard", { status: "expected" });
+      const potFunded = await seed("resource-guard", { fundedByPotId: "pot-1" });
+      for (const id of [expected.id, potFunded.id]) {
+        expect(await updateTransactionIfUnchanged("resource-guard", id, before, { amount: 1 })).toBe(false);
+        expect(await deleteTransactionIfUnchanged("resource-guard", id, before)).toBe(false);
+      }
+    });
+
+    it("deletes a row that still matches and refuses a stale delete", async () => {
+      const inserted = await seed("resource-delete");
+      expect(await deleteTransactionIfUnchanged("resource-delete", inserted.id, { ...before, merchant: "Uber" })).toBe(false);
+      expect(await deleteTransactionIfUnchanged("resource-delete", inserted.id, before)).toBe(true);
+      expect(await getTransaction("resource-delete", inserted.id)).toBeNull();
+    });
   });
 });
