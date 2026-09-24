@@ -34,6 +34,7 @@ import {
 } from "@/components/confirm-transactions-card";
 import { SavingsGoalCard } from "@/components/savings-goal-card";
 import { ChooseCategoryCard } from "@/components/choose-category-card";
+import { ResumableHitl } from "@/components/resumable-hitl";
 import { MonthlyReviewCard } from "@/components/monthly-review-card";
 import { RefitCard } from "@/components/refit-card";
 import { SavingsPotsCard } from "@/components/savings-pots-card";
@@ -178,14 +179,18 @@ export const Dashboard = () => {
           )
           .optional(),
       }),
-      render: ({ args, status, respond, result }) => (
-        <ConfirmTransactionsCard
-          items={args.items}
-          status={status}
-          respond={respond}
-          result={result}
-          recordTransactions={recordTransactions}
-        />
+      render: ({ args, status, respond, result, toolCallId }) => (
+        <ResumableHitl agentId="coach" toolCallId={toolCallId} status={status} respond={respond}>
+          {(hitl) => (
+            <ConfirmTransactionsCard
+              items={args.items}
+              status={hitl.status}
+              respond={hitl.respond}
+              result={result}
+              recordTransactions={recordTransactions}
+            />
+          )}
+        </ResumableHitl>
       ),
     },
     [recordTransactions],
@@ -200,8 +205,10 @@ export const Dashboard = () => {
       name: "provideSavingsGoal",
       description: "Ask the user for their monthly savings goal.",
       parameters: z.object({}),
-      render: ({ status, respond, result }) => (
-        <SavingsGoalCard status={status} respond={respond} result={result} />
+      render: ({ status, respond, result, toolCallId }) => (
+        <ResumableHitl agentId="coach" toolCallId={toolCallId} status={status} respond={respond}>
+          {(hitl) => <SavingsGoalCard status={hitl.status} respond={hitl.respond} result={result} />}
+        </ResumableHitl>
       ),
     },
     [],
@@ -220,14 +227,18 @@ export const Dashboard = () => {
         // Optional because args stream in incrementally (CLAUDE.md gotcha).
         categories: z.array(CategorySchema.optional()).optional(),
       }),
-      render: ({ args, status, respond, result }) => (
-        <ChooseCategoryCard
-          categories={args.categories}
-          status={status}
-          respond={respond}
-          result={result}
-          onSelect={setSelectedCategory}
-        />
+      render: ({ args, status, respond, result, toolCallId }) => (
+        <ResumableHitl agentId="coach" toolCallId={toolCallId} status={status} respond={respond}>
+          {(hitl) => (
+            <ChooseCategoryCard
+              categories={args.categories}
+              status={hitl.status}
+              respond={hitl.respond}
+              result={result}
+              onSelect={setSelectedCategory}
+            />
+          )}
+        </ResumableHitl>
       ),
     },
     [],
