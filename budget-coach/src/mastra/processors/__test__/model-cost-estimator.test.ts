@@ -14,7 +14,7 @@ describe("ModelCostEstimator", () => {
     const result = estimator.process(span as any);
 
     expect((result as any)?.attributes.costContext).toEqual({
-      provider: "cerebras",
+      provider: "anthropic",
       model: "llama-3.3-70b",
       estimatedCost: 1000 * MODEL_PRICING.inputCostPerToken + 500 * MODEL_PRICING.outputCostPerToken,
       costUnit: "USD",
@@ -31,7 +31,7 @@ describe("ModelCostEstimator", () => {
     const result = estimator.process(span as any);
 
     expect((result as any)?.attributes.costContext).toEqual({
-      provider: "cerebras",
+      provider: "anthropic",
       model: "llama-3.3-70b",
       estimatedCost: 0,
       costUnit: "USD",

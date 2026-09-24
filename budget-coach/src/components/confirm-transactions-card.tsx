@@ -15,6 +15,7 @@ import {
 
 export interface ConfirmTransactionsItem {
   merchant?: string;
+  note?: string;
   amount?: number;
   type?: "income" | "expense";
   suggested?: Category;
@@ -25,6 +26,7 @@ export interface ConfirmTransactionsItem {
 // the reused addTransactionsTool) expects.
 export interface ConfirmedTransaction {
   merchant: string;
+  note?: string;
   amount: number;
   type: "income" | "expense";
   category?: Category;
@@ -167,6 +169,7 @@ export const ConfirmTransactionsCard = ({
       const type = effectiveType(index);
       return {
         merchant: row?.merchant ?? "",
+        ...(row?.note ? { note: row.note } : {}),
         amount: row?.amount ?? 0,
         type,
         ...(type === "expense" ? { category: effectiveCategory(index) } : {}),
@@ -273,6 +276,9 @@ export const ConfirmTransactionsCard = ({
                   ×
                 </button>
               </div>
+              {row?.note && (
+                <p className="text-xs text-[var(--muted-foreground)]">{row.note}</p>
+              )}
               <span className="inline-block text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
                 {type === "income" ? "Income" : "Expense"}
               </span>

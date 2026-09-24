@@ -5,22 +5,24 @@ import { transactionExtractorAgent } from "@/mastra/agents/transaction-extractor
 import { categorizeItems } from "@/mastra/tools/categorize";
 import { withToolErrorHandling } from "@/mastra/tools/with-tool-error-handling";
 
-// The extractor's structured-output contract: one { merchant, amount, date? }
-// per transaction the user described. date is optional — present only when the
-// user said when it happened.
+// The extractor's structured-output contract: one { merchant, note?, amount,
+// date? } per transaction the user described. date is optional — present only
+// when the user said when it happened; note only when they named the item.
 const ExtractedItemSchema = z.object({
   merchant: z.string(),
+  note: z.string().optional(),
   amount: z.number(),
   date: z.string().optional(),
 });
 const ExtractAgentOutputSchema = z.object({ items: z.array(ExtractedItemSchema) });
 
 // The tool's output shape matches confirmTransactions' item schema exactly
-// (merchant, amount, type, suggested category, date) so the Coach can hand the
+// (merchant, note, amount, type, suggested category, date) so the Coach can hand the
 // result straight to that card with no reshaping — the split and the
 // categorization are both already done deterministically.
 const ConfirmReadyItemSchema = z.object({
   merchant: z.string(),
+  note: z.string().optional(),
   amount: z.number(),
   type: z.enum(["income", "expense"]),
   suggested: CategorySchema.optional(),
@@ -60,6 +62,7 @@ export const extractTransactionsTool = createTool({
         const category = categories[index];
         return {
           merchant: item.merchant,
+          ...(item.note ? { note: item.note } : {}),
           amount: item.amount,
           type: category.type,
           ...(category.type === "expense" ? { suggested: category.category } : {}),

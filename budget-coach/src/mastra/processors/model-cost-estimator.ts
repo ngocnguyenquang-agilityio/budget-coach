@@ -15,7 +15,7 @@ export class ModelCostEstimator implements SpanOutputProcessor {
       if (attributes?.usage) {
         const { inputTokens = 0, outputTokens = 0 } = attributes.usage;
         attributes.costContext = {
-          provider: "cerebras",
+          provider: "anthropic",
           model: attributes.model,
           estimatedCost:
             inputTokens * MODEL_PRICING.inputCostPerToken +

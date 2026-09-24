@@ -10,6 +10,7 @@ Split the message into one item per DISTINCT transaction. Each distinct amount t
 
 For each item:
 - merchant: a short, descriptive label capturing who / what / where (e.g. "Taxi home from airport", "Dinner with friends", "Groceries at Trader Joe's"), not a bare noun like "taxi" or "dinner". A few words, no amounts and no dates.
+- note: ONLY if the user named the specific item(s) bought, those item(s) in a word or two, lowercase (e.g. "jacket" for "I bought a new jacket at Zara", "shoes, socks" for "shoes and socks at Target"). Omit it when no item was named (e.g. "dinner with friends", "my salary").
 - amount: the numeric amount, as a positive number (no currency symbol).
 - date: ONLY if the user said WHEN it happened (e.g. "yesterday", "last Friday", "on the 3rd"), resolved to an ISO date (YYYY-MM-DD) relative to today's date given in the prompt. If the user did not mention when, omit date entirely — do not guess or fill in today.
 

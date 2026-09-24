@@ -13,10 +13,10 @@ This is a starter template for building AI agents using [Mastra](https://mastra.
 
 ## Getting Started
 
-1. Add your Cerebras API key and Clerk keys
+1. Add your Anthropic API key and Clerk keys
 
 ```bash
-echo "CEREBRAS_API_KEY=your-key-here" >> .env
+echo "ANTHROPIC_API_KEY=your-key-here" >> .env
 
 # Create an application at https://dashboard.clerk.com, enable email/password
 # and Google as sign-in strategies, then add its keys:

@@ -19,7 +19,13 @@ const context = { agent: { resourceId: "resource-filter-test" } };
 
 type ListResult = { transactions: Array<{ merchant: string; date: string }> };
 
-const runList = async (input: { category?: Category; month?: string }): Promise<ListResult> => {
+const runList = async (input: {
+  category?: Category;
+  month?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ListResult> => {
   if (!listTransactionsTool.execute) throw new Error("listTransactionsTool.execute is undefined");
   return (await listTransactionsTool.execute(input, context as never)) as ListResult;
 };
@@ -78,6 +84,58 @@ describe("listTransactionsTool", () => {
 
     expect(result.transactions.every((t) => t.date.startsWith("2026-02"))).toBe(true);
     expect(result.transactions.some((t) => t.merchant === "Whole Foods")).toBe(false);
+  });
+
+  it("filters to a single day when startDate and endDate are the same", async () => {
+    const result = await runList({ startDate: "2026-02-10", endDate: "2026-02-10" });
+
+    expect(result.transactions.map((t) => t.merchant)).toEqual(["Trader Joe's"]);
+  });
+
+  it("filters to an inclusive date range", async () => {
+    const result = await runList({ startDate: "2026-01-05", endDate: "2026-02-10" });
+
+    expect(result.transactions.map((t) => t.merchant).sort()).toEqual(["Trader Joe's", "Whole Foods"]);
+  });
+
+  it("filters by a case-insensitive substring of the name", async () => {
+    const result = await runList({ search: "trader" });
+
+    expect(result.transactions.map((t) => t.merchant)).toEqual(["Trader Joe's"]);
+  });
+
+  it("ignores filler words and matches the rest in any order", async () => {
+    const result = await runList({ search: "my new joe's trader transaction" });
+
+    expect(result.transactions.map((t) => t.merchant)).toEqual(["Trader Joe's"]);
+  });
+
+  it("finds a transaction by its note when the merchant is a store name", async () => {
+    await addTransaction({
+      resourceId: "resource-filter-test",
+      date: "2026-03-02",
+      merchant: "Zara",
+      note: "jacket",
+      amount: 80,
+      type: "expense",
+      category: "Shopping",
+      seedCategory: null,
+    });
+
+    const result = await runList({ search: "my new jacket" });
+
+    expect(result.transactions.map((t) => t.merchant)).toEqual(["Zara"]);
+  });
+
+  it("treats LIKE wildcards in the search literally", async () => {
+    const result = await runList({ search: "%" });
+
+    expect(result.transactions).toHaveLength(0);
+  });
+
+  it("rejects a date that isn't ISO YYYY-MM-DD", async () => {
+    const validation = await listTransactionsTool.inputSchema?.["~standard"].validate({ startDate: "18th Sep" });
+    expect(validation?.issues).toBeDefined();
   });
 
   it("returns everything when no filters are given", async () => {

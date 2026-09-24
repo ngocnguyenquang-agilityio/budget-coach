@@ -24,6 +24,7 @@ import { computeAnalysis, type AnalysisResult } from "@/domain/analysis";
 import type { BudgetState } from "@/domain/budget-state";
 import type { Transaction } from "@/db/transactions";
 import { parseToolResult } from "@/lib/parse-tool-result";
+import { describeTransactionQuery } from "@/lib/describe-transaction-query";
 import { CategoryBreakdownChart } from "@/components/category-breakdown-chart";
 import { BudgetProgressBars } from "@/components/budget-progress-bars";
 import { TransactionListCard } from "@/components/transaction-list-card";
@@ -171,6 +172,7 @@ export const Dashboard = () => {
           .array(
             z.object({
               merchant: z.string().optional(),
+              note: z.string().optional(),
               amount: z.number().optional(),
               type: z.enum(["income", "expense"]).optional(),
               suggested: CategorySchema.optional(),
@@ -358,8 +360,15 @@ export const Dashboard = () => {
   useRenderTool(
     {
       name: "listTransactions",
-      parameters: z.object({}),
-      render: ({ status, result }) => {
+      // Optional because args stream in incrementally (CLAUDE.md gotcha).
+      parameters: z.object({
+        category: CategorySchema.optional(),
+        search: z.string().optional(),
+        month: z.string().optional(),
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      }),
+      render: ({ parameters, status, result }) => {
         if (status !== "complete") {
           return (
             <p className="text-sm text-[var(--muted-foreground)]">
@@ -374,6 +383,11 @@ export const Dashboard = () => {
         }).transactions;
         return (
           <div className="mx-auto my-2 w-full max-w-md">
+            {parsedTransactions.length > 0 && (
+              <p className="mb-2">
+                {describeTransactionQuery(parameters, parsedTransactions.length)}
+              </p>
+            )}
             <TransactionListCard transactions={parsedTransactions} />
           </div>
         );
@@ -473,11 +487,12 @@ export const Dashboard = () => {
         "Open the add-transaction form, optionally pre-filled from what the user described.",
       parameters: z.object({
         merchant: z.string().optional(),
+        note: z.string().optional(),
         amount: z.number().optional(),
         type: z.enum(["income", "expense"]).optional(),
         category: CategorySchema.optional(),
       }),
-      handler: async ({ merchant, amount, type, category }) => {
+      handler: async ({ merchant, note, amount, type, category }) => {
         // When the Coach opens the form for a described purchase without an
         // explicit category, classify the merchant through the same categorizer
         // the confirmTransactions flow uses (/api/categorize → categorizeItems)
@@ -504,7 +519,7 @@ export const Dashboard = () => {
             // Fall back to opening the form uncategorized (it defaults to "Other").
           }
         }
-        setFormPrefill({ merchant, amount, type: resolvedType, category: resolvedCategory });
+        setFormPrefill({ merchant, note, amount, type: resolvedType, category: resolvedCategory });
         setFormOpen(true);
         return "Opened the add-transaction form.";
       },

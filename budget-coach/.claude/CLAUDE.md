@@ -41,7 +41,7 @@ pnpm dev:debug
 pnpm build
 ```
 
-**Prerequisite:** `CEREBRAS_API_KEY` must be set in `.env` (get one at cloud.cerebras.ai).
+**Prerequisite:** `ANTHROPIC_API_KEY` must be set in `.env` (get one at console.anthropic.com). The model is set once in `src/mastra/config/model.ts` (`anthropic/claude-haiku-4-5`, via Mastra's model router).
 
 ## Dependency versions
 
@@ -142,7 +142,7 @@ Auth is handled by Clerk (`@clerk/nextjs`); the whole app is gated (`src/middlew
 ## Environment variables
 
 ```env
-CEREBRAS_API_KEY=         # required — get one at cloud.cerebras.ai
+ANTHROPIC_API_KEY=        # required — get one at console.anthropic.com
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  # required — keys from dashboard.clerk.com
 CLERK_SECRET_KEY=         # required
 LOG_LEVEL=debug           # optional verbose logging

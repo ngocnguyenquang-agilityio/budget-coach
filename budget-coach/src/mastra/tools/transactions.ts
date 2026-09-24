@@ -20,12 +20,15 @@ const isFinancialTransaction = (
   transaction: Transaction
 ): transaction is Transaction & { type: "income" | "expense" } => transaction.type !== "transfer";
 
+const IsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be an ISO date (YYYY-MM-DD)");
+
 const TransactionSchema = z.object({
   id: z.string(),
   resourceId: z.string(),
   date: z.string(),
   createdAt: z.string(),
   merchant: z.string(),
+  note: z.string().nullable(),
   amount: z.number(),
   type: z.enum(["income", "expense"]),
   category: CategorySchema.nullable(),
@@ -38,24 +41,29 @@ const TransactionSchema = z.object({
 export const listTransactionsTool = createTool({
   id: "list-transactions",
   description:
-    "List transactions for the current user, most recent first. Optionally filter to a single category and/or a month, e.g. to answer 'what did I spend on groceries this month'. Results include both confirmed transactions and expected (unconfirmed) ones — check each item's status.",
+    "List transactions for the current user, most recent first. Optionally filter by category, name, month, and/or an inclusive date range — e.g. category + month for 'what did I spend on groceries this month', startDate = endDate for 'what did I spend on 18 Sep', or search for 'show me my new jacket transaction'. Filters combine; pass exactly the ones the user asked for rather than fetching everything and filtering yourself. Results include both confirmed transactions and expected (unconfirmed) ones — check each item's status.",
   inputSchema: z.object({
     category: CategorySchema.optional(),
+    search: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe(
+        "The transaction's name to find, e.g. 'jacket' or 'Trader Joe's'. Case-insensitive; every word must appear in the name (merchant) or note (what was bought), in any order. Filler like 'my', 'new' or 'transaction' is ignored"
+      ),
     month: z.string().optional().describe("ISO month (YYYY-MM) to filter transactions to; omit for all months"),
+    startDate: IsoDateSchema.optional().describe(
+      "ISO date (YYYY-MM-DD); only transactions on or after this day. For a single day, set startDate and endDate to the same date"
+    ),
+    endDate: IsoDateSchema.optional().describe("ISO date (YYYY-MM-DD); only transactions on or before this day"),
   }),
   outputSchema: z.object({ transactions: z.array(TransactionSchema), error: z.string().optional() }),
-  execute: async ({ category, month }, context) => {
+  execute: async ({ category, search, month, startDate, endDate }, context) => {
     const resourceId = resolveResourceId(context);
     try {
-      const transactions = await listTransactions(resourceId);
-      const filtered = transactions
-        .filter(isFinancialTransaction)
-        .filter(
-          (transaction) =>
-            (category === undefined || transaction.category === category) &&
-            (month === undefined || transaction.date.startsWith(month))
-        );
-      return { transactions: filtered };
+      const transactions = await listTransactions(resourceId, { category, search, month, startDate, endDate });
+      return { transactions: transactions.filter(isFinancialTransaction) };
     } catch (err) {
       // Whole tool failed; the empty-list return would otherwise look successful.
       traceToolError(context, err, "LIST_TRANSACTIONS_FAILED");
@@ -67,14 +75,11 @@ export const listTransactionsTool = createTool({
 export const AddTransactionItemSchema = z
   .object({
     merchant: z.string(),
+    note: z.string().optional().describe("What was bought, e.g. \"jacket\" for a purchase at Zara"),
     amount: z.number().positive(),
     type: z.enum(["income", "expense"]),
     category: CategorySchema.optional(),
-    date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "date must be an ISO date (YYYY-MM-DD)")
-      .optional()
-      .describe("ISO date (YYYY-MM-DD); defaults to today"),
+    date: IsoDateSchema.optional().describe("ISO date (YYYY-MM-DD); defaults to today"),
     // ADR-0012: an Expense paid out of a Savings Pot debits that pot and is
     // excluded from Net Savings, because the money was saved in an earlier
     // Period and already sits in the Savings Balance.
@@ -172,6 +177,7 @@ export const addTransactionsTool = createTool({
         const row = await addTransaction({
           resourceId,
           merchant: item.merchant,
+          note: item.note ?? null,
           amount: item.amount,
           type: item.type,
           category: item.category ?? null,
